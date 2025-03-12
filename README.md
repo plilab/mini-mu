@@ -1,1 +1,1 @@
-# mini-mu
+# MiniMu
