@@ -1,123 +1,215 @@
-module Parser () where
+module Parser( parseString, program) where
 
 import Syntax
-
-import Control.Monad
-import Control.Monad.Combinators.Expr
-import Data.Void
 import Text.Megaparsec
 import Text.Megaparsec.Char
-
 import qualified Text.Megaparsec.Char.Lexer as L
+import Data.Void
+import Control.Monad (void)
 
 type Parser = Parsec Void String
 
+-- Space consumer
 sc :: Parser ()
-sc = L.space space1 empty empty
+sc = L.space
+  space1                         -- Consume space, newline, tab
+  (L.skipLineComment "--")       -- Skip line comments starting with "--"
+  (L.skipBlockComment "{-" "-}") -- Skip block comments between "{-" and "-}"
 
+-- Helper for lexemes: consumes trailing whitespace
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
 
-symbol :: String -> Parser ()
-symbol = void . L.symbol sc
+-- Parse a specific symbol and consume trailing whitespace
+symbol :: String -> Parser String
+symbol = L.symbol sc
 
-identifier :: Parser String
-identifier = lexeme ((:) <$> letterChar <*> many alphaNumChar)
 
--- Parser for VarId
+-- Parse something between brackets
+brackets :: Parser a -> Parser a
+brackets = between (symbol "[") (symbol "]")
+
+-- Parse something between angle brackets
+angles :: Parser a -> Parser a
+angles = between (symbol "<") (symbol ">")
+
+-- Parse something between parentheses
+parens :: Parser a -> Parser a
+parens = between (symbol "(") (symbol ")")
+
+
+-- Parse variable name (starting with lowercase)
+varIdentifier :: Parser String
+varIdentifier = lexeme $ do
+  first <- lowerChar
+  rest <- many (alphaNumChar <|> char '\'')
+  let word = first : rest
+  if word `elem` keywords
+    then fail $ "keyword " ++ show word ++ " cannot be the name of a variable"
+    else return word
+  where
+    keywords = ["mu", "comu", "done", "main", "continue"]
+
+-- Parse a constructor (starting with uppercase)
+consIdentifier :: Parser String
+consIdentifier = lexeme $ do
+  first <- upperChar
+  rest <- many (alphaNumChar <|> char '\'')
+  return (first : rest)
+
+-- varID cannot start with ~
 varId :: Parser VarId
-varId = identifier
+varId = lexeme $ do
+  notFollowedBy (char '~')
+  varIdentifier
 
--- Parser for ConId
-conId :: Parser ConId
-conId = identifier
-
--- Parser for CoVarId
+-- coVarID must start with ~
 coVarId :: Parser CoVarId
-coVarId = identifier
+coVarId = lexeme $ do
+  void (char '~') *> varIdentifier
 
--- Parser for CoConId
+-- same for constructors
+conId :: Parser ConId
+conId = lexeme $ do
+  notFollowedBy (char '~')
+  consIdentifier
+
 coConId :: Parser CoConId
-coConId = identifier
+coConId = lexeme $ do
+  void (char '~') *> consIdentifier
 
--- Parser for Command
+-- Parse a pattern
+pattern :: Parser Pattern
+pattern = choice
+  [
+    -- Parse ConPattern
+    try $ do
+      c <- conId
+      args <- many (choice
+        [ Left <$> varId
+        , Right <$> coVarId
+        ])
+      return $ ConPattern c args
+    -- Parse VarPattern
+    , VarPattern <$> varId
+  ]
+
+-- Parse a copattern
+coPattern :: Parser CoPattern
+coPattern = choice
+  [
+    -- Parse CoConPattern
+    try $ do
+      c <- coConId
+      args <- many (choice
+        [ Left <$> varId
+        , Right <$> coVarId
+        ])
+      return $ CoConPattern c args
+    -- Parse CoVarPattern
+    , CoVarPattern <$> coVarId
+  ]
+
+-- Parse a case pattern -> command in a Mu
+patternCase :: Parser (Pattern, Command)
+patternCase = do
+  pat <- pattern
+  _ <- symbol "->"
+  cmd <- commandWithAngles
+  return (pat, cmd)
+
+-- Parse a case pattern -> command in a CoMu
+coPatternCase :: Parser (CoPattern, Command)
+coPatternCase = do
+  pat <- coPattern
+  _ <- symbol "->"
+  cmd <- commandWithAngles
+  return (pat, cmd)
+
+-- Parse an expression
+expr :: Parser Expr
+expr = choice
+  [
+    -- Parse Constructor
+    try $ do
+      c <- conId
+      args <- many (choice
+        [ Left <$> expr
+        , Right <$> coExpr
+        ])
+      return $ Con c args
+    -- Parse coMu
+    , try $ do
+      _ <- symbol "comu"
+      branches <- brackets $ sepBy1 coPatternCase (symbol "|")
+      return $ CoMu branches
+    -- handle parentheses
+    , try $ parens expr
+    -- Parse Variable
+    , Var <$> varId
+  ]
+
+-- Parse a coexpression
+coExpr :: Parser CoExpr
+coExpr = choice
+  [ try $ do
+      c <- coConId
+      args <- many (choice
+        [ Left <$> expr
+        , Right <$> coExpr
+        ])
+      return $ CoCon c args
+  , try $ do
+      _ <- symbol "mu"
+      branches <- brackets $ sepBy1 patternCase (symbol "|")
+      return $ Mu branches
+  -- handle parentheses
+    , try $ parens coExpr
+  , CoVar <$> coVarId
+  ]
+
+-- Parse a command
 command :: Parser Command
 command = do
-  symbol "<"
   e <- expr
-  symbol "|"
-  k <- coExpr
-  symbol ">"
-  return $ Command e k
+  _ <- choice [symbol ">>", symbol "|>"]
+  Command e <$> coExpr
 
--- Parser for Pattern
-pattern :: Parser Pattern
-pattern = try conPattern <|> varPattern
-  where
-    conPattern = do
-      c <- conId
-      args <- many (try (Left <$> varId) <|> (Right <$> coVarId))
-      return $ ConPattern c args
-    varPattern = VarPattern <$> varId
+-- Parse angle brackets around a command
+commandWithAngles :: Parser Command
+commandWithAngles = angles command
 
--- Parser for Expr
-expr :: Parser Expr
-expr = makeExprParser term operatorTable
-  where
-    operatorTable = [] -- Empty table for now, add operators as needed
-    term = choice
-      [ Var <$> varId
-      , conExpr
-      , coMuExpr
-      ]
-    conExpr = do
-      c <- conId
-      args <- many (try (Left <$> expr) <|> (Right <$> coExpr))
-      return $ Con c args
-    coMuExpr = do
-      symbol "mu"
-      symbol "["
-      clauses <- sepBy clause (symbol "|")
-      symbol "]"
-      return $ CoMu clauses
-    clause = do
-      p <- coPattern
-      symbol "->"
-      q <- command
-      return (p, q)
+-- z = e;
+-- x = e
+-- ~y = co
+exprDecl :: Parser Decl
+exprDecl = do
+  ident <- varId
+  _ <- symbol "="
+  Decl ident <$> expr
 
--- Parser for CoPattern
-coPattern :: Parser CoPattern
-coPattern = try coConPattern <|> coVarPattern
-  where
-    coConPattern = do
-      c <- coConId
-      args <- many (try (Left <$> varId) <|> (Right <$> coVarId))
-      return $ CoConPattern c args
-    coVarPattern = CoVarPattern <$> coVarId
+coExprDecl :: Parser Decl
+coExprDecl = do
+  ident <- coVarId
+  _ <- symbol "="
+  CoDecl ident <$> coExpr
 
--- Parser for CoExpr
-coExpr :: Parser CoExpr
-coExpr = makeExprParser term operatorTable
-  where
-    operatorTable = [] -- Empty table for now, add operators as needed
-    term = choice
-      [ CoVar <$> coVarId
-      , coConExpr
-      , muExpr
-      ]
-    coConExpr = do
-      c <- coConId
-      args <- many (try (Left <$> expr) <|> (Right <$> coExpr))
-      return $ CoCon c args
-    muExpr = do
-      symbol "mu"
-      symbol "["
-      clauses <- sepBy clause (symbol "|")
-      symbol "]"
-      return $ Mu clauses
-    clause = do
-      p <- pattern
-      symbol "->"
-      q <- command
-      return (p, q)
+decl :: Parser Decl
+decl = exprDecl <|> coExprDecl
+
+decls :: Parser [Decl]
+decls = sepBy1 decl (symbol ";")
+  -- (do
+  -- d <- decl
+  -- semi
+  -- ds <- decls
+  -- return (d : ds))
+  -- <|> (return [])
+
+program :: Parser Program
+program = Program <$> (sc *> decls <* eof)
+
+-- Utility function to run the parser
+-- TODO: remove parseFile, this is only for testing
+parseString :: String -> Either (ParseErrorBundle String Void) Command
+parseString = parse (sc *> commandWithAngles <* eof)  ""
