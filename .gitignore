@@ -1,2 +1,3 @@
 # Stack working directory
 .stack-work/
+.DS_Store

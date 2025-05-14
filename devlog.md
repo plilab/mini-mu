@@ -210,11 +210,12 @@ list_filter = comu[ Ap3 xs p k ->
                                         < list_filter |> Ap3 xs' p mu[ k' -> < cons x k' |> k > ] >
                                      | False -> < list_filter |> Ap3 xs' p mu[ k' -> < k' |> k > ] > ] > ] > ]
 
+
 quicksort = comu[ Ap xs k ->
   < xs |> mu[ nil -> < nil |> k >
   | cons pivot xs' ->
-    < list_filter |> Ap3 xs' mu[ x -> < x |> Ap2 < |> pivot ] mu[ smaller ->
-      < list_filter |> Ap3 xs' mu[ x -> < x |> Ap2 >= pivot ] mu[ greater ->
-        < quicksort |> Ap2 smaller mu[ sorted_smaller ->
-          < quicksort |> Ap2 greater mu[ sorted_greater ->
-            < sorted_smaller |> Ap2 append mu[ pivot |> Ap2 cons sorted_greater ] k > ] > ] > ] > ] > ] > ]
+    < list_filter |> Ap3 xs' lt mu[ smaller ->
+      < list_filter |> Ap3 xs' geq mu[ greater ->
+        < quicksort |> Ap smaller mu[ sorted_smaller ->
+          < quicksort |> Ap greater mu[ sorted_greater ->
+            < list_append |> Ap3 sorted_smaller sorted_greater k > ] > ] > ] > ] > ] > ]
