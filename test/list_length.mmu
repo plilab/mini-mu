@@ -1,0 +1,2 @@
+~listLength = mu[ Ap xs ~k -> < xs |> mu[ Nil -> < Z |> ~k > | ListCons x xs' -> < Ap xs' mu[ ~k' -> < S ~k' |> ~k > ] |> ~listLength > ] > ];
+main = comu[ ~Halt -> < Ap (ListCons Z (ListCons Z (ListCons Z Nil))) ~Halt |> ~listLength > ]
