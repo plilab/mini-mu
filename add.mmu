@@ -1,1 +1,0 @@
-add = comu[ ~Ap3 x y ~k -> < x |> mu[ Z -> < y |> ~k > | S x' -> < add |> ~Ap3 x' (S y) ~k > ] > ]

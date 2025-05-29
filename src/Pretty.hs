@@ -36,40 +36,40 @@ import Prettyprinter.Render.String
 
 -- Main pretty printing functions that convert syntax to Doc
 prettyCommand :: Command -> Doc ann
-prettyCommand (Command e k) = 
+prettyCommand (Command e k) =
   pretty "⟨" <> prettyExpr e <+> pretty "|>" <+> prettyCoExpr k <> pretty "⟩"
 prettyCommand (CommandVar x) = pretty x
 
 prettyExpr :: Expr -> Doc ann
 prettyExpr (Var x) = pretty x
-prettyExpr (Con c args) = 
+prettyExpr (Cons c args) =
   pretty c <+> hsep (map prettyEitherExpr args)
   where
     prettyEitherExpr (Left e) = pretty "(" <> prettyExpr e <> pretty ")"
     prettyEitherExpr (Right k) = pretty "(" <> prettyCoExpr k <> pretty ")"
 prettyExpr (CoMu cases) =
-  pretty "μ̃" <> 
+  pretty "μ̃" <>
   brackets (align (vsep (punctuate (space <> pipe) (map prettyCoCase cases))))
   where
-    prettyCoCase (pat, cmd) = 
+    prettyCoCase (pat, cmd) =
       prettyCoPattern pat <+> pretty "->" <+> prettyCommand cmd
 
 prettyCoExpr :: CoExpr -> Doc ann
 prettyCoExpr (CoVar x) = pretty x
-prettyCoExpr (CoCon c args) = 
+prettyCoExpr (CoCons c args) =
   pretty c <+> hsep (map prettyEitherExpr args)
   where
     prettyEitherExpr (Left e) = prettyExpr e
     prettyEitherExpr (Right k) = prettyCoExpr k
 prettyCoExpr (Mu cases) =
-  pretty "μ" <> 
+  pretty "μ" <>
   brackets (align (vsep (punctuate (space <> pipe) (map prettyCase cases))))
   where
-    prettyCase (pat, cmd) = 
+    prettyCase (pat, cmd) =
       prettyPattern pat <+> pretty "->" <+> prettyCommand cmd
 
 prettyPattern :: Pattern -> Doc ann
-prettyPattern (ConPattern con args) =
+prettyPattern (ConsPattern con args) =
   pretty con <+> hsep (map prettyEitherVar args)
   where
     prettyEitherVar (Left v) = pretty v
@@ -77,7 +77,7 @@ prettyPattern (ConPattern con args) =
 prettyPattern (VarPattern x) = pretty x
 
 prettyCoPattern :: CoPattern -> Doc ann
-prettyCoPattern (CoConPattern con args) =
+prettyCoPattern (CoConsPattern con args) =
   pretty con <+> hsep (map prettyEitherVar args)
   where
     prettyEitherVar (Left v) = pretty v

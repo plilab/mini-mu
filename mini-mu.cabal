@@ -67,12 +67,14 @@ executable mini-mu
     , mini-mu
     , parser-combinators
     , prettyprinter
+    , text
   default-language: Haskell2010
 
 test-suite mini-mu-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Tests
       Paths_mini_mu
   autogen-modules:
       Paths_mini_mu
@@ -81,5 +83,11 @@ test-suite mini-mu-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , containers
+    , graphviz
+    , megaparsec
     , mini-mu
+    , parser-combinators
+    , prettyprinter
+    , text
   default-language: Haskell2010

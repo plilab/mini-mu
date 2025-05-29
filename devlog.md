@@ -1,4 +1,6 @@
-# 26.03.2025
+# Dev Log
+
+## 26.03.2025
 
 - Eta-trick for implementing delay (which is always free)
 - "Halt" constructor for creating initial computation
@@ -219,3 +221,12 @@ quicksort = comu[ Ap xs k ->
         < quicksort |> Ap smaller mu[ sorted_smaller ->
           < quicksort |> Ap greater mu[ sorted_greater ->
             < list_append |> Ap3 sorted_smaller sorted_greater k > ] > ] > ] > ] > ] > ]
+
+# 29.05.2025
+  
+- Move all test files into ./test folder.
+- try to suppress all warnings.
+- Fix parser issue: allow constructor with no arguments to be parsed without parentheses.
+- Add temporary solution for "~Halt", the evaluator stop when "~Halt" is matched.
+- *First version of working interpreter*
+

@@ -8,72 +8,101 @@ module Eval (
 import Syntax
 
 import qualified Data.Map as Map
+import Debug.Trace
 
-evalExpr :: Env -> Expr -> Value
-evalExpr env (Var x) = envLookup env x
-evalExpr env (CoMu clauses) = CoMuValue env clauses
-evalExpr env (Con ident args) = ConValue ident (map (eval env) args)
+evalExpr :: Env -> Store -> Expr -> (Value, Store)
+evalExpr env store (Var x) = (storeLookup store (envLookup env x), store)
+evalExpr env store (CoMu clauses) = (CoMuValue env clauses, store)
+evalExpr env store (Cons ident args) = (ConsValue ident argValues, store') 
+  where
+    (argValues, store') = foldl go ([], store) args
+    go :: ([Either Value CoValue], Store) -> Either Expr CoExpr -> ([Either Value CoValue], Store)
+    go (argValuesAccum, storeAccum) arg = (argValuesAccum ++ [argValue], storeAccum') 
+      where
+        (argValue, storeAccum') = eval env storeAccum arg
 
-evalCoExpr :: Env -> CoExpr -> CoValue
-evalCoExpr env (CoVar x) = envCoLookup env x
-evalCoExpr env (Mu clauses) = MuValue env clauses
-evalCoExpr env (CoCon ident args) = CoConValue ident (map (eval env) args)
+evalCoExpr :: Env -> Store -> CoExpr -> (CoValue, Store)
+evalCoExpr env store (CoVar x) = (storeCoLookup store (envCoLookup env x), store)
+evalCoExpr env store (Mu clauses) = (MuValue env clauses, store)
+evalCoExpr env store (CoCons ident args) = (CoConsValue ident argValues, store')
+  where
+    (argValues, store') = foldl go ([], store) args
+    go :: ([Either Value CoValue], Store) -> Either Expr CoExpr -> ([Either Value CoValue], Store)
+    go (argValuesAccum, storeAccum) arg = (argValuesAccum ++ [argValue], storeAccum')
+      where 
+        (argValue, storeAccum') = eval env storeAccum arg
 
-eval :: Env -> Either Expr CoExpr -> Either Value CoValue
-eval env (Left expr) = Left (evalExpr env expr)
-eval env (Right coexpr) = Right (evalCoExpr env coexpr)
+eval :: Env -> Store -> Either Expr CoExpr -> (Either Value CoValue, Store)
+eval env store (Left expr) = (Left value, store') where
+  (value, store') = evalExpr env store expr
+eval env store (Right coexpr) = (Right value, store') where
+  (value, store') = evalCoExpr env store coexpr
 
+-- let-and-set
+-- CESK: Expr Env Store CoValue
+-- Us: Expr Env Store CoExpr / Value (no-Env) Store CoValue
 data Config
-  = CommandConfig Env Command -- ρ |- q
-  | ValueConfig Value CoValue
+  = CommandConfig Env Store Command -- ρ |- q
+  | ValueConfig Store Value CoValue
   | ErrorConfig String
   deriving (Eq, Show, Ord)
 
 step :: Config -> [Config]
-step (CommandConfig env (Command e ce)) =
-  [ValueConfig (evalExpr env e) (evalCoExpr env ce)]
-step (CommandConfig env (CommandVar cmdId)) =
-  [ValueConfig (envLookup env cmdId) (envCoLookup env cmdId)]
-step (ValueConfig v@(ConValue {}) (MuValue env clauses)) =
-  match env v clauses
-step (ValueConfig (CoMuValue env clauses) cv@(CoConValue {})) =
-  comatch env cv clauses
-step (ValueConfig v@(CoMuValue env clauses) cv@(MuValue env' clauses')) =
-  match env' v clauses' ++ comatch env cv clauses
-step (ValueConfig (ConValue {}) (CoConValue {})) =
-  [ErrorConfig "bad type"]
+step (CommandConfig env store (Command e ce)) =
+  [ValueConfig store'' value coValue] where
+    (value, store') = evalExpr env store e
+    (coValue, store'') = evalCoExpr env store' ce
+step (CommandConfig env store (CommandVar cmdId)) =
+  [ValueConfig store
+    (storeLookup store (envLookup env cmdId))
+    (storeCoLookup store (envCoLookup env cmdId))]
+step (ValueConfig store v@(ConsValue {}) (MuValue env clauses)) =
+  match env store v clauses
+step (ValueConfig store (CoMuValue env clauses) cv@(CoConsValue {})) =
+  comatch env store cv clauses
+step (ValueConfig store v@(CoMuValue env clauses) cv@(MuValue env' clauses')) =
+  match env' store v clauses' ++ comatch env store cv clauses
+-- temporary hack to deal with "Halt"
+step (ValueConfig _ cons@(ConsValue _ _) (CoConsValue "Halt" [])) =
+  [ErrorConfig ("Halt with result: " ++ show cons)]
+step (ValueConfig _ (ConsValue {}) (CoConsValue {})) =
+  [ErrorConfig "bad type: cannot continue with 2 constructors"]
 step (ErrorConfig {}) = []
 
-match :: Env -> Value -> [(Pattern, Command)] -> [Config]
-match _ _ [] = []
-match env v ((VarPattern x, cmd) : _) =
-  [CommandConfig (envInsert env x v) cmd]
-match env v@(ConValue con args) ((ConPattern con' params, cmd) : clauses) =
+match :: Env -> Store -> Value -> [(Pattern, Command)] -> [Config]
+match _ _ _ [] = []
+match env store v ((VarPattern x, cmd) : _) = [CommandConfig env' store' cmd] where
+  (env', store') = envStoreInsert env store x v
+match env store v@(ConsValue con args) ((ConsPattern con' params, cmd) : clauses) =
   if con == con'
-    then [CommandConfig (bind env params args) cmd]
-    else match env v clauses
-match  _ (CoMuValue {}) ((ConPattern {}, _) : _) =
+    then let (env', store') = trace ("match " ++ show params ++ ":" ++ show args) $ bind env store params args in
+          [CommandConfig env' store' cmd]
+    else match env store v clauses
+match _ _ (CoMuValue {}) ((ConsPattern {}, _) : _) =
   [ErrorConfig "bad type"]
 
-comatch :: Env -> CoValue -> [(CoPattern, Command)] -> [Config]
-comatch _ _ [] = []
-comatch env v ((CoVarPattern x, cmd) : _) =
-  [CommandConfig (envCoInsert env x v) cmd]
-comatch env v@(CoConValue con args) ((CoConPattern con' params, cmd) : clauses) =
+comatch :: Env -> Store -> CoValue -> [(CoPattern, Command)] -> [Config]
+comatch _ _ _ [] = []
+comatch env store v ((CoVarPattern x, cmd) : _) = [CommandConfig env' store' cmd] where
+  (env', store') = envStoreCoInsert env store x v
+comatch env store v@(CoConsValue con args) ((CoConsPattern con' params, cmd) : clauses) =
   if con == con'
-    then [CommandConfig (bind env params args) cmd]
-    else comatch env v clauses
-comatch _ (MuValue {}) ((CoConPattern {}, _) : _) =
+    then let (env', store') = trace (show "comatch") $ bind env store params args in
+          [CommandConfig env' store' cmd]
+    else comatch env store v clauses
+comatch _ _ (MuValue {}) ((CoConsPattern {}, _) : _) =
   [ErrorConfig "bad type"]
 
-bind :: Env -> [Either VarId CoVarId] -> [Either Value CoValue] -> Env
-bind env [] [] = env
-bind env (Left p : ps) (Left v : vs) = bind (envInsert env p v) ps vs
-bind env (Right p : ps) (Right v : vs) = bind (envCoInsert env p v) ps vs
-bind _ (Left _ : _) (Right _ : _) = error "bad type"
-bind _ (Right _ : _) (Left _ : _) = error "bad type"
-bind _ [] (_ : _) = error "length mismatch"
-bind _ (_ : _) [] = error "length mismatch"
+bind :: Env -> Store -> [Either VarId CoVarId] -> [Either Value CoValue] -> (Env, Store)
+bind env store [] [] = (env, store)
+bind env store (Left p : ps) (Left v : vs) = bind env' store' ps vs where
+  (env', store') = envStoreInsert env store p v
+bind env store (Right p : ps) (Right v : vs) = bind env' store' ps vs where
+  (env', store') = envStoreCoInsert env store p v
+bind _ _ (Left _ : _) (Right _ : _) = error "bad type"
+bind _ _ (Right _ : _) (Left _ : _) = error "bad type"
+bind _ _ [] (_ : _) = error "length mismatch"
+bind _ _ (_ : _) [] = error "length mismatch"
 
 -- type Graph = Map Config (Set Config)
 -- stepAll :: Config -> Map Config (Set Config)
@@ -87,15 +116,33 @@ bind _ (_ : _) [] = error "length mismatch"
 -- zero = Z
 -- one = S(zero)
 
-evalDecls :: [Decl] -> Env
-evalDecls ds = env where
-  -- TODO: does Map.fromList break the lazy loop?
-  env = Env (Map.fromList[(d, evalExpr env e) | Decl d e <- ds]) (Map.fromList [(d, evalCoExpr env e) | CoDecl d e <- ds])
+-- evalDecls :: [Decl] -> Env
+
+-- let-and-set
+
+evalDecls :: Env -> Store -> [Decl] -> (Env, Store)
+evalDecls env store ds = (env', store') where
+  (env', store') = foldl go (env, store) ds
+  go :: (Env, Store) -> Decl -> (Env, Store)
+  go (envAccum, storeAccum) (Decl d e) =
+    envStoreInsert envAccum storeAccum' d value where
+      (value, storeAccum') = evalExpr env' storeAccum e
+  go (envAccum, storeAccum) (CoDecl d e) =
+    envStoreCoInsert envAccum storeAccum' d covalue where
+      (covalue, storeAccum') = evalCoExpr env' storeAccum e
+
+-- cesk machine
+
+initEnv :: Env
+initEnv = Env Map.empty Map.empty
+
+initStore :: Store
+initStore = Store (Addr 0) (CoAddr 0) Map.empty Map.empty
 
 halt :: CoExpr
-halt = CoCon "Halt" []
+halt = CoCons "Halt" []
 
 evalProgram :: Program -> VarId -> Config
-evalProgram (Program decls) varId = CommandConfig (evalDecls decls) (Command (Var varId) halt)
+evalProgram (Program decls) varId = uncurry CommandConfig (evalDecls initEnv initStore decls) (Command (Var varId) halt)
 
 -- mini-mu source.mmu var

@@ -1,8 +1,8 @@
 module Syntax
   ( VarId,
-    ConId,
+    ConsId,
     CoVarId,
-    CoConId,
+    CoConsId,
     CommandId,
     Program(..),
     Decl(..),
@@ -13,12 +13,25 @@ module Syntax
     CoExpr (..),
     Value (..),
     CoValue (..),
+    Addr(..),
+    CoAddr(..),
     Env (..),
     envEmpty,
     envLookup,
     envCoLookup,
     envInsert,
-    envCoInsert
+    envCoInsert,
+    Store(..),
+    storeEmpty,
+    storeLookup,
+    storeCoLookup,
+    storeAlloc,
+    storeCoAlloc,
+    storeInsertAddr,
+    storeInsert,
+    storeCoInsert,
+    envStoreInsert,
+    envStoreCoInsert,
   )
 where
 
@@ -26,11 +39,11 @@ import qualified Data.Map as Map
 
 type VarId = String
 
-type ConId = String
+type ConsId = String
 
 type CoVarId = String
 
-type CoConId = String
+type CoConsId = String
 
 type CommandId = String
 
@@ -44,53 +57,101 @@ data Command
   deriving (Show, Eq, Ord)
 
 data Pattern
-  = ConPattern ConId [Either VarId CoVarId] -- p = Foo x k
+  = ConsPattern ConsId [Either VarId CoVarId] -- p = Foo x k
   | VarPattern VarId -- p = x
   deriving (Show, Eq, Ord)
 
 data Expr -- e
   = Var VarId -- x
-  | Con ConId [Either Expr CoExpr] -- Foo e k
+  | Cons ConsId [Either Expr CoExpr] -- Foo e k
   | CoMu [(CoPattern, Command)] -- mu [ Foo x y -> q | Bar x y -> q | k -> q ]
   deriving (Show, Eq, Ord)
 
 data CoPattern
-  = CoConPattern CoConId [Either VarId CoVarId] -- p = Foo x k
+  = CoConsPattern CoConsId [Either VarId CoVarId] -- p = Foo x k
   | CoVarPattern CoVarId -- p = alpha
   deriving (Show, Eq, Ord)
 
 data CoExpr -- k
   = CoVar CoVarId -- x
-  | CoCon CoConId [Either Expr CoExpr] -- Foo e k
+  | CoCons CoConsId [Either Expr CoExpr] -- Foo e k
   | Mu [(Pattern, Command)] -- mu [ Foo x y -> q | Bar x y -> q | k -> q ]
   deriving (Show, Eq, Ord)
 
 data Value
-  = ConValue ConId [Either Value CoValue]
+  = ConsValue ConsId [Either Value CoValue]
   | CoMuValue Env [(CoPattern, Command)]
   -- | HaltValue
   deriving (Show, Eq, Ord)
 
 data CoValue
-  = CoConValue ConId [Either Value CoValue]
+  = CoConsValue ConsId [Either Value CoValue]
   | MuValue Env [(Pattern, Command)]
   deriving (Show, Eq, Ord)
 
-data Env = Env (Map.Map VarId Value) (Map.Map CoVarId CoValue)
+newtype Addr = Addr Int deriving (Show, Eq, Ord)
+addrInc :: Addr -> Addr
+addrInc (Addr n) = Addr (n + 1)
+
+newtype CoAddr = CoAddr Int deriving (Show, Eq, Ord)
+coAddrInc :: CoAddr -> CoAddr
+coAddrInc (CoAddr n) = CoAddr (n + 1)
+
+data Env = Env (Map.Map VarId Addr) (Map.Map CoVarId CoAddr)
   deriving (Show, Eq, Ord)
 
 envEmpty :: Env
 envEmpty = Env Map.empty Map.empty
 
-envLookup :: Env -> VarId -> Value
+envLookup :: Env -> VarId -> Addr
 envLookup (Env env _) x = env Map.! x
 
-envCoLookup :: Env -> CoVarId -> CoValue
+envCoLookup :: Env -> CoVarId -> CoAddr
 envCoLookup (Env _ coenv) x = coenv Map.! x
 
-envInsert :: Env -> VarId -> Value -> Env
+envInsert :: Env -> VarId -> Addr -> Env
 envInsert (Env env coenv) x v = Env (Map.insert x v env) coenv
 
-envCoInsert :: Env -> CoVarId -> CoValue -> Env
+envCoInsert :: Env -> CoVarId -> CoAddr -> Env
 envCoInsert (Env env coenv) x v = Env env (Map.insert x v coenv)
 
+data Store = Store Addr CoAddr (Map.Map Addr Value) (Map.Map CoAddr CoValue)
+  deriving (Show, Eq, Ord)
+
+storeEmpty :: Store
+storeEmpty = Store (Addr 0) (CoAddr 0) Map.empty Map.empty
+
+storeLookup :: Store -> Addr -> Value
+storeLookup (Store _ _ store _) x = store Map.! x
+
+storeCoLookup :: Store -> CoAddr -> CoValue
+storeCoLookup (Store _ _ _ costore) x = costore Map.! x
+
+storeAlloc :: Store -> (Addr, Store)
+storeAlloc (Store nextAddr nextCoAddr store costore) =
+  (nextAddr, Store (addrInc nextAddr) nextCoAddr store costore)
+
+storeCoAlloc :: Store -> (CoAddr, Store)
+storeCoAlloc (Store nextAddr nextCoAddr store costore) = undefined
+
+storeInsertAddr :: Store -> Addr -> Value -> Store
+storeInsertAddr (Store nextAddr nextCoAddr store costore) addr v =
+  Store nextAddr nextCoAddr (Map.insert addr v store) costore
+
+storeInsert :: Store -> Value -> (Addr, Store) -- TODO: use storeInsertAddr
+storeInsert (Store nextAddr nextCoAddr store costore) v =
+  (nextAddr, Store (addrInc nextAddr) nextCoAddr (Map.insert nextAddr v store) costore)
+
+storeCoInsert :: Store -> CoValue -> (CoAddr, Store)
+storeCoInsert (Store nextAddr nextCoAddr store costore) v =
+  (nextCoAddr, Store nextAddr (coAddrInc nextCoAddr) store (Map.insert nextCoAddr v costore))
+
+envStoreInsert :: Env -> Store -> VarId -> Value -> (Env, Store)
+envStoreInsert env store var value = (env', store') where
+  env' = envInsert env var addr
+  (addr, store') = storeInsert store value
+
+envStoreCoInsert :: Env -> Store -> CoVarId -> CoValue -> (Env, Store)
+envStoreCoInsert env store var value = (env', store') where
+  env' = envCoInsert env var coAddr
+  (coAddr, store') = storeCoInsert store value
