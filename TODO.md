@@ -2,7 +2,7 @@
 
 ## Near Term
 
-- parser: `Ap Z ~Halt` is currently parsed as `Ap (Z ~Halt)` but should be as `(Ap Z) ~Halt`
+- parser: `Ap Z ~Halt` is currently parsed as `Ap (Z ~Halt)` but should be as `(Ap Z) ~Halt` [DONE]
   - need to explore left-associative (in parsing) application
     - will probably need "left-factoring"
 
