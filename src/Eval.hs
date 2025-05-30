@@ -145,4 +145,4 @@ halt = CoCons "Halt" []
 evalProgram :: Program -> VarId -> Config
 evalProgram (Program decls) varId = uncurry CommandConfig (evalDecls initEnv initStore decls) (Command (Var varId) halt)
 
--- mini-mu source.mmu var
+-- stack exec mini-mu source.mmu var

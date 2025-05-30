@@ -7,6 +7,8 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import Data.Void
 import Control.Monad (void)
 
+import Debug.Trace
+
 type Parser = Parsec Void String
 
 -- Space consumer
@@ -43,7 +45,7 @@ varIdentifier :: Parser String
 varIdentifier = label "variable name" 
   (lexeme $ do
     first <- lowerChar
-    rest <- many (alphaNumChar <|> char '\'')
+    rest <- many (alphaNumChar <|> char '_' <|> char '\'')
     let word = first : rest
     if word `elem` keywords
       then fail $ "keyword " ++ show word ++ " cannot be the name of a variable"
@@ -56,7 +58,7 @@ consIdentifier :: Parser String
 consIdentifier = label "constructor name" 
   (lexeme $ do
     first <- upperChar
-    rest <- many (alphaNumChar <|> char '\'')
+    rest <- many (alphaNumChar <|> char '_' <|> char ':' <|> char '\'')
     return (first : rest))
 
 -- varID cannot start with ~
@@ -83,9 +85,7 @@ coConsId = label "co-constructor id" (lexeme $ do
 -- Parse a pattern
 pattern :: Parser Pattern
 pattern = label "pattern" (choice
-  [
-    -- Parse ConPattern
-    try $ do
+  [ try $ do
       c <- consId
       args <- many (choice
         [ Left <$> varId
@@ -93,15 +93,13 @@ pattern = label "pattern" (choice
         ])
       return $ ConsPattern c args
     -- Parse VarPattern
-    , VarPattern <$> varId
+    , try $ VarPattern <$> varId
   ])
 
 -- Parse a copattern
 coPattern :: Parser CoPattern
 coPattern = label "co-pattern" (choice
-  [
-    -- Parse CoConPattern
-    try $ do
+  [ try $ do
       c <- coConsId
       args <- many (choice
         [ Left <$> varId
@@ -109,7 +107,7 @@ coPattern = label "co-pattern" (choice
         ])
       return $ CoConsPattern c args
     -- Parse CoVarPattern
-    , CoVarPattern <$> coVarId
+    , try $ CoVarPattern <$> coVarId
   ])
 
 -- Parse a case pattern -> command in a Mu
@@ -129,7 +127,7 @@ coPatternCase = label "co-pattern case" (do
   return (pat, cmd))
 
 atom :: Parser (Either Expr CoExpr)
-atom = (Left <$> atomExpr) <|> (Right <$> atomCoExpr)
+atom = trace "Parsing atom" $ (Left <$> atomExpr) <|> (Right <$> atomCoExpr)
 
 atomExpr :: Parser Expr
 atomExpr = label "atom expr" (choice
@@ -143,7 +141,7 @@ atomExpr = label "atom expr" (choice
   ])
 
 atomCoExpr :: Parser CoExpr
-atomCoExpr = label "atom coexpr" (choice
+atomCoExpr = trace "Parsing atom coexpr" $ label "atom coexpr" (choice
   [ try coConsWithNoArgs
   , try $ do
       _ <- symbol "mu"
