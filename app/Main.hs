@@ -3,6 +3,9 @@ module Main (main) where
 import Eval (evalProgram, step, Config)
 -- import Graph (graphMain)
 import Parser (program)
+import Pretty
+import Prettyprinter
+import Prettyprinter.Render.String
 
 import System.Environment
 import Text.Megaparsec (parse, errorBundlePretty)
@@ -23,7 +26,7 @@ main = do
       go [] = putStrLn "----\nDONE"
       go configs = do
         putStrLn "----"
-        mapM_ print configs
+        mapM_ (putStrLn . renderPretty . prettyConfig) configs
         go (concatMap step configs)
   go [config]
   -- graph = [evalProg on parsed file]

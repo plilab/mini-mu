@@ -132,12 +132,7 @@ atom = trace "Parsing atom" $ (Left <$> atomExpr) <|> (Right <$> atomCoExpr)
 atomExpr :: Parser Expr
 atomExpr = label "atom expr" (choice
   [ try consWithNoArgs
-  , try $ do
-      _ <- symbol "comu"
-      branches <- brackets $ sepBy1 coPatternCase (symbol "|")
-      return $ CoMu branches
-  , try $ Var <$> varId
-  , try $ parens expr
+  , exprAux
   ])
 
 atomCoExpr :: Parser CoExpr
@@ -163,17 +158,17 @@ coConsWithNoArgs = do
 
 expr :: Parser Expr
 expr = label "expression" (choice
-  [ try $ do
-      _ <- symbol "comu"
-      branches <- brackets $ sepBy1 coPatternCase (symbol "|")
-      return $ CoMu branches
-  , try $ do
-      c <- consId
-      args <- many atom
-      return $ Cons c args
-  , try $ Var <$> varId
-  , try $ parens expr
-  ])
+  [ try $ Cons <$> consId <*> many atom
+  , exprAux ])
+
+exprAux :: Parser Expr
+exprAux = label "expression auxiliary" (choice [
+  try $ do
+    _ <- symbol "comu"
+    branches <- brackets $ sepBy1 coPatternCase (symbol "|")
+    return $ CoMu branches,
+  try $ Var <$> varId,
+  try $ parens expr])
 
 -- Parse a coexpression
 coExpr :: Parser CoExpr
@@ -182,10 +177,7 @@ coExpr = label "co-expression" (choice
       _ <- symbol "mu"
       branches <- brackets $ sepBy1 patternCase (symbol "|")
       return $ Mu branches
-  , try $ do
-      c <- coConsId
-      args <- many atom
-      return $ CoCons c args
+  , try $ CoCons <$> coConsId <*> many atom
   , try $ CoVar <$> coVarId
   -- handle parentheses
   , try $ parens coExpr

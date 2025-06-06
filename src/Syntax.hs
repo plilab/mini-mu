@@ -32,6 +32,7 @@ module Syntax
     storeCoInsert,
     envStoreInsert,
     envStoreCoInsert,
+    Config(..),
   )
 where
 
@@ -46,6 +47,15 @@ type CoVarId = String
 type CoConsId = String
 
 type CommandId = String
+
+-- let-and-set
+-- CESK: Expr Env Store CoValue
+-- Us: Expr Env Store CoExpr / Value (no-Env) Store CoValue
+data Config
+  = CommandConfig Env Store Command -- ρ |- q
+  | ValueConfig Store Value CoValue
+  | ErrorConfig String
+  deriving (Eq, Show, Ord)
 
 newtype Program = Program [Decl]
 

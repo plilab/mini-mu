@@ -9,15 +9,16 @@ import Syntax
 
 import qualified Data.Map as Map
 import Debug.Trace
+import Pretty(prettyTopLevelValue, renderPretty)
 
 evalExpr :: Env -> Store -> Expr -> (Value, Store)
 evalExpr env store (Var x) = (storeLookup store (envLookup env x), store)
 evalExpr env store (CoMu clauses) = (CoMuValue env clauses, store)
-evalExpr env store (Cons ident args) = (ConsValue ident argValues, store') 
+evalExpr env store (Cons ident args) = (ConsValue ident argValues, store')
   where
     (argValues, store') = foldl go ([], store) args
     go :: ([Either Value CoValue], Store) -> Either Expr CoExpr -> ([Either Value CoValue], Store)
-    go (argValuesAccum, storeAccum) arg = (argValuesAccum ++ [argValue], storeAccum') 
+    go (argValuesAccum, storeAccum) arg = (argValuesAccum ++ [argValue], storeAccum')
       where
         (argValue, storeAccum') = eval env storeAccum arg
 
@@ -38,15 +39,6 @@ eval env store (Left expr) = (Left value, store') where
 eval env store (Right coexpr) = (Right value, store') where
   (value, store') = evalCoExpr env store coexpr
 
--- let-and-set
--- CESK: Expr Env Store CoValue
--- Us: Expr Env Store CoExpr / Value (no-Env) Store CoValue
-data Config
-  = CommandConfig Env Store Command -- ρ |- q
-  | ValueConfig Store Value CoValue
-  | ErrorConfig String
-  deriving (Eq, Show, Ord)
-
 step :: Config -> [Config]
 step (CommandConfig env store (Command e ce)) =
   [ValueConfig store'' value coValue] where
@@ -64,7 +56,7 @@ step (ValueConfig store v@(CoMuValue env clauses) cv@(MuValue env' clauses')) =
   match env' store v clauses' ++ comatch env store cv clauses
 -- temporary hack to deal with "Halt"
 step (ValueConfig _ cons@(ConsValue _ _) (CoConsValue "Halt" [])) =
-  [ErrorConfig ("Halt with result: " ++ show cons)]
+  [ErrorConfig ("Halt with result: " ++ renderPretty (prettyTopLevelValue cons))]
 step (ValueConfig _ (ConsValue {}) (CoConsValue {})) =
   [ErrorConfig "bad type: cannot continue with 2 constructors"]
 step (ErrorConfig {}) = []
