@@ -1,4 +1,4 @@
-import Parser (parseString, parseFile)
+import Parser (parseString)
 import Text.Megaparsec (errorBundlePretty)
 import Pretty
 import Syntax
@@ -6,6 +6,37 @@ import Syntax
 main :: IO ()
 -- TODO: convert to tests
 main = tests
+
+
+showCommand :: Command -> String
+showCommand = renderPretty . prettyCommand
+
+showExpr :: Expr -> String
+showExpr = renderPretty . prettyExpr
+
+showCoExpr :: CoExpr -> String
+showCoExpr = renderPretty . prettyCoExpr
+
+showPattern :: Pattern -> String
+showPattern = renderPretty . prettyPattern
+
+showCoPattern :: CoPattern -> String
+showCoPattern = renderPretty . prettyCoPattern
+
+printPattern :: Pattern -> IO ()
+printPattern = putStrLn . showPattern
+
+printCoPattern :: CoPattern -> IO ()
+printCoPattern = putStrLn . showCoPattern
+
+printCommand :: Command -> IO ()
+printCommand = putStrLn . showCommand
+
+printExpr :: Expr -> IO ()
+printExpr = putStrLn . showExpr
+
+printCoExpr :: CoExpr -> IO ()
+printCoExpr = putStrLn . showCoExpr
 
 tests :: IO ()
 tests = do

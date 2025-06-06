@@ -18,7 +18,8 @@ evalExpr env store (Cons ident args) = (ConsValue ident argValues, store')
   where
     (argValues, store') = foldl go ([], store) args
     go :: ([Either Value CoValue], Store) -> Either Expr CoExpr -> ([Either Value CoValue], Store)
-    go (argValuesAccum, storeAccum) arg = (argValuesAccum ++ [argValue], storeAccum')
+    go (argValuesAccum, storeAccum) arg = 
+      (argValuesAccum ++ [argValue], storeAccum')
       where
         (argValue, storeAccum') = eval env storeAccum arg
 
@@ -29,7 +30,8 @@ evalCoExpr env store (CoCons ident args) = (CoConsValue ident argValues, store')
   where
     (argValues, store') = foldl go ([], store) args
     go :: ([Either Value CoValue], Store) -> Either Expr CoExpr -> ([Either Value CoValue], Store)
-    go (argValuesAccum, storeAccum) arg = (argValuesAccum ++ [argValue], storeAccum')
+    go (argValuesAccum, storeAccum) arg = 
+      (argValuesAccum ++ [argValue], storeAccum')
       where 
         (argValue, storeAccum') = eval env storeAccum arg
 
@@ -63,27 +65,32 @@ step (ErrorConfig {}) = []
 
 match :: Env -> Store -> Value -> [(Pattern, Command)] -> [Config]
 match _ _ _ [] = []
-match env store v ((VarPattern x, cmd) : _) = [CommandConfig env' store' cmd] where
-  (env', store') = envStoreInsert env store x v
+match env store v ((VarPattern x, cmd) : _) = 
+  [CommandConfig env' store' cmd] where
+    (env', store') = envStoreInsert env store x v
 match env store v@(ConsValue con args) ((ConsPattern con' params, cmd) : clauses) =
   if con == con'
-    then let (env', store') = trace ("match " ++ show params ++ ":" ++ show args) $ bind env store params args in
+    then let (env', store') = 
+              trace ("match " ++ show params ++ ":" ++ show args) 
+              $ bind env store params args in
           [CommandConfig env' store' cmd]
     else match env store v clauses
 match _ _ (CoMuValue {}) ((ConsPattern {}, _) : _) =
-  [ErrorConfig "bad type"]
+  [ErrorConfig "bad type, cannot match CoMuValue with ConsPattern"]
 
 comatch :: Env -> Store -> CoValue -> [(CoPattern, Command)] -> [Config]
 comatch _ _ _ [] = []
-comatch env store v ((CoVarPattern x, cmd) : _) = [CommandConfig env' store' cmd] where
-  (env', store') = envStoreCoInsert env store x v
+comatch env store v ((CoVarPattern x, cmd) : _) = 
+  [CommandConfig env' store' cmd] where
+    (env', store') = envStoreCoInsert env store x v
 comatch env store v@(CoConsValue con args) ((CoConsPattern con' params, cmd) : clauses) =
   if con == con'
-    then let (env', store') = trace (show "comatch") $ bind env store params args in
+    then let (env', store') = 
+              trace (show "comatch") $ bind env store params args in
           [CommandConfig env' store' cmd]
     else comatch env store v clauses
 comatch _ _ (MuValue {}) ((CoConsPattern {}, _) : _) =
-  [ErrorConfig "bad type"]
+  [ErrorConfig "bad type, cannot match MuValue with CoConsPattern"]
 
 bind :: Env -> Store -> [Either VarId CoVarId] -> [Either Value CoValue] -> (Env, Store)
 bind env store [] [] = (env, store)
@@ -91,10 +98,10 @@ bind env store (Left p : ps) (Left v : vs) = bind env' store' ps vs where
   (env', store') = envStoreInsert env store p v
 bind env store (Right p : ps) (Right v : vs) = bind env' store' ps vs where
   (env', store') = envStoreCoInsert env store p v
-bind _ _ (Left _ : _) (Right _ : _) = error "bad type"
-bind _ _ (Right _ : _) (Left _ : _) = error "bad type"
-bind _ _ [] (_ : _) = error "length mismatch"
-bind _ _ (_ : _) [] = error "length mismatch"
+bind _ _ (Left _ : _) (Right _ : _) = error "bad type, cannot bind VarId to CoValue"
+bind _ _ (Right _ : _) (Left _ : _) = error "bad type, cannot bind CoVarId to Value"
+bind _ _ [] (_ : _) = error "length mismatch at binding"
+bind _ _ (_ : _) [] = error "length mismatch at binding"
 
 -- type Graph = Map Config (Set Config)
 -- stepAll :: Config -> Map Config (Set Config)
@@ -134,7 +141,10 @@ initStore = Store (Addr 0) (CoAddr 0) Map.empty Map.empty
 halt :: CoExpr
 halt = CoCons "Halt" []
 
+-- Entrance point for the program evaluation
 evalProgram :: Program -> VarId -> Config
-evalProgram (Program decls) varId = uncurry CommandConfig (evalDecls initEnv initStore decls) (Command (Var varId) halt)
+evalProgram (Program decls) varId = 
+  uncurry CommandConfig (evalDecls initEnv initStore decls) 
+    (Command (Var varId) halt)
 
 -- stack exec mini-mu source.mmu var

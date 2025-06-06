@@ -69,7 +69,9 @@ prettyMuValueAux (MuValue env cases) =
   brackets (hang (-1) (prettyCases cases))
   where
     prettyCases [] = mempty
-    prettyCases (c:cs) = space <> prettyCase c <> mconcat [line <> pipe <> space <> prettyCase c' | c' <- cs]
+    prettyCases (c:cs) = 
+      space <> prettyCase c 
+        <> mconcat [line <> pipe <> space <> prettyCase c' | c' <- cs]
 prettyMuValueAux _ = error "Expected a MuValue"
 
 
@@ -80,7 +82,9 @@ prettyCoMuValueAux (CoMuValue env cases) =
   brackets (hang (-1) (prettyCases cases))
   where
     prettyCases [] = mempty
-    prettyCases (c:cs) = space <> prettyCoCase c <> mconcat [line <> pipe <> space <> prettyCoCase c' | c' <- cs]
+    prettyCases (c:cs) = 
+      space <> prettyCoCase c 
+        <> mconcat [line <> pipe <> space <> prettyCoCase c' | c' <- cs]
 prettyCoMuValueAux _ = error "Expected a CoMuValue"
 
 
@@ -106,7 +110,9 @@ prettyExpr (CoMu cases) =
   brackets (hang (-1) (prettyCases cases))
   where
     prettyCases [] = mempty
-    prettyCases (c:cs) = space <> prettyCoCase c <> mconcat [line <> pipe <> space <> prettyCoCase c' | c' <- cs]
+    prettyCases (c:cs) = 
+      space <> prettyCoCase c 
+        <> mconcat [line <> pipe <> space <> prettyCoCase c' | c' <- cs]
 
 
 prettyCoExpr :: CoExpr -> Doc ann
@@ -118,7 +124,9 @@ prettyCoExpr (Mu cases) =
   brackets (hang (-1) (prettyCases cases))
   where
     prettyCases [] = mempty
-    prettyCases (c:cs) = space <> prettyCase c <> mconcat [line <> pipe <> space <> prettyCase c' | c' <- cs]
+    prettyCases (c:cs) = 
+      space <> prettyCase c 
+        <> mconcat [line <> pipe <> space <> prettyCase c' | c' <- cs]
 
 
 prettyEitherExpr :: Either Expr CoExpr -> Doc ann
@@ -169,12 +177,17 @@ prettyEnv env =
     prettyVarMap m 
       | Map.null m = pretty "{}"
       | otherwise = braces (line <>
-          indent 2 (vsep [pretty v <+> pretty "↦" <+> prettyAddr addr | (v, addr) <- Map.toList m]) <> line)
+          indent 2 
+            (vsep 
+              [pretty v <+> pretty "↦" 
+                <+> prettyAddr addr | (v, addr) <- Map.toList m]) <> line)
     prettyCoVarMap :: Map.Map CoVarId CoAddr -> Doc ann
     prettyCoVarMap m
       | Map.null m = pretty "{}"
       | otherwise = braces (line <>
-          indent 2 (vsep [pretty cv <+> pretty "↦" <+> prettyCoAddr coAddr | (cv, coAddr) <- Map.toList m]) <> line)
+          indent 2 
+            (vsep [pretty cv <+> pretty "↦" 
+              <+> prettyCoAddr coAddr | (cv, coAddr) <- Map.toList m]) <> line)
 
 prettyAddr :: Addr -> Doc ann
 prettyAddr (Addr n) = pretty "#" <> pretty n
@@ -196,44 +209,20 @@ prettyStore (Store addr coAddr valMap coValMap) =
     prettyValueMap m 
       | Map.null m = pretty "{}"
       | otherwise = braces (line <>
-          indent 2 (vsep [prettyAddr addr1 <+> pretty "↦" <+> prettyTopLevelValue val | (addr1, val) <- Map.toList m]) <> line)
+          indent 2 
+            (vsep 
+              [prettyAddr addr1 <+> pretty "↦" 
+                <+> prettyTopLevelValue val | (addr1, val) <- Map.toList m]) <> line)
     prettyCoValueMap :: Map.Map CoAddr CoValue -> Doc ann
     prettyCoValueMap m
       | Map.null m = pretty "{}"
       | otherwise = braces (line <>
-          indent 2 (vsep [prettyCoAddr coAddr1 <+> pretty "↦" <+> prettyTopLevelCoValue coVal | (coAddr1, coVal) <- Map.toList m]) <> line)
+          indent 2 
+            (vsep 
+              [prettyCoAddr coAddr1 <+> pretty "↦" 
+                <+> prettyTopLevelCoValue coVal | (coAddr1, coVal) <- Map.toList m]) <> line)
 
 -- Helper functions to convert to String
 
 renderPretty :: Doc ann -> String
 renderPretty = renderString . layoutPretty defaultLayoutOptions
-
--- showCommand :: Command -> String
--- showCommand = renderPretty . prettyCommand
-
--- showExpr :: Expr -> String
--- showExpr = renderPretty . prettyExpr
-
--- showCoExpr :: CoExpr -> String
--- showCoExpr = renderPretty . prettyCoExpr
-
--- showPattern :: Pattern -> String
--- showPattern = renderPretty . prettyPattern
-
--- showCoPattern :: CoPattern -> String
--- showCoPattern = renderPretty . prettyCoPattern
-
--- printPattern :: Pattern -> IO ()
--- printPattern = putStrLn . showPattern
-
--- printCoPattern :: CoPattern -> IO ()
--- printCoPattern = putStrLn . showCoPattern
-
--- printCommand :: Command -> IO ()
--- printCommand = putStrLn . showCommand
-
--- printExpr :: Expr -> IO ()
--- printExpr = putStrLn . showExpr
-
--- printCoExpr :: CoExpr -> IO ()
--- printCoExpr = putStrLn . showCoExpr

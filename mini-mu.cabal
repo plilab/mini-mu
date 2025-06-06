@@ -44,10 +44,13 @@ library
   build-depends:
       base >=4.7 && <5
     , containers
+    , directory
+    , filepath
     , graphviz
     , megaparsec
     , parser-combinators
     , prettyprinter
+    , process
     , text
   default-language: Haskell2010
 
@@ -63,11 +66,14 @@ executable mini-mu
   build-depends:
       base >=4.7 && <5
     , containers
+    , directory
+    , filepath
     , graphviz
     , megaparsec
     , mini-mu
     , parser-combinators
     , prettyprinter
+    , process
     , text
   default-language: Haskell2010
 
@@ -85,10 +91,13 @@ test-suite mini-mu-test
   build-depends:
       base >=4.7 && <5
     , containers
+    , directory
+    , filepath
     , graphviz
     , megaparsec
     , mini-mu
     , parser-combinators
     , prettyprinter
+    , process
     , text
   default-language: Haskell2010

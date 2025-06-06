@@ -142,7 +142,8 @@ storeAlloc (Store nextAddr nextCoAddr store costore) =
   (nextAddr, Store (addrInc nextAddr) nextCoAddr store costore)
 
 storeCoAlloc :: Store -> (CoAddr, Store)
-storeCoAlloc (Store nextAddr nextCoAddr store costore) = undefined
+storeCoAlloc (Store nextAddr nextCoAddr store costore) = 
+  (nextCoAddr, Store nextAddr (coAddrInc nextCoAddr) store costore)
 
 storeInsertAddr :: Store -> Addr -> Value -> Store
 storeInsertAddr (Store nextAddr nextCoAddr store costore) addr v =

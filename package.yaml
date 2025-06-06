@@ -25,6 +25,9 @@ dependencies:
 - prettyprinter
 - graphviz
 - text
+- directory
+- filepath
+- process
 
 
 ghc-options:
@@ -47,6 +50,9 @@ library:
     - prettyprinter
     - graphviz
     - text
+    - directory
+    - filepath
+    - process
 
 executables:
   mini-mu:
