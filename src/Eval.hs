@@ -1,15 +1,15 @@
-module Eval (
-  eval,
-  step,
-  evalProgram,
-  Config(..),
-) where
-
-import Syntax
+module Eval
+  ( eval,
+    step,
+    evalProgram,
+    Config (..),
+  )
+where
 
 import qualified Data.Map as Map
 import Debug.Trace
-import Pretty(prettyTopLevelValue, renderPretty)
+import Pretty (prettyTopLevelValue, renderPretty)
+import Syntax
 
 evalExpr :: Env -> Store -> Expr -> (Value, Store)
 evalExpr env store (Var x) = (storeLookup store (envLookup env x), store)
@@ -18,7 +18,7 @@ evalExpr env store (Cons ident args) = (ConsValue ident argValues, store')
   where
     (argValues, store') = foldl go ([], store) args
     go :: ([Either Value CoValue], Store) -> Either Expr CoExpr -> ([Either Value CoValue], Store)
-    go (argValuesAccum, storeAccum) arg = 
+    go (argValuesAccum, storeAccum) arg =
       (argValuesAccum ++ [argValue], storeAccum')
       where
         (argValue, storeAccum') = eval env storeAccum arg
@@ -30,26 +30,31 @@ evalCoExpr env store (CoCons ident args) = (CoConsValue ident argValues, store')
   where
     (argValues, store') = foldl go ([], store) args
     go :: ([Either Value CoValue], Store) -> Either Expr CoExpr -> ([Either Value CoValue], Store)
-    go (argValuesAccum, storeAccum) arg = 
+    go (argValuesAccum, storeAccum) arg =
       (argValuesAccum ++ [argValue], storeAccum')
-      where 
+      where
         (argValue, storeAccum') = eval env storeAccum arg
 
 eval :: Env -> Store -> Either Expr CoExpr -> (Either Value CoValue, Store)
-eval env store (Left expr) = (Left value, store') where
-  (value, store') = evalExpr env store expr
-eval env store (Right coexpr) = (Right value, store') where
-  (value, store') = evalCoExpr env store coexpr
+eval env store (Left expr) = (Left value, store')
+  where
+    (value, store') = evalExpr env store expr
+eval env store (Right coexpr) = (Right value, store')
+  where
+    (value, store') = evalCoExpr env store coexpr
 
 step :: Config -> [Config]
 step (CommandConfig env store (Command e ce)) =
-  [ValueConfig store'' value coValue] where
+  [ValueConfig store'' value coValue]
+  where
     (value, store') = evalExpr env store e
     (coValue, store'') = evalCoExpr env store' ce
 step (CommandConfig env store (CommandVar cmdId)) =
-  [ValueConfig store
-    (storeLookup store (envLookup env cmdId))
-    (storeCoLookup store (envCoLookup env cmdId))]
+  [ ValueConfig
+      store
+      (storeLookup store (envLookup env cmdId))
+      (storeCoLookup store (envCoLookup env cmdId))
+  ]
 step (ValueConfig store v@(ConsValue {}) (MuValue env clauses)) =
   match env store v clauses
 step (ValueConfig store (CoMuValue env clauses) cv@(CoConsValue {})) =
@@ -65,39 +70,45 @@ step (ErrorConfig {}) = []
 
 match :: Env -> Store -> Value -> [(Pattern, Command)] -> [Config]
 match _ _ _ [] = []
-match env store v ((VarPattern x, cmd) : _) = 
-  [CommandConfig env' store' cmd] where
+match env store v ((VarPattern x, cmd) : _) =
+  [CommandConfig env' store' cmd]
+  where
     (env', store') = envStoreInsert env store x v
 match env store v@(ConsValue con args) ((ConsPattern con' params, cmd) : clauses) =
   if con == con'
-    then let (env', store') = 
-              trace ("match " ++ show params ++ ":" ++ show args) 
-              $ bind env store params args in
-          [CommandConfig env' store' cmd]
+    then
+      let (env', store') =
+            trace ("match " ++ show params ++ ":" ++ show args) $
+              bind env store params args
+       in [CommandConfig env' store' cmd]
     else match env store v clauses
 match _ _ (CoMuValue {}) ((ConsPattern {}, _) : _) =
   [ErrorConfig "bad type, cannot match CoMuValue with ConsPattern"]
 
 comatch :: Env -> Store -> CoValue -> [(CoPattern, Command)] -> [Config]
 comatch _ _ _ [] = []
-comatch env store v ((CoVarPattern x, cmd) : _) = 
-  [CommandConfig env' store' cmd] where
+comatch env store v ((CoVarPattern x, cmd) : _) =
+  [CommandConfig env' store' cmd]
+  where
     (env', store') = envStoreCoInsert env store x v
 comatch env store v@(CoConsValue con args) ((CoConsPattern con' params, cmd) : clauses) =
   if con == con'
-    then let (env', store') = 
-              trace (show "comatch") $ bind env store params args in
-          [CommandConfig env' store' cmd]
+    then
+      let (env', store') =
+            trace (show "comatch") $ bind env store params args
+       in [CommandConfig env' store' cmd]
     else comatch env store v clauses
 comatch _ _ (MuValue {}) ((CoConsPattern {}, _) : _) =
   [ErrorConfig "bad type, cannot match MuValue with CoConsPattern"]
 
 bind :: Env -> Store -> [Either VarId CoVarId] -> [Either Value CoValue] -> (Env, Store)
 bind env store [] [] = (env, store)
-bind env store (Left p : ps) (Left v : vs) = bind env' store' ps vs where
-  (env', store') = envStoreInsert env store p v
-bind env store (Right p : ps) (Right v : vs) = bind env' store' ps vs where
-  (env', store') = envStoreCoInsert env store p v
+bind env store (Left p : ps) (Left v : vs) = bind env' store' ps vs
+  where
+    (env', store') = envStoreInsert env store p v
+bind env store (Right p : ps) (Right v : vs) = bind env' store' ps vs
+  where
+    (env', store') = envStoreCoInsert env store p v
 bind _ _ (Left _ : _) (Right _ : _) = error "bad type, cannot bind VarId to CoValue"
 bind _ _ (Right _ : _) (Left _ : _) = error "bad type, cannot bind CoVarId to Value"
 bind _ _ [] (_ : _) = error "length mismatch at binding"
@@ -120,15 +131,18 @@ bind _ _ (_ : _) [] = error "length mismatch at binding"
 -- let-and-set
 
 evalDecls :: Env -> Store -> [Decl] -> (Env, Store)
-evalDecls env store ds = (env', store') where
-  (env', store') = foldl go (env, store) ds
-  go :: (Env, Store) -> Decl -> (Env, Store)
-  go (envAccum, storeAccum) (Decl d e) =
-    envStoreInsert envAccum storeAccum' d value where
-      (value, storeAccum') = evalExpr env' storeAccum e
-  go (envAccum, storeAccum) (CoDecl d e) =
-    envStoreCoInsert envAccum storeAccum' d covalue where
-      (covalue, storeAccum') = evalCoExpr env' storeAccum e
+evalDecls env store ds = (env', store')
+  where
+    (env', store') = foldl go (env, store) ds
+    go :: (Env, Store) -> Decl -> (Env, Store)
+    go (envAccum, storeAccum) (Decl d e) =
+      envStoreInsert envAccum storeAccum' d value
+      where
+        (value, storeAccum') = evalExpr env' storeAccum e
+    go (envAccum, storeAccum) (CoDecl d e) =
+      envStoreCoInsert envAccum storeAccum' d covalue
+      where
+        (covalue, storeAccum') = evalCoExpr env' storeAccum e
 
 -- cesk machine
 
@@ -143,8 +157,10 @@ halt = CoCons "Halt" []
 
 -- Entrance point for the program evaluation
 evalProgram :: Program -> VarId -> Config
-evalProgram (Program decls) varId = 
-  uncurry CommandConfig (evalDecls initEnv initStore decls) 
+evalProgram (Program decls) varId =
+  uncurry
+    CommandConfig
+    (evalDecls initEnv initStore decls)
     (Command (Var varId) halt)
 
 -- stack exec mini-mu source.mmu var

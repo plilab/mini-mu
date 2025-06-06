@@ -4,8 +4,8 @@ module Syntax
     CoVarId,
     CoConsId,
     CommandId,
-    Program(..),
-    Decl(..),
+    Program (..),
+    Decl (..),
     Command (..),
     Pattern (..),
     Expr (..),
@@ -13,15 +13,15 @@ module Syntax
     CoExpr (..),
     Value (..),
     CoValue (..),
-    Addr(..),
-    CoAddr(..),
+    Addr (..),
+    CoAddr (..),
     Env (..),
     envEmpty,
     envLookup,
     envCoLookup,
     envInsert,
     envCoInsert,
-    Store(..),
+    Store (..),
     storeEmpty,
     storeLookup,
     storeCoLookup,
@@ -32,7 +32,7 @@ module Syntax
     storeCoInsert,
     envStoreInsert,
     envStoreCoInsert,
-    Config(..),
+    Config (..),
   )
 where
 
@@ -91,8 +91,12 @@ data CoExpr -- k
 data Value
   = ConsValue ConsId [Either Value CoValue]
   | CoMuValue Env [(CoPattern, Command)]
-  -- | HaltValue
-  deriving (Show, Eq, Ord)
+  deriving
+    ( -- | HaltValue
+      Show,
+      Eq,
+      Ord
+    )
 
 data CoValue
   = CoConsValue ConsId [Either Value CoValue]
@@ -100,10 +104,12 @@ data CoValue
   deriving (Show, Eq, Ord)
 
 newtype Addr = Addr Int deriving (Show, Eq, Ord)
+
 addrInc :: Addr -> Addr
 addrInc (Addr n) = Addr (n + 1)
 
 newtype CoAddr = CoAddr Int deriving (Show, Eq, Ord)
+
 coAddrInc :: CoAddr -> CoAddr
 coAddrInc (CoAddr n) = CoAddr (n + 1)
 
@@ -142,7 +148,7 @@ storeAlloc (Store nextAddr nextCoAddr store costore) =
   (nextAddr, Store (addrInc nextAddr) nextCoAddr store costore)
 
 storeCoAlloc :: Store -> (CoAddr, Store)
-storeCoAlloc (Store nextAddr nextCoAddr store costore) = 
+storeCoAlloc (Store nextAddr nextCoAddr store costore) =
   (nextCoAddr, Store nextAddr (coAddrInc nextCoAddr) store costore)
 
 storeInsertAddr :: Store -> Addr -> Value -> Store
@@ -158,11 +164,13 @@ storeCoInsert (Store nextAddr nextCoAddr store costore) v =
   (nextCoAddr, Store nextAddr (coAddrInc nextCoAddr) store (Map.insert nextCoAddr v costore))
 
 envStoreInsert :: Env -> Store -> VarId -> Value -> (Env, Store)
-envStoreInsert env store var value = (env', store') where
-  env' = envInsert env var addr
-  (addr, store') = storeInsert store value
+envStoreInsert env store var value = (env', store')
+  where
+    env' = envInsert env var addr
+    (addr, store') = storeInsert store value
 
 envStoreCoInsert :: Env -> Store -> CoVarId -> CoValue -> (Env, Store)
-envStoreCoInsert env store var value = (env', store') where
-  env' = envCoInsert env var coAddr
-  (coAddr, store') = storeCoInsert store value
+envStoreCoInsert env store var value = (env', store')
+  where
+    env' = envCoInsert env var coAddr
+    (coAddr, store') = storeCoInsert store value

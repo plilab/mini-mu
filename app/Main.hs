@@ -1,14 +1,11 @@
 module Main (main) where
 
-import Eval (evalProgram, step, Config)
+import Eval (Config, evalProgram, step)
 -- import Graph (graphMain)
 import Parser (program)
 import Pretty
-import Prettyprinter
-import Prettyprinter.Render.String
-
 import System.Environment
-import Text.Megaparsec (parse, errorBundlePretty)
+import Text.Megaparsec (errorBundlePretty, parse)
 
 main :: IO ()
 main = do
@@ -16,16 +13,17 @@ main = do
   [programFile, var] <- getArgs
   programText <- readFile programFile
   programAst <- case parse program programFile programText of
-        Left e -> do
-          putStrLn $ errorBundlePretty e
-          error "Parse error"
-        Right p -> return p
+    Left e -> do
+      putStrLn $ errorBundlePretty e
+      error "Parse error"
+    Right p -> return p
   let config = evalProgram programAst var
   -- print config
   let go :: [Config] -> IO ()
-      go [] = putStrLn "----\nDONE"
+      go [] = 
+        putStrLn "----------------------------------------------------------\nDONE"
       go configs = do
-        putStrLn "----"
+        putStrLn "----------------------------------------------------------"
         mapM_ (putStrLn . renderPretty . prettyConfig) configs
         go (concatMap step configs)
   go [config]
