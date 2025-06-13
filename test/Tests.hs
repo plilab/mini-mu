@@ -6,15 +6,17 @@ import Control.Monad (forM_, when)
 import System.Directory (listDirectory)
 import System.Exit (exitFailure)
 import System.FilePath (takeBaseName, takeExtension, (</>))
-import System.Process (callCommand)
+-- import System.Process (callCommand)
+import System.Environment (withArgs)
+import qualified Main
 
 filesDir :: FilePath
 filesDir = "./test"
 
 main :: IO ()
 main = do
-  putStrLn "Building the project..."
-  callCommand "stack build"
+  -- putStrLn "Building the project..."
+  -- callCommand "stack build"
 
   putStrLn $ "Looking for .mmu files in: " ++ filesDir
   allFiles <- listDirectory filesDir
@@ -27,4 +29,5 @@ main = do
   forM_ mmuFiles $ \file -> do
     let fullPath = filesDir </> file
     putStrLn $ "\nRunning: stack exec mini-mu " ++ fullPath
-    callCommand $ "stack exec mini-mu " ++ fullPath ++ " main"
+    withArgs [fullPath, "main"] Main.main
+    -- callCommand $ "stack exec mini-mu " ++ fullPath ++ " main"

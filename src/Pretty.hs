@@ -63,6 +63,18 @@ prettyCoValue (CoConsValue con args) =
 prettyCoValue mu@(MuValue _ _) =
   prettyMuValueAux mu
 
+{- TODO:
+   #9 ↦ MuValue {
+      vars = { eq ↦ #4, f ↦ #34, for_loop ↦ #3, if ↦ #5,
+               inc ↦ #1, list_map ↦ #0, lt ↦ #2, main ↦ #8,  <-- Note indented line wrapping
+               map_once ↦ #6, map_twice ↦ #7, x ↦ #36,
+               xs ↦ #35, xs' ↦ #37 },
+      coVars = { k ↦ #8 },
+      expr = μ[ y ->
+          < list_map ▷ Ap3 f xs' μ[ ys' ->
+                                    < (List:: y ys') ▷ k >] >]
+   }
+-}
 prettyMuValueAux :: CoValue -> Doc ann
 prettyMuValueAux (MuValue env cases) =
   prettyEnv env
