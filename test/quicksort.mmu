@@ -35,4 +35,4 @@ quick_sort = comu[ ~Ap xs ~k ->
                         < list_append |> ~Ap3 sorted_smaller (List:: pivot sorted_greater) ~k > ] > ] > ] > ] > ] > ];
 
 main = comu[ ~Halt -> 
-    < quick_sort |> ~Ap (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) ~Halt > ]
+    < quick_sort |> ~Ap (List:: (S Z) (List:: (S (S Z)) (List:: (S (S(S Z))) (List:: Z Nil)))) ~Halt > ]

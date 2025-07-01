@@ -11,7 +11,7 @@
   - proposal with examples first, don't implement yet
 - try visualization of steps
   - some way to hide the store/env
-  - command line (non-interative)
+  - command line (non-interactive)
   - command line (interactive)
   - graphViz
   - HTML

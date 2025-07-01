@@ -14,34 +14,36 @@ Examples:
     ...
 ```
 
-- ```pipe [PARAMS] into CO_DEFINITION```, used for generating Ap related commands.
+- ```use [PARAMS] call CO_DEFINITION```, used for generating Ap related commands.
 
 ```()
-  pipe (S (S Z)) (S Z) ~Halt into add
+  use (S (S Z)) (S Z) ~Halt call add
   <=> 
   < Ap3 (S (S Z)) (S Z) ~Halt |> ~add >
 ```
   
-- ```use DEFINITION to pump [PARAMS]```, same as above but for comus
+- ```call DEFINITION with [PARAMS]```, same as above but for comus
 
 ```()
-  use add to pump (S (S Z)) (S Z) ~Halt
+  call add with (S (S Z)) (S Z) ~Halt
   <=> 
   < add |> ~Ap3 (S (S Z)) (S Z) ~Halt >
 ```
 
-- ```catch VAR with COVAR```, used for generating commands that is not involved with Ap.
+- ```pipe VAR into COVAR```, used for generating commands that is not involved with Ap.
 
 ```()
-  catch y with k <=> < y |> k >
-  catch x with mu[...] <=> < x |> mu[...] >
+  pipe y into k <=> < y |> k >
+  pipe x into mu[...] <=> < x |> mu[...] >
+
+  pipe (Ap3 2 1 Halt) into add <=> use Ap3 2 1 Halt call add
 ```
 
-- ```use VAR to catch COVAR```, same as above, but for comu and cocons.
+- ```use VAR pump COVAR```, same as above, but for comu and cocons.
 
 ```()
-  use k to catch y <=> < k |> ~y >
-  use comu[...] to catch x <=> < comu[...] |> ~x >
+  use k pump y <=> < k |> ~y >
+  use comu[...] pump x <=> < comu[...] |> ~x >
 ```
 
 - ```branches [...] (where) / origins [...] (where)``` for creating mu / comu expressions, when pattern matching is involved.
@@ -181,7 +183,7 @@ def list_map f xs k
       then k 
 ```
 
-- ```do [BINDINGS] RETURN_VAL then CONTINUATION```, this is for a continuous squence of ```pipe```, and direct variable cases in branches.
+- ```do [BINDINGS] RETURN_VAL then CONTINUATION```, this is for a continuous sequence of ```call```, and direct variable cases in branches.
 
 ```()
   do
@@ -234,3 +236,18 @@ def list_map f xs k
 ```
 
 **This is somehow inspired by some imperative nature of the process, imperative programs have some current computation steps and also A SINGLE possibility of continuation, given no control operators**
+
+?? list_filter with cpr
+
+list_filter  = comu[ ~Ap3 pred xs ~k ->
+  < xs |> mu[ Nil -> < Nil |> ~k >
+            | List:: x xs' -> 
+              < pred |> ~Ap x mu[ True -> 
+                                  < list_filter |> ~Ap3 pred xs' mu[ ys'-> < List:: x ys' |> ~k > ] > 
+                                  < comu[ ~Ap4 pred xs cpr ~k -> < list_filter |> ~Ap4 pred xs' cpr mu[ ys'-> < List:: x ys' |> ~k > ] > ] |> ~Ap4 ... >
+                                     | False ->
+                                  < list_filter |> ~Ap3 pred xs' mu[ ys' -> < ys' |> ~k > ] > ] > ] > ];
+
+list_filter_with_cpr = comu[ ~Ap4 pred xs cpr ~k -> < list_filter |> ~Ap3 pred xs ~k >]
+
+list_filter "with" cpr
