@@ -1,7 +1,7 @@
-~list_reverse = mu[ Ap3 xs acc ~k -> 
-    < xs |> mu[ Nil -> < acc |> ~k > 
+list_reverse = mu[ Ap3 xs acc k -> 
+    < xs |> mu[ Nil -> < acc |> k > 
             | List:: x xs' -> 
-                < Ap3 xs' (List:: x acc) ~k |> ~list_reverse > ] > ];
+                < Ap3 xs' (List:: x acc) k |> list_reverse > ] > ];
 
 main = 
-    comu[ ~Halt -> < Ap3 (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) Nil ~Halt |> ~list_reverse > ]
+    mu[ Halt -> < Ap3 (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) Nil Halt |> list_reverse > ]

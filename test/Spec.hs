@@ -7,7 +7,6 @@ main :: IO ()
 -- TODO: convert to tests
 main = tests
 
-
 showCommand :: Command -> String
 showCommand = renderPretty . prettyCommand
 
@@ -94,32 +93,32 @@ tests = do
               ]
   printCoExpr muExpr
 
-  putStrLn "\n CoMu expression:"
-  let comuExpr = CoMu [
-                  (CoConsPattern "Print" [Left "x"],
-                   Command (Var "x") (CoVar "k")),
-                  (CoVarPattern "halt",
-                   Command (Cons "Exit" []) (CoVar "k"))
+  putStrLn "\n mu expression:"
+  let muExpr = Mu [
+                  (ConsPattern "Print" [Left "x"],
+                   Command (Var "x") (Var "k")),
+                  (VarPattern "halt",
+                   Command (Cons "Exit" []) (Var "k"))
                 ]
-  printExpr comuExpr
+  printExpr muExpr
 
   putStrLn "\n TEST PARSER"
-  let input = "< x |> ~k >"
+  let input = "< x |> k >"
   case parseString input of
     Left err -> putStrLn $ errorBundlePretty err
     Right cmd -> print cmd  
   
-  let input1 = "< ListCons x xs |> ~k >"
+  let input1 = "< ListCons x xs |> k >"
   case parseString input1 of
     Left err -> putStrLn $ errorBundlePretty err
     Right cmd -> print cmd 
 
-  let input2 = "< ListCons x xs |> mu [ ListNil -> < x |> ~k > | ListCons x xs -> < x |> ~xs > ] >"
+  let input2 = "< ListCons x xs |> mu [ ListNil -> < x |> k > | ListCons x xs -> < x |> xs > ] >"
   case parseString input2 of
     Left err -> putStrLn $ errorBundlePretty err
     Right cmd -> print cmd
 
-  let sampleAdd = "< comu[ ~Ap3 x y ~k -> < x |> mu[ Z -> < y |> ~k > | S x' -> < add |> ~Ap3 x' (S y) ~k > ] > ] |> ~Ap3 (S Z) (S (S Z)) k0 >"
+  let sampleAdd = "< mu[ Ap3 x y k -> < x |> mu[ Z -> < y |> k > | S x' -> < add |> Ap3 x' (S y) k > ] > ] |> Ap3 (S Z) (S (S Z)) k0 >"
   case parseString sampleAdd of
     Left err -> putStrLn $ errorBundlePretty err
     Right cmd -> do 

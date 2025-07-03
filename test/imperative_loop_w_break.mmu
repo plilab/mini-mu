@@ -1,45 +1,45 @@
-list_map = comu[ ~Ap3 f xs ~k -> 
-                < xs |> mu[ Nil -> < Nil |> ~k > 
+list_map = mu[ Ap3 f xs k -> 
+                < xs |> mu[ Nil -> < Nil |> k > 
                           | List:: x xs' -> 
-                            < f |> ~Ap x mu[ y -> 
-                                < list_map |> ~Ap3 f xs' mu[ ys' -> < List:: y ys' |> ~k > ] > ] > ] > ];
+                            < f |> Ap x mu[ y -> 
+                                < list_map |> Ap3 f xs' mu[ ys' -> < List:: y ys' |> k > ] > ] > ] > ];
 
-inc = comu[ ~Ap x ~k -> < S x |> ~k > ];
+inc = mu[ Ap x k -> < S x |> k > ];
 
-lt = comu[ ~Ap3 a b ~k -> < a |> mu[ Z -> 
-                                      < b |> mu[ Z -> < False |> ~k > 
-                                               | S b' -> < True |> ~k > ] >
+lt = mu[ Ap3 a b k -> < a |> mu[ Z -> 
+                                      < b |> mu[ Z -> < False |> k > 
+                                               | S b' -> < True |> k > ] >
                                    | S a' -> 
-                                      < b |> mu[ Z -> < False |> ~k >
-                                               | S b' -> < lt |> ~Ap3 a' b' ~k > ] > ] > ];
+                                      < b |> mu[ Z -> < False |> k >
+                                               | S b' -> < lt |> Ap3 a' b' k > ] > ] > ];
 
-for_loop = comu[ ~Ap5 i end xs body ~k ->
-  < lt |> ~Ap3 i end mu[ is_less ->
+for_loop = mu[ Ap5 i end xs body k ->
+  < lt |> Ap3 i end mu[ is_less ->
     < is_less |> mu[ True ->
-                      < body |> ~Ap3 i xs mu[ xs' ->
-                          < S i |> mu[ i_next -> < for_loop |> ~Ap5 i_next end xs' body ~k > ] > ] >
-                   | False -> < xs |> ~k > ] > ] > ];
+                      < body |> Ap3 i xs mu[ xs' ->
+                          < S i |> mu[ i_next -> < for_loop |> Ap5 i_next end xs' body k > ] > ] >
+                   | False -> < xs |> k > ] > ] > ];
 
-eq = comu[ ~Ap3 a b ~k -> 
+eq = mu[ Ap3 a b k -> 
   < a |> mu[ Z -> 
-              < b |> mu[ Z -> < True |> ~k > 
-                      | S b' -> < False |> ~k > ] >
-           | S a' -> < b |> mu[ Z -> < False |> ~k > 
-                      | S b' -> < True |> ~k > ] > ] > ];
+              < b |> mu[ Z -> < True |> k > 
+                      | S b' -> < False |> k > ] >
+           | S a' -> < b |> mu[ Z -> < False |> k > 
+                      | S b' -> < True |> k > ] > ] > ];
 
-if = comu[ ~Ap5 pred body alt xs ~k -> 
-  < pred |> mu[ True -> < body |> ~Ap xs ~k >
-              | False -> < alt |> ~Ap xs ~k > ] > ];
+if = mu[ Ap5 pred body alt xs k -> 
+  < pred |> mu[ True -> < body |> Ap xs k >
+              | False -> < alt |> Ap xs k > ] > ];
 
-map_once = comu[ ~Ap3 i xs ~k -> < list_map |> ~Ap3 inc xs ~k > ];
+map_once = mu[ Ap3 i xs k -> < list_map |> Ap3 inc xs k > ];
 
--- map_twice = comu[ ~Ap xs ~k -> < list_map |> ~Ap3 inc xs mu[ xs' -> < list_map |> ~Ap3 inc xs' ~k > ] > ];
+-- map_twice = mu[ Ap xs k -> < list_map |> Ap3 inc xs mu[ xs' -> < list_map |> Ap3 inc xs' k > ] > ];
 
 -- map_twice can be also implemented using for for_loop:
 
-map_twice = comu[ ~Ap xs ~k ->
-  < for_loop |> ~Ap5 Z (S (S Z)) xs map_once ~k > ];
+map_twice = mu[ Ap xs k ->
+  < for_loop |> Ap5 Z (S (S Z)) xs map_once k > ];
 
-main = comu[ ~Halt ->
-  < eq |> ~Ap3 (S Z) Z mu[ is_eq -> 
-    < if |> ~Ap5 is_eq map_once map_twice (List:: Z (List:: Z (List:: Z Nil))) ~Halt > ] > ]
+main = mu[ Halt ->
+  < eq |> Ap3 (S Z) Z mu[ is_eq -> 
+    < if |> Ap5 is_eq map_once map_twice (List:: Z (List:: Z (List:: Z Nil))) Halt > ] > ]

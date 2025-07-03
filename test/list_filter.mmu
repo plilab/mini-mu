@@ -1,24 +1,24 @@
-list_filter = comu[ ~Ap4 pred xs cpr ~k ->
-  < xs |> mu[ Nil -> < Nil |> ~k >
+list_filter = mu[ Ap4 pred xs cpr k ->
+  < xs |> mu[ Nil -> < Nil |> k >
             | List:: x xs' -> 
-              < pred |> ~Ap3 x cpr mu[ True -> 
-                                  < list_filter |> ~Ap4 pred xs' cpr mu[ ys'-> < List:: x ys' |> ~k > ] > 
+              < pred |> Ap3 x cpr mu[ True -> 
+                                  < list_filter |> Ap4 pred xs' cpr mu[ ys'-> < List:: x ys' |> k > ] > 
                                      | False ->
-                                  < list_filter |> ~Ap4 pred xs' cpr mu[ ys' -> < ys' |> ~k > ] > ] > ] > ];
+                                  < list_filter |> Ap4 pred xs' cpr mu[ ys' -> < ys' |> k > ] > ] > ] > ];
 
-lt = comu[ ~Ap3 a b ~k -> < a |> mu[ Z -> 
-                                      < b |> mu[ Z -> < False |> ~k > 
-                                               | S b' -> < True |> ~k > ] >
+lt = mu[ Ap3 a b k -> < a |> mu[ Z -> 
+                                      < b |> mu[ Z -> < False |> k > 
+                                               | S b' -> < True |> k > ] >
                                    | S a' -> 
-                                      < b |> mu[ Z -> < False |> ~k >
-                                               | S b' -> < lt |> ~Ap3 a' b' ~k > ] > ] > ];
+                                      < b |> mu[ Z -> < False |> k >
+                                               | S b' -> < lt |> Ap3 a' b' k > ] > ] > ];
 
-geq = comu[ ~Ap3 a b ~k -> < a |> mu[ Z -> 
-                                      < b |> mu[ Z -> < True |> ~k > 
-                                               | S b' -> < False |> ~k > ] >
+geq = mu[ Ap3 a b k -> < a |> mu[ Z -> 
+                                      < b |> mu[ Z -> < True |> k > 
+                                               | S b' -> < False |> k > ] >
                                    | S a' -> 
-                                      < b |> mu[ Z -> < True |> ~k >
-                                               | S b' -> < geq |> ~Ap3 a' b' ~k > ] > ] > ];
+                                      < b |> mu[ Z -> < True |> k >
+                                               | S b' -> < geq |> Ap3 a' b' k > ] > ] > ];
 
-main = comu[ ~Halt -> 
-    < list_filter |> ~Ap4 geq (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) (S (S Z)) ~Halt > ]
+main = mu[ Halt -> 
+    < list_filter |> Ap4 geq (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) (S (S Z)) Halt > ]

@@ -5,12 +5,12 @@
 Examples:
 
 ```()
-  codef add x y k = <=> add = mu[ Ap3 x y k -> ...]
+  codef add x y k := <=> add = mu[ Ap3 x y k -> ...]
     ...
 ```
 
 ```()
-  def inc n k = <=> inc = comu[ Ap n k -> ...]
+  def inc n k := <=> inc = comu[ Ap n k -> ...]
     ...
 ```
 

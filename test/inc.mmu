@@ -1,5 +1,5 @@
-~inc = mu[ Ap n ~k -> < S n |> ~k > ];
-main = comu[ ~Halt -> < Ap Z ~Halt |> ~inc > ]
+inc = mu[ Ap n k -> < S n |> k > ];
+main = mu[ Halt -> < Ap Z Halt |> inc > ]
 
--- ~inc = mu[ Ap n -> < S n |> ~Halt > ];
--- main = comu[ ~Halt -> < Ap Z |> ~inc > ]
+-- inc = mu[ Ap n -> < S n |> Halt > ];
+-- main = mu[ Halt -> < Ap Z |> inc > ]

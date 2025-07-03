@@ -1,6 +1,5 @@
 module Parser (parseString, parseFile, program) where
 
-import Control.Monad (void)
 import Data.Void
 import Debug.Trace
 import Syntax
@@ -52,7 +51,7 @@ varIdentifier =
           else return word
     )
   where
-    keywords = ["mu", "comu"]
+    keywords = ["mu"]
 
 -- Parse a constructor (starting with uppercase)
 consIdentifier :: Parser String
@@ -71,18 +70,18 @@ varId =
   label
     "variable id"
     ( lexeme $ do
-        notFollowedBy (char '~')
+        -- notFollowedBy (char '~')
         varIdentifier
     )
 
 -- coVarID must start with ~
-coVarId :: Parser CoVarId
-coVarId =
-  label
-    "co-variable id"
-    ( lexeme $ do
-        void (char '~') *> varIdentifier
-    )
+-- coVarId :: Parser CoVarId
+-- coVarId =
+--   label
+--     "co-variable id"
+--     ( lexeme $ do
+--         void (char '~') *> varIdentifier
+--     )
 
 -- same for constructors
 consId :: Parser ConsId
@@ -90,17 +89,17 @@ consId =
   label
     "constructor id"
     ( lexeme $ do
-        notFollowedBy (char '~')
+        -- notFollowedBy (char '~')
         consIdentifier
     )
 
-coConsId :: Parser CoConsId
-coConsId =
-  label
-    "co-constructor id"
-    ( lexeme $ do
-        void (char '~') *> consIdentifier
-    )
+-- coConsId :: Parser CoConsId
+-- coConsId =
+--   label
+--     "co-constructor id"
+--     ( lexeme $ do
+--         void (char '~') *> consIdentifier
+--     )
 
 -- Parse a pattern
 pattern :: Parser Pattern
@@ -110,13 +109,7 @@ pattern =
     ( choice
         [ try $ do
             c <- consId
-            args <-
-              many
-                ( choice
-                    [ Left <$> varId,
-                      Right <$> coVarId
-                    ]
-                )
+            args <- many varId              
             return $ ConsPattern c args,
           -- Parse VarPattern
           try $ VarPattern <$> varId
@@ -124,25 +117,25 @@ pattern =
     )
 
 -- Parse a copattern
-coPattern :: Parser CoPattern
-coPattern =
-  label
-    "co-pattern"
-    ( choice
-        [ try $ do
-            c <- coConsId
-            args <-
-              many
-                ( choice
-                    [ Left <$> varId,
-                      Right <$> coVarId
-                    ]
-                )
-            return $ CoConsPattern c args,
-          -- Parse CoVarPattern
-          try $ CoVarPattern <$> coVarId
-        ]
-    )
+-- coPattern :: Parser CoPattern
+-- coPattern =
+--   label
+--     "co-pattern"
+--     ( choice
+--         [ try $ do
+--             c <- coConsId
+--             args <-
+--               many
+--                 ( choice
+--                     [ Left <$> varId,
+--                       Right <$> coVarId
+--                     ]
+--                 )
+--             return $ CoConsPattern c args,
+--           -- Parse CoVarPattern
+--           try $ CoVarPattern <$> coVarId
+--         ]
+--     )
 
 -- Parse a case pattern -> command in a Mu
 patternCase :: Parser (Pattern, Command)
@@ -157,19 +150,19 @@ patternCase =
     )
 
 -- Parse a case pattern -> command in a CoMu
-coPatternCase :: Parser (CoPattern, Command)
-coPatternCase =
-  label
-    "co-pattern case"
-    ( do
-        pat <- coPattern
-        _ <- symbol "->"
-        cmd <- commandWithAngles
-        return (pat, cmd)
-    )
+-- coPatternCase :: Parser (CoPattern, Command)
+-- coPatternCase =
+--   label
+--     "co-pattern case"
+--     ( do
+--         pat <- coPattern
+--         _ <- symbol "->"
+--         cmd <- commandWithAngles
+--         return (pat, cmd)
+--     )
 
-atom :: Parser (Either Expr CoExpr)
-atom = trace "Parsing atom" $ (Left <$> atomExpr) <|> (Right <$> atomCoExpr)
+atom :: Parser Expr
+atom = trace "Parsing atom" atomExpr
 
 atomExpr :: Parser Expr
 atomExpr =
@@ -181,31 +174,26 @@ atomExpr =
         ]
     )
 
-atomCoExpr :: Parser CoExpr
-atomCoExpr =
-  trace "Parsing atom coexpr" $
-    label
-      "atom coexpr"
-      ( choice
-          [ try coConsWithNoArgs,
-            try $ do
-              _ <- symbol "mu"
-              branches <- brackets $ sepBy1 patternCase (symbol "|")
-              return $ Mu branches,
-            try $ CoVar <$> coVarId,
-            try $ parens coExpr
-          ]
-      )
+-- atomCoExpr :: Parser CoExpr
+-- atomCoExpr =
+--   trace "Parsing atom coexpr" $
+--     label
+--       "atom coexpr"
+--       ( choice
+--           [ try coConsWithNoArgs,
+--             coExprAux
+--           ]
+--       )
 
 consWithNoArgs :: Parser Expr
 consWithNoArgs = do
   c <- consId
   return $ Cons c []
 
-coConsWithNoArgs :: Parser CoExpr
-coConsWithNoArgs = do
-  c <- coConsId
-  return $ CoCons c []
+-- coConsWithNoArgs :: Parser CoExpr
+-- coConsWithNoArgs = do
+--   c <- coConsId
+--   return $ CoCons c []
 
 expr :: Parser Expr
 expr =
@@ -223,30 +211,30 @@ exprAux =
     "expression auxiliary"
     ( choice
         [ try $ do
-            _ <- symbol "comu"
-            branches <- brackets $ sepBy1 coPatternCase (symbol "|")
-            return $ CoMu branches,
+            _ <- symbol "mu"
+            branches <- brackets $ sepBy1 patternCase (symbol "|")
+            return $ Mu branches,
           try $ Var <$> varId,
           try $ parens expr
         ]
     )
 
 -- Parse a coexpression
-coExpr :: Parser CoExpr
-coExpr =
-  label
-    "co-expression"
-    ( choice
-        [ try $ do
-            _ <- symbol "mu"
-            branches <- brackets $ sepBy1 patternCase (symbol "|")
-            return $ Mu branches,
-          try $ CoCons <$> coConsId <*> many atom,
-          try $ CoVar <$> coVarId,
-          -- handle parentheses
-          try $ parens coExpr
-        ]
-    )
+-- coExpr :: Parser CoExpr
+-- coExpr =
+--   label
+--     "co-expression"
+--     ( choice
+--         [ try $ do
+--             _ <- symbol "mu"
+--             branches <- brackets $ sepBy1 patternCase (symbol "|")
+--             return $ Mu branches,
+--           try $ CoCons <$> coConsId <*> many atom,
+--           try $ CoVar <$> coVarId,
+--           -- handle parentheses
+--           try $ parens coExpr
+--         ]
+--     )
 
 -- Parse a command
 command :: Parser Command
@@ -256,7 +244,7 @@ command =
     ( do
         e <- expr
         _ <- choice [symbol ">>", symbol "|>"]
-        Command e <$> coExpr
+        Command e <$> expr
     )
 
 -- Parse angle brackets around a command
@@ -266,28 +254,25 @@ commandWithAngles = angles command
 -- z = e;
 -- x = e
 -- ~y = co
-exprDecl :: Parser Decl
-exprDecl =
+decl :: Parser Decl
+decl =
   label
-    "expression declaration"
+    "Declaration"
     ( do
         ident <- varId
         _ <- symbol "="
         Decl ident <$> expr
     )
 
-coExprDecl :: Parser Decl
-coExprDecl =
-  label
-    "co-expression declaration"
-    ( do
-        ident <- coVarId
-        _ <- symbol "="
-        CoDecl ident <$> coExpr
-    )
-
-decl :: Parser Decl
-decl = label "declaration" (exprDecl <|> coExprDecl)
+-- coExprDecl :: Parser Decl
+-- coExprDecl =
+--   label
+--     "co-expression declaration"
+--     ( do
+--         ident <- coVarId
+--         _ <- symbol "="
+--         CoDecl ident <$> coExpr
+--     )
 
 decls :: Parser [Decl]
 decls = sepBy1 decl (symbol ";")
