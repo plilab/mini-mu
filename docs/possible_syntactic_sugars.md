@@ -26,7 +26,6 @@ Ap [PARAMS], CO_DEFINITION
 
 (S (S Z)) (S Z) `Ap3` ~add
 
-
 f @ x y z k1 k2 k3 => f, Ap x y z k1 k2 k3
 
 Ap3 x y z k1 k2 k3
@@ -35,7 +34,6 @@ Ap3 x y k1 k2 k3 k4
 mu [ Ap x y z k1 k2 k3
 
 Z `S` inc
-
 
 Ap3 Z Z ~Halt, ~add
 
@@ -89,7 +87,6 @@ Examples:
   case [ branch1 -> k1 ... branchN -> kN ]
   mu [ branch1 -> k1 | ... | branchN -> kN ]
 
-
 case x of Foo -> ...
 
 mu [ foo -> ... | ... | ...]
@@ -100,7 +97,6 @@ mu [
 
 x, [ Foo -> ...]
 
-
 mu [ Ap x k ->
   ....
   x, k
@@ -108,7 +104,6 @@ mu [ Ap x k ->
   k, x
   ....
 ]
-
 
 def x y z k = f, Ap { k1 -> g, Ap2 { k2 -> h, Ap1 x k2} k1} k
 def x y z k = f, Ap [ k1 -> g, Ap2 [ k2 -> h, Ap1 x k2] k1] k
@@ -182,7 +177,6 @@ type ...
 def x a b = ...
 def y d = ... exit ...
 run x, y
-
 
 (Probably not a good idea)
 
@@ -299,8 +293,9 @@ def list_map f xs k
     z' <- f x' y';
     z'
   >
-  begin
-    y' z <- h y;
+  seqthen y' z <- h y;
+
+  seq = 
     x' <- g x;
     z' <- f x' y';
     z'
@@ -366,32 +361,85 @@ def list_map f xs k
   into cont1
 ```
 
-**This is somehow inspired by some imperative nature of the process, imperative programs have some current computation steps and also A SINGLE possibility of continuation, given no control operators**
-
-?? list_filter with cpr
-
-list_filter  = comu[ ~Ap3 pred xs ~k ->
-  < xs |> mu[ Nil -> < Nil |> ~k >
-            | List:: x xs' -> 
-              < pred |> ~Ap x mu[ True -> 
-                                  < list_filter |> ~Ap3 pred xs' mu[ ys'-> < List:: x ys' |> ~k > ] > 
-                                  < comu[ ~Ap4 pred xs cpr ~k -> < list_filter |> ~Ap4 pred xs' cpr mu[ ys'-> < List:: x ys' |> ~k > ] > ] |> ~Ap4 ... >
-                                     | False ->
-                                  < list_filter |> ~Ap3 pred xs' mu[ ys' -> < ys' |> ~k > ] > ] > ] > ];
-
-list_filter_with_cpr = comu[ ~Ap4 pred xs cpr ~k -> < list_filter |> ~Ap3 pred xs ~k >]
-
-list_filter "with" cpr
-
 -----------------------
 
-Unify Expr and CoExpr
+## Finalized Sugar
 
-comma
-let (expr and commands)
-begin/end
-def/run
-@
-Ap
+1. Unify Expr and CoExpr [Done]
+
+2. Use >> to simplify notation of command, use @ to simplify command involving
+  Ap constructor
+
+< Cons |> cont > === Cons >> cont
+< Ap x k |> fun > === x k @ fun
+< fun |> Ap x y k > === fun @ x y k
+
+3. def/run grammar:
+
+def NAME ARGS* := COMMAND === NAME = mu[ Ap ARGS... -> COMMAND ]
+
+run COMMAND === main = mu[ Halt -> COMMAND ]
+
+E.g.
+
+def list_map f xs k := xs >> [ Nil -> ... | Cons -> ...]
+
+run list_map >> Ap3 inc (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) Halt
+
+3. let grammar:
+
+let (NAME = EXPRESSION/COMMAND)(. NAME = EXPRESSION/COMMAND)* in
+  EXPRESSION/COMMAND
+
+4. where grammar:
+
+where (NAME = EXPRESSION/COMMAND)(. NAME = EXPRESSION/COMMAND)*
+
+E.g.
+
+def list_map f xs k :=
+  xs >> [ Nil -> nil_case | List:: x xs' -> cons_case ]
+    where
+      nil_case = Nil, k.
+      cons_case = f @ x [ y -> list_map @ xs' [ ys' -> List:: y ys', k ] ]
+
+5. do...then grammar (let's temperarily use do instead of seq since it is clearer,
+but whether or not it is a monad is pending on further discussion)
+
+do
+  (NAME <- EXPRESSION EXPRESSION*,)*
+  EXPRESSION
+then EXPRESSION
+
+===
+
+EXPRESSION @ EXPRESSION* [ NAME -> EXPRESIION @ EXPRESSION* [ NAME -> EXPRESSION @ EXPRESSION EXPRESSION]]
+
+E.g.
+quick_sort = mu[ Ap xs k ->
+  < xs |> mu[ Nil -> < Nil |> k >
+            | List:: pivot xs' ->
+                < list_filter |> Ap4 lt xs' pivot mu[ smaller ->
+                  < list_filter |> Ap4 geq xs' pivot mu[ greater ->
+                    < quick_sort |> Ap smaller mu[ sorted_smaller ->
+                      < quick_sort |> Ap greater mu[ sorted_greater ->
+                        < list_append |> Ap3 sorted_smaller (List:: pivot sorted_greater) k > ] > ] > ] > ] > ] > ];
+
+def quick_sort xs k :=
+  xs >> [ Nil -> Nil >> k
+        | List:: pivot xs' ->
+            do
+              smaller <- list_filter lt xs' pivot,
+              greater <- list_filter geq xs' pivot,
+              sorted_s <- quick_sort smaller,
+              sorted_g <- quick_sort greater,
+              sorted <- list_append sorted_s (List:: pivot sorted_g) k,
+              sorted
+            then k
+        ]
+  
+6. Simplify mu[] as []
+ easy
+7. Unify Ap [Done]
 
 Later: idiom brackets

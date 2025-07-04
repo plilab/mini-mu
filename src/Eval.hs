@@ -11,7 +11,6 @@ import Debug.Trace
 import Pretty (prettyTopLevelValue, renderPretty)
 import Syntax
 
-
 evalExpr :: Env -> Store -> Expr -> (Value, Store)
 evalExpr env store (Var x) = (storeLookup store (envLookup env x), store)
 evalExpr env store (Mu clauses) = (MuValue env clauses, store)
@@ -40,6 +39,7 @@ eval :: Env -> Store -> Expr -> (Value, Store)
 eval env store expr = (value, store')
   where
     (value, store') = evalExpr env store expr
+
 -- eval env store (Right coexpr) = (Right value, store')
 --   where
 --     (value, store') = evalCoExpr env store coexpr
@@ -51,9 +51,11 @@ step (CommandConfig env store (Command e ce)) =
     (value, store') = evalExpr env store e
     (coValue, store'') = evalExpr env store' ce
 step (CommandConfig env store (CommandVar cmdId)) =
-  [ CommandConfig env
+  [ CommandConfig
+      env
       store
-      (storeLookupCommand store (envLookup env cmdId))]
+      (storeLookupCommand store (envLookup env cmdId))
+  ]
 step (ValueConfig store cons@(ConsValue {}) (MuValue env clauses)) =
   match env store cons clauses
 step (ValueConfig store (MuValue env clauses) cons@(ConsValue {})) =
@@ -63,7 +65,7 @@ step (ValueConfig store v@(MuValue env clauses) cv@(MuValue env' clauses')) =
 -- temporary hack to deal with "Halt"
 step (ValueConfig _ cons@(ConsValue _ _) (ConsValue "Halt" [])) =
   [ErrorConfig ("Halt with result: " ++ renderPretty (prettyTopLevelValue cons))]
-step (ValueConfig _ (ConsValue "Halt" []) cons@(ConsValue _ _)) = 
+step (ValueConfig _ (ConsValue "Halt" []) cons@(ConsValue _ _)) =
   [ErrorConfig ("Halt with result: " ++ renderPretty (prettyTopLevelValue cons))]
 step (ValueConfig _ (ConsValue {}) (ConsValue {})) =
   [ErrorConfig "Bad type: cannot continue with 2 constructors"]
