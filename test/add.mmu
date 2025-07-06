@@ -1,2 +1,5 @@
-add = mu[ Ap3 x y k -> < x |> mu[ Z -> < y |> k > | S x' -> < Ap3 x' (S y) k |> add > ] > ];
-main = mu[ Halt -> < Ap3 (S (S Z)) (S Z) Halt |> add > ]
+def add x y k :=
+    x >> [ Z -> y >> k
+         | S x' -> x' (S y) k @ add ];
+
+run add @ (S (S Z)) (S Z) Halt

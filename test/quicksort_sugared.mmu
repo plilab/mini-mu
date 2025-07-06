@@ -1,0 +1,29 @@
+def list_filter pred xs cpr k :=  
+  xs >> [ Nil -> Nil >> k
+        | List:: x xs' -> 
+            pred @ x cpr [ True -> do ys' <- list_filter pred xs' cpr, then List:: x ys' >> k 
+                         | False -> do ys' <- list_filter pred xs' cpr, then ys' >> k ] ];                                  
+
+def lt a b k := 
+  a >> [ Z -> b >> [ Z -> False >> k | S b' -> True >> k ]
+       | S a' -> b >> [ Z -> False >> k | S b' -> lt @ a' b' k ] ];
+
+def geq a b k := 
+  a >> [ Z -> b >> [ Z -> True >> k | S b' -> False >> k ]
+       | S a' -> b >> [ Z -> True >> k | S b' -> geq @ a' b' k ] ];
+
+def list_append as bs k :=
+  as >> [ Nil -> bs >> k
+        | List:: a as' -> list_append @ as' bs [ rest -> List:: a rest >> k ] ];
+
+def quick_sort xs k :=
+  xs >> [ Nil -> Nil >> k
+        | List:: pivot xs' ->
+            do
+              smaller <- list_filter lt xs' pivot,
+              greater <- list_filter geq xs' pivot,
+              sorted_s <- quick_sort smaller,
+              sorted_g <- quick_sort greater,
+            then list_append @ sorted_s (List:: pivot sorted_g) k ];
+
+run quick_sort @ (List:: 3 (List:: 1 (List:: 2 (List:: 0 Nil)))) Halt

@@ -33,7 +33,6 @@ library
       Parser
       Pretty
       SmallStep
-      Sugar
       Syntax
   other-modules:
       Paths_mini_mu

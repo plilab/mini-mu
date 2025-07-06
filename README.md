@@ -2,4 +2,6 @@
 
 ## Testing
 
-To run test cases, run script ```stack runhaskell test/Tests.hs``` in your terminal.
+To run all test cases, run script ```stack runhaskell test/Tests.hs``` in your terminal.
+
+To run specific file, run script ```stack runhaskell ./src/Main.hs ./test/*.mmu main```
