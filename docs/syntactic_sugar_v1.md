@@ -2,10 +2,10 @@
 
 1. Unify Expr and CoExpr [Done]
 
-2. Use >> to simplify notation of command, use @ to simplify command involving
+2. Use . to simplify notation of command, use @ to simplify command involving
   Ap constructor
 
-< Cons |> cont > === Cons >> cont
+< Cons |> cont > === Cons . cont
 < Ap x k |> fun > === x k @ fun
 < fun |> Ap x y k > === fun @ x y k
 
@@ -17,9 +17,9 @@ run COMMAND === main = mu[ Halt -> COMMAND ]
 
 E.g.
 
-def list_map f xs k := xs >> [ Nil -> ... | Cons -> ...]
+def list_map f xs k := xs . [ Nil -> ... | Cons -> ...]
 
-run list_map >> Ap3 inc (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) Halt
+run list_map . Ap3 inc (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) Halt
 
 3. let grammar:
 
@@ -33,7 +33,7 @@ where (NAME = EXPRESSION/COMMAND)(. NAME = EXPRESSION/COMMAND)*
 E.g.
 
 def list_map f xs k :=
-  xs >> [ Nil -> nil_case | List:: x xs' -> cons_case ]
+  xs . [ Nil -> nil_case | List:: x xs' -> cons_case ]
     where
       nil_case = Nil, k.
       cons_case = f @ x [ y -> list_map @ xs' [ ys' -> List:: y ys', k ] ]
@@ -61,14 +61,14 @@ quick_sort = mu[ Ap xs k ->
                         < list_append |> Ap3 sorted_smaller (List:: pivot sorted_greater) k > ] > ] > ] > ] > ] > ];
 
 def quick_sort xs k :=
-  xs >> [ Nil -> Nil >> k
+  xs . [ Nil -> Nil . k
         | List:: pivot xs' ->
             do
               smaller <- list_filter lt xs' pivot,
               greater <- list_filter geq xs' pivot,
               sorted_s <- quick_sort smaller,
               sorted_g <- quick_sort greater,
-            then list_append sorted_s (List:: pivot sorted_g) >> k
+            then list_append sorted_s (List:: pivot sorted_g) . k
         ]
   
 6. Simplify mu[] as []

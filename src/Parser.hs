@@ -59,14 +59,15 @@ parens = between (symbol "(") (symbol ")")
 varIdentifier :: Parser String
 varIdentifier =
   label
-    "variable name" $
-    lexeme $ do
-        first <- lowerChar
-        rest <- many (alphaNumChar <|> char '_' <|> char '\'')
-        let word = first : rest
-        if word `elem` keywords
-          then fail $ "keyword " ++ show word ++ " cannot be the name of a variable"
-          else return word
+    "variable name"
+    $ lexeme
+    $ do
+      first <- lowerChar
+      rest <- many (alphaNumChar <|> char '_' <|> char '\'')
+      let word = first : rest
+      if word `elem` keywords
+        then fail $ "keyword " ++ show word ++ " cannot be the name of a variable"
+        else return word
   where
     keywords = ["mu", "def", "run", "let", "in", "where", "do", "then"]
 
@@ -75,10 +76,11 @@ consIdentifier :: Parser String
 consIdentifier =
   label
     "constructor name"
-    $ lexeme $ do
-        first <- upperChar
-        rest <- many (alphaNumChar <|> char '_' <|> char ':' <|> char '\'')
-        return (first : rest)
+    $ lexeme
+    $ do
+      first <- upperChar
+      rest <- many (alphaNumChar <|> char '_' <|> char ':' <|> char '\'')
+      return (first : rest)
 
 nat :: Parser Expr
 nat = label "natural number" $ lexeme $ do
@@ -93,10 +95,10 @@ varId :: Parser VarId
 varId =
   label
     "variable id"
-    $ lexeme $ do
-        -- notFollowedBy (char '~')
-        varIdentifier
-
+    $ lexeme
+    $ do
+      -- notFollowedBy (char '~')
+      varIdentifier
 
 -- coVarID must start with ~
 -- coVarId :: Parser CoVarId
@@ -131,13 +133,13 @@ pattern =
   label
     "pattern"
     $ choice
-        [ try $ do
-            c <- consId
-            args <- many varId
-            return $ ConsPattern c args,
-          -- Parse VarPattern
-          try $ VarPattern <$> varId
-        ]
+      [ try $ do
+          c <- consId
+          args <- many varId
+          return $ ConsPattern c args,
+        -- Parse VarPattern
+        try $ VarPattern <$> varId
+      ]
 
 -- Parse a copattern
 -- coPattern :: Parser CoPattern
@@ -166,10 +168,10 @@ patternCase =
   label
     "pattern case"
     $ do
-        pat <- pattern
-        _ <- symbol "->"
-        cmd <- command
-        return (pat, cmd)
+      pat <- pattern
+      _ <- symbol "->"
+      cmd <- command
+      return (pat, cmd)
 
 -- Parse a case pattern -> command in a CoMu
 -- coPatternCase :: Parser (CoPattern, Command)
@@ -188,14 +190,14 @@ atom = trace "Parsing atom" atomExpr
 
 atomExpr :: Parser Expr
 atomExpr =
-  label
-    "atom expr"
+  trace "Parsing atom expr"
+    $ label
+      "atom expr"
     $ choice
-        [ try consWithNoArgs,
-          try nat,
-          exprAux
-        ]
-
+      [ try consWithNoArgs,
+        try nat,
+        exprAux
+      ]
 
 -- atomCoExpr :: Parser CoExpr
 -- atomCoExpr =
@@ -220,11 +222,11 @@ consWithNoArgs = do
 
 expr :: Parser Expr
 expr =
-  label
-    "expression"
+  trace "Parsing expr"
+    $ label
+      "expression"
     $ choice
-      [
-        try letExpr,
+      [ try letExpr,
         try $ Cons <$> consId <*> many atom,
         try nat, -- Sugar 8: Expand numerical to S...Z
         exprAux
@@ -232,21 +234,22 @@ expr =
 
 exprAux :: Parser Expr
 exprAux =
-  label
-    "expression auxiliary"
+  trace "Parsing expr auxiliary"
+    $ label
+      "expression auxiliary"
     $ choice
-        [ try $ do
-            _ <- symbol "mu"
-            branches <- brackets $ sepBy1 patternCase (symbol "|")
-            return $ Mu branches,
-          -- Sugar 7: Simplify mu[] as []
-          try $ do
-            branches <- brackets $ sepBy1 patternCase (symbol "|")
-            return $ Mu branches,
-          try nat,
-          try $ Var <$> varId,
-          parens expr
-        ]
+      [ try $ do
+          _ <- symbol "mu"
+          branches <- brackets $ sepBy1 patternCase (symbol "|")
+          return $ Mu branches,
+        -- Sugar 7: Simplify mu[] as []
+        try $ do
+          branches <- brackets $ sepBy1 patternCase (symbol "|")
+          return $ Mu branches,
+        try nat,
+        try $ Var <$> varId,
+        parens expr
+      ]
 
 -- Parse a coexpression
 -- coExpr :: Parser CoExpr
@@ -268,37 +271,34 @@ exprAux =
 -- Parse a command
 command :: Parser Command
 command =
-  label
-    "command"
+  trace "Parsing command"
+    $ label
+      "command"
     $ choice
-    [
-      try commandSugar,
-      try doThenCommand,
-      try $ angles $ do
-        e <- expr
-        _ <- symbol "|>"
-        Command e <$> expr
-    ]
-
-
+      [ try commandSugar,
+        try doThenCommand,
+        try $ angles $ do
+          e <- expr
+          _ <- symbol "|>"
+          Command e <$> expr
+      ]
 
 -- z = e;
 -- x = e
 -- ~y = co
 decl :: Parser Decl
 decl =
-  label
-    "Declaration"
+  trace "Parsing declaration"
+    $ label
+      "Declaration"
     $ choice
-    [
-      try defDecl,
-      try runDecl,
-      do
-        ident <- varId
-        _ <- symbol "="
-        Decl ident <$> expr
-    ]
-
+      [ try defDecl,
+        try runDecl,
+        do
+          ident <- varId
+          _ <- symbol "="
+          Decl ident <$> expr
+      ]
 
 -- coExprDecl :: Parser Decl
 -- coExprDecl =
@@ -321,7 +321,7 @@ decls = sepBy1 decl (symbol ";")
 -- <|> (return [])
 
 program :: Parser Program
-program = label "program" $ Program <$> (sc *> decls <* eof)
+program = trace "Parsing program" $ label "program" $ Program <$> (sc *> decls <* eof)
 
 -- Utility function to run the parser
 
@@ -335,17 +335,16 @@ parseFile file = do
   contents <- readFile file
   return $ parse (sc *> program <* eof) file contents
 
-
 ---- -- Sugar functions for parsing commands and declarations
 
--- | >> and @ operator for generating commands
+-- | . and @ operator for generating commands
 commandSugar :: Parser Command
-commandSugar = trace "commandSugar" $ do
+commandSugar = trace "Parsing Sugared Command" $ do
   choice
     [ try $ do
-        -- >> operator sugar: x >> y === < x |> y >
+        -- . operator sugar: x . y === < x |> y >
         e <- expr
-        _ <- symbol ">>"
+        _ <- symbol "."
         Command e <$> expr,
       do
         -- @ operator sugar: x k @ fun === < Ap x k |> fun >
@@ -373,21 +372,21 @@ commandSugar = trace "commandSugar" $ do
 
 -- | Sugar for definitions: def/run
 -- def NAME ARGS* := COMMAND === NAME = mu[ Ap ARGS... -> COMMAND ]
-
 defDecl :: Parser Decl
-defDecl = do
-  _ <- symbol "def"
-  name <- varId
-  args <- many varId
-  _ <- symbol ":="
-  Decl name . desugarDef args <$> command
+defDecl = trace "Parsing Sugared Declaration" $
+  label "Sugared Declaration" $
+    do
+      _ <- symbol "def"
+      name <- varId
+      args <- many varId
+      _ <- symbol ":="
+      Decl name . desugarDef args <$> command
   where
     desugarDef :: [VarId] -> Command -> Expr
     desugarDef args cmd =
       Mu [(ConsPattern "Ap" args, cmd)]
 
 -- | run COMMAND === main = mu[ Halt -> COMMAND ]
-
 runDecl :: Parser Decl
 runDecl = do
   _ <- symbol "run"
@@ -395,7 +394,6 @@ runDecl = do
   where
     desugarRun :: Command -> Expr
     desugarRun cmd = Mu [(ConsPattern "Halt" [], cmd)]
-
 
 -- Sugar 4: let grammar
 letExpr :: Parser Expr
@@ -419,7 +417,6 @@ letExpr = do
       desugarLet rest body
     desugarLet ((name, Right cmd) : rest) body =
       desugarLet rest body
-
 
 whereClause :: Parser [(VarId, Either Expr Command)]
 whereClause = do

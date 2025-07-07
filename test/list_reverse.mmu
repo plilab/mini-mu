@@ -1,7 +1,6 @@
-list_reverse = mu[ Ap3 xs acc k -> 
-    < xs |> mu[ Nil -> < acc |> k > 
-            | List:: x xs' -> 
-                < Ap3 xs' (List:: x acc) k |> list_reverse > ] > ];
+def list_reverse xs acc k :=
+    xs . [ Nil -> acc . k
+          | List:: x xs' -> 
+                xs' (List:: x acc) k @ list_reverse ];
 
-main = 
-    mu[ Halt -> < Ap3 (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) Nil Halt |> list_reverse > ]
+run list_reverse @ (List:: (S (S Z)) (List:: 1 (List:: 0 Nil))) (Nil) Halt 
