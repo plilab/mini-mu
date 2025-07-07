@@ -12,14 +12,13 @@ def lt a b k :=
   a . [ Z -> b . [ Z -> False . k | S b' -> True . k ]
        | S a' -> b . [ Z -> False . k | S b' -> lt @ a' b' k ] ];
 
-for_loop = mu[ Ap5 i end xs body k ->
-  < lt |> Ap3 i end mu[ is_less ->
-    < is_less |> mu[ True ->
-                      < body |> Ap3 i xs mu[ xs' ->
-                          < S i |> mu[ i_next -> < for_loop |> Ap5 i_next end xs' body k > ] > ] >
-                   | False -> < xs |> k > ] > ] > ];
+def for_loop i end xs body k :=
+  lt @ i end [ is_less ->
+    is_less . [ True ->
+                  body @ i xs [ xs' ->
+                    S i . [ i_next -> for_loop @ i_next end xs' body k ] ]
+              | False -> xs . k ] ];
 
-map_once = mu[ Ap3 i xs k -> < list_map |> Ap3 inc xs k > ];
+def map_once i xs k := list_map @ inc xs k;
 
-main = mu[ Halt ->
-    < for_loop |> Ap5 Z (S (S (S Z))) (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) map_once Halt > ]
+run for_loop @ 0 (let three = 3 in three) (List:: 2 (List:: 1 (List:: 0 Nil))) map_once Halt

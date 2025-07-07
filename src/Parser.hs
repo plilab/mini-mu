@@ -277,6 +277,7 @@ command =
     $ choice
       [ try commandSugar,
         try doThenCommand,
+        try letCommand,
         try $ angles $ do
           e <- expr
           _ <- symbol "|>"
@@ -397,9 +398,9 @@ runDecl = do
 
 -- Sugar 4: let grammar
 letExpr :: Parser Expr
-letExpr = do
+letExpr = label "let expression" $ trace "Parsing let expression" $ do
   _ <- symbol "let"
-  bindings <- sepBy1 binding (symbol ".")
+  bindings <- sepBy1 binding (symbol ",")
   _ <- symbol "in"
   desugarLet bindings <$> expr
   where
@@ -412,16 +413,21 @@ letExpr = do
         ]
     desugarLet :: [(VarId, Either Expr Command)] -> Expr -> Expr
     desugarLet [] body = body
-    desugarLet ((name, Left e) : rest) body =
-      -- Simple substitution for now - proper implementation would need alpha conversion
-      desugarLet rest body
-    desugarLet ((name, Right cmd) : rest) body =
-      desugarLet rest body
+    desugarLet bindings body =
+      foldr
+        ( \(name, value) acc -> case value of
+            Left e -> findAndSubstExprInExpr name e acc
+            Right c -> findAndSubstCmdInExpr name c acc
+        )
+        body
+        bindings
 
-whereClause :: Parser [(VarId, Either Expr Command)]
-whereClause = do
-  _ <- symbol "where"
-  sepBy1 binding (symbol ".")
+letCommand :: Parser Command
+letCommand = trace "Parsing let command" $ label "let command" $ do
+  _ <- symbol "let"
+  bindings <- sepBy1 binding (symbol ",")
+  _ <- symbol "in"
+  desugarLetCommand bindings <$> command
   where
     binding = do
       name <- varId
@@ -430,6 +436,56 @@ whereClause = do
         [ do e <- expr; return (name, Left e),
           do c <- command; return (name, Right c)
         ]
+    desugarLetCommand :: [(VarId, Either Expr Command)] -> Command -> Command
+    desugarLetCommand [] cmd = cmd
+    desugarLetCommand bindings cmd =
+      foldr
+        ( \(name, value) acc -> case value of
+            Left e -> findAndSubstExprInCmd name e acc
+            Right c -> findAndSubstCmdInCmd name c acc
+        )
+        cmd
+        bindings
+
+findAndSubstExprInExpr :: VarId -> Expr -> Expr -> Expr
+findAndSubstExprInExpr name e (Mu branches) =
+  Mu (map (\(p, c) -> (p, findAndSubstExprInCmd name e c)) branches)
+findAndSubstExprInExpr name e (Cons c args) =
+  Cons c (map (findAndSubstExprInExpr name e) args)
+findAndSubstExprInExpr name e (Var v) =
+  if v == name then e else Var v
+
+findAndSubstExprInCmd :: VarId -> Expr -> Command -> Command
+findAndSubstExprInCmd name e (Command expr1 expr2) =
+  Command (findAndSubstExprInExpr name e expr1) (findAndSubstExprInExpr name e expr2)
+findAndSubstExprInCmd _ _ (CommandVar cmdId) =
+  CommandVar cmdId -- No substitution for command variables
+findAndSubstCmdInExpr :: CommandId -> Command -> Expr -> Expr
+findAndSubstCmdInExpr name cmd (Mu branches) =
+  Mu (map (\(p, c) -> (p, findAndSubstCmdInCmd name cmd c)) branches)
+findAndSubstCmdInExpr name cmd (Cons c args) =
+  Cons c (map (findAndSubstCmdInExpr name cmd) args)
+findAndSubstCmdInExpr _ _ (Var v) =
+  Var v
+
+findAndSubstCmdInCmd :: CommandId -> Command -> Command -> Command
+findAndSubstCmdInCmd name cmd (Command expr1 expr2) =
+  Command (findAndSubstCmdInExpr name cmd expr1) (findAndSubstCmdInExpr name cmd expr2)
+findAndSubstCmdInCmd name cmd (CommandVar cmdId) =
+  if cmdId == name then cmd else CommandVar cmdId
+
+-- whereClause :: Parser [(VarId, Either Expr Command)]
+-- whereClause = do
+--   _ <- symbol "where"
+--   sepBy1 binding (symbol ".")
+--   where
+--     binding = do
+--       name <- varId
+--       _ <- symbol "="
+--       choice
+--         [ do e <- expr; return (name, Left e),
+--           do c <- command; return (name, Right c)
+--         ]
 
 -- Sugar: do...then grammar
 doThenCommand :: Parser Command

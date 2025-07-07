@@ -59,7 +59,7 @@ data Decl = Decl VarId Expr
   deriving (Show, Eq, Ord)
 
 data Command
-  = Command Expr Expr -- q = < e >> k >
+  = Command Expr Expr -- q = < e |> k >
   | CommandVar CommandId
   deriving (Show, Eq, Ord)
 
