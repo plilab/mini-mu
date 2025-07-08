@@ -6,7 +6,7 @@ def list_filter pred xs cpr k :=
 
 def lt a b k := 
   a . [ Z -> b . [ Z -> False . k | S b' -> True . k ]
-       | S a' -> b . [ Z -> False . k | S b' -> lt @ a' b' k ] ];
+      | S a' -> b . [ Z -> False . k | S b' -> lt @ a' b' k ] ];
 
 def geq a b k := 
   a . [ Z -> b . [ Z -> True . k | S b' -> False . k ]

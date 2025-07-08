@@ -100,6 +100,15 @@ varId =
       -- notFollowedBy (char '~')
       varIdentifier
 
+commandId :: Parser CommandId
+commandId =
+  label
+    "command id"
+    $ lexeme
+    $ do
+      -- notFollowedBy (char '~')
+      varIdentifier
+
 -- coVarID must start with ~
 -- coVarId :: Parser CoVarId
 -- coVarId =
@@ -275,13 +284,14 @@ command =
     $ label
       "command"
     $ choice
-      [ try commandSugar,
+      [ try letCommand, 
+        try commandSugar,
         try doThenCommand,
-        try letCommand,
         try $ angles $ do
           e <- expr
           _ <- symbol "|>"
-          Command e <$> expr
+          Command e <$> expr,
+        CommandVar <$> commandId
       ]
 
 -- z = e;
@@ -404,20 +414,17 @@ letExpr = label "let expression" $ trace "Parsing let expression" $ do
   _ <- symbol "in"
   desugarLet bindings <$> expr
   where
-    binding = do
-      name <- varId
-      _ <- symbol "="
-      choice
-        [ do e <- expr; return (name, Left e),
-          do c <- command; return (name, Right c)
-        ]
-    desugarLet :: [(VarId, Either Expr Command)] -> Expr -> Expr
+    desugarLet :: [(Either VarId CommandId, Either Expr Command)] -> Expr -> Expr
     desugarLet [] body = body
     desugarLet bindings body =
       foldr
-        ( \(name, value) acc -> case value of
-            Left e -> findAndSubstExprInExpr name e acc
-            Right c -> findAndSubstCmdInExpr name c acc
+        ( \(name, value) acc -> case name of
+            Left varid -> case value of
+              Left e -> findAndSubstExprInExpr varid e acc
+              Right _ -> error "varId cannot be bound to a command"
+            Right cmdid -> case value of
+              Left _ -> error "commandId cannot be bound to an expression"
+              Right c -> findAndSubstCmdInExpr cmdid c acc
         )
         body
         bindings
@@ -429,23 +436,35 @@ letCommand = trace "Parsing let command" $ label "let command" $ do
   _ <- symbol "in"
   desugarLetCommand bindings <$> command
   where
-    binding = do
-      name <- varId
-      _ <- symbol "="
-      choice
-        [ do e <- expr; return (name, Left e),
-          do c <- command; return (name, Right c)
-        ]
-    desugarLetCommand :: [(VarId, Either Expr Command)] -> Command -> Command
+    desugarLetCommand :: [(Either VarId CommandId, Either Expr Command)] -> Command -> Command
     desugarLetCommand [] cmd = cmd
     desugarLetCommand bindings cmd =
       foldr
-        ( \(name, value) acc -> case value of
-            Left e -> findAndSubstExprInCmd name e acc
-            Right c -> findAndSubstCmdInCmd name c acc
+        ( \(name, value) acc -> case name of
+            Left varid -> case value of
+              Left e -> findAndSubstExprInCmd varid e acc
+              Right _ -> error "varId cannot be bound to a command"
+            Right cmdid -> case value of
+              Left _ -> error "commandId cannot be bound to an expression"
+              Right c -> findAndSubstCmdInCmd cmdid c acc
         )
         cmd
         bindings
+
+binding :: Parser (Either VarId CommandId, Either Expr Command)
+binding = trace "Parsing binding in let/where" $ do
+      choice
+        [  trace "Parsing a command binding" $ do
+            name <- commandId
+            _ <- symbol "="
+            c <- command
+            return (Right name, Right c)
+        , try $ trace "Parsing an expr binding" $ do
+            name <- varId
+            _ <- symbol "="
+            e <- expr
+            return (Left name, Left e)
+        ]
 
 findAndSubstExprInExpr :: VarId -> Expr -> Expr -> Expr
 findAndSubstExprInExpr name e (Mu branches) =
@@ -460,6 +479,7 @@ findAndSubstExprInCmd name e (Command expr1 expr2) =
   Command (findAndSubstExprInExpr name e expr1) (findAndSubstExprInExpr name e expr2)
 findAndSubstExprInCmd _ _ (CommandVar cmdId) =
   CommandVar cmdId -- No substitution for command variables
+
 findAndSubstCmdInExpr :: CommandId -> Command -> Expr -> Expr
 findAndSubstCmdInExpr name cmd (Mu branches) =
   Mu (map (\(p, c) -> (p, findAndSubstCmdInCmd name cmd c)) branches)
@@ -489,7 +509,7 @@ findAndSubstCmdInCmd name cmd (CommandVar cmdId) =
 
 -- Sugar: do...then grammar
 doThenCommand :: Parser Command
-doThenCommand = trace "do...then" $ label "do...then" $ do
+doThenCommand = trace "Parsing do/then command" $ label "do/then command" $ do
   _ <- symbol "do"
   bindings <- many (try $ notFollowedBy (symbol "then") *> doBinding)
   _ <- symbol "then"

@@ -222,7 +222,7 @@ quicksort = comu[ Ap xs k ->
           < quicksort |> Ap greater mu[ sorted_greater ->
             < list_append |> Ap3 sorted_smaller sorted_greater k > ] > ] > ] > ] > ] > ]
 
-# 29.05.2025
+## 29.05.2025
   
 - Move all test files into ./test folder.
 - try to suppress all warnings.
@@ -230,3 +230,8 @@ quicksort = comu[ Ap xs k ->
 - Add temporary solution for "~Halt", the evaluator stop when "~Halt" is matched.
 - *First version of working interpreter*
 
+## 09.07.2025
+
+- Add syntactic sugars, translate some examples in sugared style.
+- Our language needs explicit label on dependencies, which might or mightnot be an advantage.
+- Issues on parsing let bindings.
