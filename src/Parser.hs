@@ -43,6 +43,9 @@ lexeme = L.lexeme sc
 symbol :: String -> Parser String
 symbol = L.symbol sc
 
+curly :: Parser a -> Parser a
+curly = between (symbol "{") (symbol "}")
+
 -- Parse something between brackets
 brackets :: Parser a -> Parser a
 brackets = between (symbol "[") (symbol "]")
@@ -291,7 +294,7 @@ exprAux =
           return $ Mu branches,
         -- Sugar 7: Simplify mu[] as []
         try $ do
-          branches <- brackets $ sepBy1 patternCase (symbol "|")
+          branches <- curly $ sepBy1 patternCase (symbol "|")
           return $ Mu branches,
         try nat, -- Sugar 8: Expand numerical to S...Z
         try pair, -- Sugar 9: Expand pairs

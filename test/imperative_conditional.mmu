@@ -1,34 +1,34 @@
 def list_map f xs k :=
-  xs . [ Nil -> Nil . k
+  xs . { Nil -> Nil . k
         | List:: x xs' ->
             do y <- f x,
                ys' <- list_map f xs',
-            then List:: y ys' . k ];
+            then List:: y ys' . k };
 
 def inc x k := S x . k;
 
 def lt a b k :=
-  a . [ Z -> b . [ Z -> False . k | S b' -> True . k ]
-       | S a' -> b . [ Z -> False . k | S b' -> lt @ a' b' k ] ];
+  a . { Z -> b . { Z -> False . k | S b' -> True . k }
+       | S a' -> b . { Z -> False . k | S b' -> lt @ a' b' k } };
 
 def for_loop i end xs body k :=
-  lt @ i end [ is_less ->
-    is_less . [ True ->
+  lt @ i end { is_less ->
+    is_less . { True ->
                   do xs' <- body xs,
-                  then S i . [ i_next -> for_loop @ i_next end xs' body k ]
-              | False -> xs . k ] ];
+                  then S i . { i_next -> for_loop @ i_next end xs' body k }
+              | False -> xs . k } };
 
 def eq a b k :=
-  a . [ Z -> b . [ Z -> True . k | S b' -> False . k ]
-       | S a' -> b . [ Z -> False . k | S b' -> eq @ a' b' k ] ];
+  a . { Z -> b . { Z -> True . k | S b' -> False . k }
+       | S a' -> b . { Z -> False . k | S b' -> eq @ a' b' k } };
 
 def if pred body alt xs k :=
-  pred . [ True -> body @ xs k | False -> alt @ xs k ];
+  pred . { True -> body @ xs k | False -> alt @ xs k };
 
 def map_once xs k :=
   list_map @ inc xs k ;
 
--- map_twice = mu[ Ap xs k -> < list_map |> Ap3 inc xs mu[ xs' -> < list_map |> Ap3 inc xs' k > ] > ];
+-- map_twice = mu{ Ap xs k -> < list_map |> Ap3 inc xs mu{ xs' -> < list_map |> Ap3 inc xs' k > } > };
 
 -- map_twice can be also implemented using for for_loop:
 

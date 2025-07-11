@@ -1,4 +1,4 @@
 run let 
-      inc = [ Ap x k -> S x . k ],
-      double = [ Ap x k -> inc @ x [ x' -> inc @ x' k ] ]
+      inc = { Ap x k -> S x . k },
+      double = { Ap x k -> inc @ x { x' -> inc @ x' k } }
     in double @ (S Z) Halt

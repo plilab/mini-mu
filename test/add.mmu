@@ -1,5 +1,5 @@
 def add x y k :=
-    x . [ Z -> y . k
-        | S x' -> x' (S y) k @ add ];
+    x . { Z -> y . k
+        | S x' -> x' (S y) k @ add };
 
 run add @ (S (S Z)) (S Z) Halt

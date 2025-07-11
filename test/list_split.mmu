@@ -1,13 +1,13 @@
 def list_split pred xs cpr k :=
-  xs . [ Nil -> (Nil, Nil) . k
+  xs . { Nil -> (Nil, Nil) . k
        | List:: x xs' ->
             do rest <- list_split pred xs' cpr,
-            then rest . [ Pair smaller greater ->
-              pred @ x cpr [ True -> Pair (List:: x smaller) greater . k
-                           | False -> Pair smaller (List:: x greater) . k ] ] ];
+            then rest . { Pair smaller greater ->
+              pred @ x cpr { True -> Pair (List:: x smaller) greater . k
+                           | False -> Pair smaller (List:: x greater) . k } } };
 
 def lt a b k :=
-  a . [ Z -> b . [ Z -> False . k | S _ -> True . k ]
-      | S a' -> b . [ Z -> False . k | S b' -> lt @ a' b' k ] ];
+  a . { Z -> b . { Z -> False . k | S _ -> True . k }
+      | S a' -> b . { Z -> False . k | S b' -> lt @ a' b' k } };
 
 run list_split @ lt (List:: 3 (List:: 1 (List:: 2 (List:: 0 Nil)))) 2 Halt

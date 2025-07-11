@@ -1,31 +1,31 @@
 def list_split pred xs cpr k :=
-  xs . [ Nil -> (Nil, Nil) . k
+  xs . { Nil -> (Nil, Nil) . k
        | List:: x xs' ->
             do rest <- list_split pred xs' cpr,
-            then rest . [ (smaller, greater) ->
-              pred @ x cpr [ True -> ((List:: x smaller), greater) . k
-                           | False -> (smaller, (List:: x greater)) . k ] ] ];
+            then rest . { (smaller, greater) ->
+              pred @ x cpr { True -> ((List:: x smaller), greater) . k
+                           | False -> (smaller, (List:: x greater)) . k } } };
 
 def lt a b k :=
-  (a, b) . [ (Z, Z) -> False . k
+  (a, b) . { (Z, Z) -> False . k
            | (Z, S _) -> True . k
            | (S a', Z) -> False . k
-           | (S a', S b') -> lt @ a' b' k ];
+           | (S a', S b') -> lt @ a' b' k };
 
 def geq a b k :=
   lt @ b a k;
 
 def list_append as bs k :=
-  as . [ Nil -> bs . k
-       | List:: a as' -> list_append @ as' bs [ rest -> List:: a rest . k ] ];
+  as . { Nil -> bs . k
+       | List:: a as' -> list_append @ as' bs { rest -> List:: a rest . k } };
 
 def quick_sort xs k :=
-  xs . [ Nil -> Nil . k
+  xs . { Nil -> Nil . k
        | List:: pivot xs' ->
             do
               (smaller, greater) <- list_split lt xs' pivot,
               sorted_s <- quick_sort smaller,
               sorted_g <- quick_sort greater,
-            then list_append @ sorted_s (List:: pivot sorted_g) k ];
+            then list_append @ sorted_s (List:: pivot sorted_g) k };
 
 run quick_sort @ (List:: 3 (List:: 1 (List:: 2 (List:: 0 Nil)))) Halt
