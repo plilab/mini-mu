@@ -73,20 +73,35 @@ step (ErrorConfig {}) = []
 
 match :: Env -> Store -> Value -> [(Pattern, Command)] -> [Config]
 match _ _ _ [] = []
-match env store v ((VarPattern x, cmd) : _) =
-  [CommandConfig env' store' cmd]
+match env store v ((pat, cmd) : clauses) =
+  case tryMatch env store v pat of
+    Just (env', store') -> [CommandConfig env' store' cmd]
+    Nothing -> match env store v clauses
+
+-- Core pattern matching logic
+tryMatch :: Env -> Store -> Value -> Pattern -> Maybe (Env, Store)
+tryMatch env store _ WildcardPattern = 
+  Just (env, store)  -- Wildcard always matches
+
+tryMatch env store v (VarPattern x) = 
+  Just (envStoreInsert env store x v)  -- Bind variable
+
+tryMatch env store (ConsValue con args) (ConsPattern con' pats)
+  | con == con' && length args == length pats = 
+      foldM matchArg (env, store) (zip args pats)
+  | otherwise = Nothing
   where
-    (env', store') = envStoreInsert env store x v
-match env store v@(ConsValue con args) ((ConsPattern con' params, cmd) : clauses) =
-  if con == con'
-    then
-      let (env', store') =
-            trace ("match " ++ show params ++ ":" ++ show args) $
-              bind env store params args
-       in [CommandConfig env' store' cmd]
-    else match env store v clauses
-match _ _ (MuValue {}) ((ConsPattern {}, _) : _) =
-  [ErrorConfig "bad type, cannot match a Mu"]
+    matchArg (env', store') (arg, pat) = 
+      tryMatch env' store' arg pat
+
+tryMatch _ _ (MuValue {}) (ConsPattern {}) = 
+  Nothing  -- Cannot match MuValue with constructor pattern
+
+foldM :: Monad m => (a -> b -> m a) -> a -> [b] -> m a
+foldM _ acc [] = return acc
+foldM f acc (x:xs) = do
+  acc' <- f acc x
+  foldM f acc' xs
 
 -- comatch :: Env -> Store -> CoValue -> [(CoPattern, Command)] -> [Config]
 -- comatch _ _ _ [] = []

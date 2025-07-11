@@ -70,8 +70,9 @@ data Expr -- e
   deriving (Show, Eq, Ord)
 
 data Pattern
-  = ConsPattern ConsId [VarId] -- p = Foo x k
-  | VarPattern VarId -- p = x
+  = ConsPattern ConsId [Pattern]  -- Cons [nested patterns]
+  | VarPattern VarId              -- Variable binding: x
+  | WildcardPattern               -- Wildcard: *
   deriving (Show, Eq, Ord)
 
 -- data CoPattern

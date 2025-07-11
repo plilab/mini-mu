@@ -1,14 +1,13 @@
 def list_map f xs k :=
   xs . [ Nil -> Nil . k
-        | List:: x xs' -> 
-            do
-              y <- f x,
-              ys' <- list_map f xs',
+        | List:: x xs' ->
+            do y <- f x,
+               ys' <- list_map f xs',
             then List:: y ys' . k ];
 
 def inc x k := S x . k;
 
-def lt a b k := 
+def lt a b k :=
   a . [ Z -> b . [ Z -> False . k | S b' -> True . k ]
        | S a' -> b . [ Z -> False . k | S b' -> lt @ a' b' k ] ];
 

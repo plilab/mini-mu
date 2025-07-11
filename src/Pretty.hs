@@ -159,8 +159,9 @@ prettyCase (pat, cmd) =
 
 prettyPattern :: Pattern -> Doc ann
 prettyPattern (ConsPattern con args) =
-  pretty con <+> hsep (map pretty args)
+  pretty con <+> hsep (map prettyPattern args)
 prettyPattern (VarPattern x) = pretty x
+prettyPattern WildcardPattern = pretty "_"
 
 -- prettyCoPattern :: CoPattern -> Doc ann
 -- prettyCoPattern (CoConsPattern con args) =

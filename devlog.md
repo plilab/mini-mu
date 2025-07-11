@@ -235,3 +235,20 @@ quicksort = comu[ Ap xs k ->
 - Add syntactic sugars, translate some examples in sugared style.
 - Our language needs explicit label on dependencies, which might or mightnot be an advantage.
 - Issues on parsing let bindings.
+- A comparison with Haskell using current sugars:
+```(Haskell)
+handlePacket packet = do
+  parsed <- parseHeaders packet
+  validated <- validatePacket parsed
+  case validated of
+    Valid data -> processData data >>= sendResponse
+    Invalid err -> sendError err
+```
+```(mmu)
+def handle_packet packet k := do
+  parsed <- parse_headers packet,
+  validated <- validate parsed
+  then validated . 
+    [ Valid data -> process data >>= send_response then k ]
+    | Invalid err -> err k @ send_error;
+```

@@ -90,6 +90,32 @@ nat = label "natural number" $ lexeme $ do
     intToPeano 0 = Cons "Z" []
     intToPeano n = Cons "S" [intToPeano (n - 1)]
 
+pair :: Parser Expr
+pair = label "pair" $ lexeme $ do
+  _ <- symbol "("
+  x <- expr
+  _ <- symbol ","
+  y <- expr   
+  _ <- symbol ")"
+  return $ Cons "Pair" [x, y]
+
+natPattern :: Parser Pattern
+natPattern = label "natural number pattern" $ lexeme $ do
+  intToPeanoPattern <$> L.decimal
+  where
+    intToPeanoPattern :: Integer -> Pattern
+    intToPeanoPattern 0 = ConsPattern "Z" []
+    intToPeanoPattern n = ConsPattern "S" [intToPeanoPattern (n - 1)]
+
+pairPattern :: Parser Pattern  
+pairPattern = label "pair pattern" $ do
+  _ <- symbol "("
+  x <- pattern
+  _ <- symbol ","
+  y <- pattern
+  _ <- symbol ")"
+  return $ ConsPattern "Pair" [x, y]
+
 -- varID cannot start with ~
 varId :: Parser VarId
 varId =
@@ -138,17 +164,29 @@ consId =
 
 -- Parse a pattern
 pattern :: Parser Pattern
-pattern =
-  label
-    "pattern"
-    $ choice
-      [ try $ do
-          c <- consId
-          args <- many varId
-          return $ ConsPattern c args,
-        -- Parse VarPattern
-        try $ VarPattern <$> varId
-      ]
+pattern = 
+  label "pattern" $ choice
+    [ try wildcardPattern,
+      try natPattern,  -- Sugar 6: Expand numerical patterns to S...Z
+      try pairPattern, -- Sugar 9: Expand pairs
+      try consPattern, 
+      try varPattern,
+      parens pattern  -- Allow parentheses for grouping
+    ]
+
+wildcardPattern :: Parser Pattern
+wildcardPattern = do
+  _ <- symbol "_"
+  return WildcardPattern
+
+consPattern :: Parser Pattern
+consPattern = do
+  c <- consId
+  args <- many pattern  -- Now parses nested patterns
+  return $ ConsPattern c args
+
+varPattern :: Parser Pattern  
+varPattern = VarPattern <$> varId
 
 -- Parse a copattern
 -- coPattern :: Parser CoPattern
@@ -205,6 +243,7 @@ atomExpr =
     $ choice
       [ try consWithNoArgs,
         try nat,
+        try pair,
         exprAux
       ]
 
@@ -237,7 +276,6 @@ expr =
     $ choice
       [ try letExpr,
         try $ Cons <$> consId <*> many atom,
-        try nat, -- Sugar 8: Expand numerical to S...Z
         exprAux
       ]
 
@@ -255,7 +293,8 @@ exprAux =
         try $ do
           branches <- brackets $ sepBy1 patternCase (symbol "|")
           return $ Mu branches,
-        try nat,
+        try nat, -- Sugar 8: Expand numerical to S...Z
+        try pair, -- Sugar 9: Expand pairs
         try $ Var <$> varId,
         parens expr
       ]
@@ -389,11 +428,11 @@ defDecl = trace "Parsing Sugared Declaration" $
     do
       _ <- symbol "def"
       name <- varId
-      args <- many varId
+      args <- many pattern
       _ <- symbol ":="
       Decl name . desugarDef args <$> command
   where
-    desugarDef :: [VarId] -> Command -> Expr
+    desugarDef :: [Pattern] -> Command -> Expr
     desugarDef args cmd =
       Mu [(ConsPattern "Ap" args, cmd)]
 
@@ -454,12 +493,12 @@ letCommand = trace "Parsing let command" $ label "let command" $ do
 binding :: Parser (Either VarId CommandId, Either Expr Command)
 binding = trace "Parsing binding in let/where" $ do
       choice
-        [  trace "Parsing a command binding" $ do
+        [  try $ trace "Parsing a command binding" $ do
             name <- commandId
             _ <- symbol "="
             c <- command
             return (Right name, Right c)
-        , try $ trace "Parsing an expr binding" $ do
+        , trace "Parsing an expr binding" $ do
             name <- varId
             _ <- symbol "="
             e <- expr
@@ -516,15 +555,15 @@ doThenCommand = trace "Parsing do/then command" $ label "do/then command" $ do
   desugarDoThen bindings <$> command
   where
     doBinding = do
-      name <- varId
+      pat <- pattern
       _ <- symbol "<-"
       fun <- expr
       args <- many expr
       _ <- symbol ","
-      return (name, fun, args)
+      return (pat, fun, args)
 
-    desugarDoThen :: [(VarId, Expr, [Expr])] -> Command -> Command
+    desugarDoThen :: [(Pattern, Expr, [Expr])] -> Command -> Command
     desugarDoThen [] cmd = cmd
-    desugarDoThen ((name, fun, args) : rest) cmd =
+    desugarDoThen ((pat, fun, args) : rest) cmd =
       -- This creates nested applications with continuations
-      Command fun (Cons "Ap" (args ++ [Mu [(VarPattern name, desugarDoThen rest cmd)]]))
+      Command fun (Cons "Ap" (args ++ [Mu [(pat, desugarDoThen rest cmd)]]))
