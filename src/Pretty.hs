@@ -38,6 +38,9 @@ prettyConfig (ErrorConfig string) =
 -- prettyTopLevelEitherValue (Right cv) = prettyTopLevelCoValue cv
 
 prettyTopLevelValue :: Value -> Doc ann
+prettyTopLevelValue (ConsValue "Z" []) = pretty "0"
+prettyTopLevelValue (ConsValue "S" [v]) =
+  pretty (peanoToInt (ConsValue "S" [v]))
 prettyTopLevelValue (ConsValue con args) =
   pretty con <+> hsep (map prettyValue args)
 prettyTopLevelValue mu@(MuValue _ _) =
@@ -54,12 +57,21 @@ prettyTopLevelValue mu@(MuValue _ _) =
 -- prettyEitherValue (Right cv) = prettyCoValue cv
 
 prettyValue :: Value -> Doc ann
+prettyValue (ConsValue "Z" []) = pretty "0"
+prettyValue (ConsValue "S" [v]) =
+  pretty (peanoToInt (ConsValue "S" [v]))
 prettyValue (ConsValue con args) =
   case args of
     [] -> pretty con
     _ -> pretty "(" <> pretty con <+> hsep (map prettyValue args) <> pretty ")"
 prettyValue mu@(MuValue _ _) =
   prettyMuValueAux mu
+
+-- Helper function to convert Peano numbers to integers
+peanoToInt :: Value -> Integer
+peanoToInt (ConsValue "Z" []) = 0
+peanoToInt (ConsValue "S" [v]) = 1 + peanoToInt v
+peanoToInt _ = error "Not a Peano number"
 
 -- prettyCoValue :: CoValue -> Doc ann
 -- prettyCoValue (CoConsValue con args) =
