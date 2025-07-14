@@ -30,6 +30,7 @@ library
       Graph
       Lib
       Main
+      Module
       Parser
       Pretty
       SmallStep

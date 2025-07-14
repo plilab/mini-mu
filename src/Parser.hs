@@ -14,7 +14,7 @@ module Parser
     consId,
     command,
     decl,
-    pattern,
+    patr,
   )
 where
 
@@ -85,6 +85,33 @@ consIdentifier =
       rest <- many (alphaNumChar <|> char '_' <|> char ':' <|> char '\'')
       return (first : rest)
 
+fileIdentifier :: Parser String
+fileIdentifier =
+  label
+    "file identifier"
+    $ lexeme
+    $ do
+      _ <- symbol "\""
+      first <- lowerChar
+      rest <- many (alphaNumChar <|> char '_' <|> char '-' <|> char '.')
+      _ <- symbol "\""
+      return (first : rest)
+
+cmdIdentifier :: Parser String
+cmdIdentifier =
+  label
+    "command identifier"
+    $ lexeme
+    $ do
+      first <- lowerChar
+      rest <- many (alphaNumChar <|> char '_' <|> char ':' <|> char '\'')
+      let word = first : rest
+      if word `elem` keywords
+        then fail $ "keyword " ++ show word ++ " cannot be the name of a command"
+        else return word
+  where
+    keywords = ["mu", "def", "run", "let", "in", "where", "do", "then"]
+
 nat :: Parser Expr
 nat = label "natural number" $ lexeme $ do
   intToPeano <$> L.decimal
@@ -113,9 +140,9 @@ natPattern = label "natural number pattern" $ lexeme $ do
 pairPattern :: Parser Pattern  
 pairPattern = label "pair pattern" $ do
   _ <- symbol "("
-  x <- pattern
+  x <- patr
   _ <- symbol ","
-  y <- pattern
+  y <- patr
   _ <- symbol ")"
   return $ ConsPattern "Pair" [x, y]
 
@@ -136,7 +163,7 @@ commandId =
     $ lexeme
     $ do
       -- notFollowedBy (char '~')
-      varIdentifier
+      cmdIdentifier
 
 -- coVarID must start with ~
 -- coVarId :: Parser CoVarId
@@ -166,15 +193,15 @@ consId =
 --     )
 
 -- Parse a pattern
-pattern :: Parser Pattern
-pattern = 
+patr :: Parser Pattern
+patr = 
   label "pattern" $ choice
     [ try wildcardPattern,
       try natPattern,  -- Sugar 6: Expand numerical patterns to S...Z
       try pairPattern, -- Sugar 9: Expand pairs
       try consPattern, 
       try varPattern,
-      parens pattern  -- Allow parentheses for grouping
+      parens patr  -- Allow parentheses for grouping
     ]
 
 wildcardPattern :: Parser Pattern
@@ -185,7 +212,7 @@ wildcardPattern = do
 consPattern :: Parser Pattern
 consPattern = do
   c <- consId
-  args <- many pattern  -- Now parses nested patterns
+  args <- many patr  -- Now parses nested patterns
   return $ ConsPattern c args
 
 varPattern :: Parser Pattern  
@@ -218,7 +245,7 @@ patternCase =
   label
     "pattern case"
     $ do
-      pat <- pattern
+      pat <- patr
       _ <- symbol "->"
       cmd <- command
       return (pat, cmd)
@@ -339,6 +366,20 @@ command =
 -- z = e;
 -- x = e
 -- ~y = co
+-- Parse export declaration
+importDecl :: Parser ImportDecl
+importDecl = do
+  _ <- symbol "import"
+  moduleName <- fileIdentifier -- import "module" a b c
+  vars <- parens $ sepBy1 varId (symbol ",")
+  return $ ImportDecl moduleName vars
+
+-- Parse export list
+exportList :: Parser [VarId]
+exportList = do
+  _ <- symbol "export"
+  sepBy1 varId (symbol ",")
+
 decl :: Parser Decl
 decl =
   trace "Parsing declaration"
@@ -374,7 +415,13 @@ decls = sepBy1 decl (symbol ";")
 -- <|> (return [])
 
 program :: Parser Program
-program = trace "Parsing program" $ label "program" $ Program <$> (sc *> decls <* eof)
+program = do
+  sc
+  imports <- many importDecl      -- imports at beginning
+  _decls <- decls  -- declarations in middle
+  exports <- option [] exportList    -- optional exports at end
+  eof
+  return $ Program imports _decls exports
 
 -- Utility function to run the parser
 
@@ -431,7 +478,7 @@ defDecl = trace "Parsing Sugared Declaration" $
     do
       _ <- symbol "def"
       name <- varId
-      args <- many pattern
+      args <- many patr
       _ <- symbol ":="
       Decl name . desugarDef args <$> command
   where
@@ -558,7 +605,7 @@ doThenCommand = trace "Parsing do/then command" $ label "do/then command" $ do
   desugarDoThen bindings <$> command
   where
     doBinding = do
-      pat <- pattern
+      pat <- patr
       _ <- symbol "<-"
       fun <- expr
       args <- many expr

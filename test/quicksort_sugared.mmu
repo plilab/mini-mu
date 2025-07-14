@@ -1,3 +1,5 @@
+import "std" (lt, geq, list_append)
+
 def list_split pred xs cpr k :=
   xs . { Nil -> (Nil, Nil) . k
        | List:: x xs' ->
@@ -5,19 +7,6 @@ def list_split pred xs cpr k :=
             then rest . { (smaller, greater) ->
               pred @ x cpr { True -> ((List:: x smaller), greater) . k
                            | False -> (smaller, (List:: x greater)) . k } } };
-
-def lt a b k :=
-  (a, b) . { (Z, Z) -> False . k
-           | (Z, S _) -> True . k
-           | (S a', Z) -> False . k
-           | (S a', S b') -> lt @ a' b' k };
-
-def geq a b k :=
-  lt @ b a k;
-
-def list_append as bs k :=
-  as . { Nil -> bs . k
-       | List:: a as' -> list_append @ as' bs { rest -> List:: a rest . k } };
 
 def quick_sort xs k :=
   xs . { Nil -> Nil . k

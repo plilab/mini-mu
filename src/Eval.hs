@@ -2,12 +2,16 @@ module Eval
   ( eval,
     step,
     evalProgram,
+    foldM,
+    evalDecls,
+    initEnv,
+    initStore,
     Config (..),
   )
 where
 
 import qualified Data.Map as Map
-import Debug.Trace
+
 import Pretty (prettyTopLevelValue, renderPretty)
 import Syntax
 
@@ -119,13 +123,13 @@ foldM f acc (x:xs) = do
 -- comatch _ _ (MuValue {}) ((CoConsPattern {}, _) : _) =
 --   [ErrorConfig "bad type, cannot match MuValue with CoConsPattern"]
 
-bind :: Env -> Store -> [VarId] -> [Value] -> (Env, Store)
-bind env store [] [] = (env, store)
-bind env store (p : ps) (v : vs) = bind env' store' ps vs
-  where
-    (env', store') = envStoreInsert env store p v
-bind _ _ [] (_ : _) = error "Length mismatch at binding"
-bind _ _ (_ : _) [] = error "Length mismatch at binding"
+-- bind :: Env -> Store -> [VarId] -> [Value] -> (Env, Store)
+-- bind env store [] [] = (env, store)
+-- bind env store (p : ps) (v : vs) = bind env' store' ps vs
+--   where
+--     (env', store') = envStoreInsert env store p v
+-- bind _ _ [] (_ : _) = error "Length mismatch at binding"
+-- bind _ _ (_ : _) [] = error "Length mismatch at binding"
 
 -- type Graph = Map Config (Set Config)
 -- stepAll :: Config -> Map Config (Set Config)
@@ -164,12 +168,12 @@ initStore = Store (Addr 0) (Addr 0) Map.empty Map.empty
 halt :: Expr
 halt = Cons "Halt" []
 
--- Entrance point for the program evaluation
+-- Entrance point for the program evaluation, IGNORE IMPORTS EXPORTS
 evalProgram :: Program -> VarId -> Config
-evalProgram (Program decls) varId =
+evalProgram (Program _ decls _) varId =
   uncurry
     CommandConfig
-    (evalDecls initEnv initStore decls)
+    (evalDecls initEnv initStore decls)  -- Still just eval local decls for now
     (Command (Var varId) halt)
 
 -- stack exec mini-mu source.mmu var

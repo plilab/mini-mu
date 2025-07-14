@@ -18,18 +18,21 @@ import Prettyprinter.Render.String
 import Syntax
 
 -- | Pretty print a configuration.
-
 prettyConfig :: Config -> Doc ann
 prettyConfig (CommandConfig env store command) =
   pretty "<Command Config> "
     <> prettyEnv env
+    <> line
     <> prettyStore store
+    <> line
     <> prettyCommand command
 prettyConfig (ValueConfig store value value') =
   pretty "<Value Config> "
     <> prettyStore store
+    <> line
     <> prettyValue value
-    <> prettyValue value'
+    <+> pretty "|"
+    <+> prettyValue value'
 prettyConfig (ErrorConfig string) =
   pretty "<Message> " <> pretty string
 
@@ -96,9 +99,14 @@ peanoToInt _ = error "Not a Peano number"
 
 prettyMuValueAux :: Value -> Doc ann
 prettyMuValueAux (MuValue env cases) =
-  prettyEnv env
-    <+> pretty "μ"
-    <> brackets (hang (-1) (prettyCases cases))
+  pretty "μ-Closure"
+    <+> braces
+      ( line
+          <> indent 2 (prettyEnv env
+          <+> pretty "μ"
+          <> brackets (hang (-1) (prettyCases cases)))
+          <> line
+      )
   where
     prettyCases [] = mempty
     prettyCases (c : cs) =
@@ -119,7 +127,6 @@ prettyMuValueAux _ = error "Expected a MuValue"
 --         <> prettyCoCase c
 --         <> mconcat [line <> pipe <> space <> prettyCoCase c' | c' <- cs]
 -- prettyCoMuValueAux _ = error "Expected a CoMuValue"
-
 
 prettyCommand :: Command -> Doc ann
 prettyCommand (Command e k) =
@@ -160,7 +167,6 @@ prettyExpr (Mu cases) =
 --         <> prettyCase c
 --         <> mconcat [line <> pipe <> space <> prettyCase c' | c' <- cs]
 
-
 prettyCase :: (Pattern, Command) -> Doc ann
 prettyCase (pat, cmd) =
   prettyPattern pat <+> pretty "->" <> line <> indent 2 (prettyCommand cmd)
@@ -193,7 +199,8 @@ prettyEnv (Env varMap cmdMap) =
           <> line
           <> indent 2 (pretty "Commands:" <+> prettyCommandMap cmdMap)
           <> line
-      ) <> line
+      )
+    <> line
   where
     prettyVarMap :: Map.Map VarId Addr -> Doc ann
     prettyVarMap m
@@ -241,7 +248,8 @@ prettyStore (Store addr cmdAddr valMap cmdMap) =
   pretty "Store"
     <+> braces
       ( line
-          <> indent 2
+          <> indent
+            2
             ( vsep
                 [ pretty "Next Address:" <+> prettyAddr addr,
                   pretty "Next Command Address:" <+> prettyAddr cmdAddr,
@@ -251,7 +259,8 @@ prettyStore (Store addr cmdAddr valMap cmdMap) =
                 ]
             )
           <> line
-      ) <> line
+      )
+    <> line
   where
     prettyValueMap :: Map.Map Addr Value -> Doc ann
     prettyValueMap m

@@ -2,6 +2,7 @@ module Syntax
   ( VarId,
     ConsId,
     CommandId,
+    ImportDecl (..),
     Program (..),
     Decl (..),
     Command (..),
@@ -53,9 +54,17 @@ type ConsId = String
 
 type CommandId = String
 
-newtype Program = Program [Decl]
+data Program = Program 
+  { programImports :: [ImportDecl]  -- at beginning
+  , programDecls :: [Decl]          -- middle 
+  , programExports :: [VarId]       -- at end
+  } deriving (Show, Eq, Ord)
 
-data Decl = Decl VarId Expr
+data ImportDecl = ImportDecl String [VarId]  -- import "module" (x, y, z)
+  deriving (Show, Eq, Ord)
+
+data Decl
+  = Decl VarId Expr -- a = e
   deriving (Show, Eq, Ord)
 
 data Command
