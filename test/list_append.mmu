@@ -1,8 +1,0 @@
-list_append = mu[ Ap3 as bs k -> 
-                      < as |> mu[ Nil -> < bs |> k >
-                                | List:: a as' -> 
-                                  < list_append |> Ap3 as' bs mu[ rest -> < List:: a rest |> k > ] > ] > ];
-
-main = mu[ Halt -> 
-    < list_append |> Ap3 (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) Halt > ]
-                                

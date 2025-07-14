@@ -11,7 +11,7 @@ type ModuleName = String
 -- Load a single module by name (assumes .mmu extension)
 loadModule :: ModuleName -> IO [Decl]
 loadModule moduleName = trace ("loading module \"" ++ moduleName ++ "\"") $ do
-  let filepath = "./test/" ++ moduleName ++ ".mmu"
+  let filepath = "./lib/" ++ moduleName ++ ".mmu"
   parseResult <- parseFile filepath
   case parseResult of
     Left err -> error $ "Error parsing module file: " ++ show err

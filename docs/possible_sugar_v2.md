@@ -13,3 +13,46 @@
 
 -- f x y >>= proc1 >>= proc2 >>= cont then k
 === do t1 <- f x y, t2 <- process t1 then t2 k @ cont
+
+Original quicksort, unsugared, for documentation.
+
+```
+list_filter = mu[ Ap4 pred xs cpr k ->
+  < xs |> mu[ Nil -> < Nil |> k >
+            | List:: x xs' -> 
+              < pred |> Ap3 x cpr mu[ True -> 
+                                  < list_filter |> Ap4 pred xs' cpr mu[ ys'-> < List:: x ys' |> k > ] > 
+                                     | False ->
+                                  < list_filter |> Ap4 pred xs' cpr mu[ ys' -> < ys' |> k > ] > ] > ] > ];                                  
+
+lt = mu[ Ap3 a b k -> < a |> mu[ Z -> 
+                                      < b |> mu[ Z -> < False |> k > 
+                                               | S b' -> < True |> k > ] >
+                                   | S a' -> 
+                                      < b |> mu[ Z -> < False |> k >
+                                               | S b' -> < lt |> Ap3 a' b' k > ] > ] > ];
+
+geq = mu[ Ap3 a b k -> < a |> mu[ Z -> 
+                                      < b |> mu[ Z -> < True |> k > 
+                                               | S b' -> < False |> k > ] >
+                                   | S a' -> 
+                                      < b |> mu[ Z -> < True |> k >
+                                               | S b' -> < geq |> Ap3 a' b' k > ] > ] > ];
+
+list_append = mu[ Ap3 as bs k -> 
+                      < as |> mu[ Nil -> < bs |> k >
+                                | List:: a as' -> 
+                                  < list_append |> Ap3 as' bs mu[ rest -> < List:: a rest |> k > ] > ] > ];
+
+quick_sort = mu[ Ap xs k ->
+  < xs |> mu[ Nil -> < Nil |> k >
+            | List:: pivot xs' ->
+                < list_filter |> Ap4 lt xs' pivot mu[ smaller ->
+                  < list_filter |> Ap4 geq xs' pivot mu[ greater ->
+                    < quick_sort |> Ap smaller mu[ sorted_smaller ->
+                      < quick_sort |> Ap greater mu[ sorted_greater ->
+                        < list_append |> Ap3 sorted_smaller (List:: pivot sorted_greater) k > ] > ] > ] > ] > ] > ];
+
+main = mu[ Halt -> 
+    < quick_sort |> Ap (List:: (S Z) (List:: (S (S Z)) (List:: (S (S(S Z))) (List:: Z Nil)))) Halt > ]
+```

@@ -1,6 +1,0 @@
-def list_reverse xs acc k :=
-    xs . [ Nil -> acc . k
-          | List:: x xs' -> 
-                xs' (List:: x acc) k @ list_reverse ];
-
-run list_reverse @ (List:: (S (S Z)) (List:: 1 (List:: 0 Nil))) (Nil) Halt 

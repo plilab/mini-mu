@@ -1,2 +1,0 @@
-dec = mu[ Ap x k -> < x |> mu[ Z -> < x |> k > | S x' -> < x' |> k > ] > ];
-main = mu[ Halt -> < Ap (S (S Z)) Halt |> dec > ]

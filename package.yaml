@@ -73,7 +73,7 @@ executables:
 tests:
   mini-mu-test:
     main:                Spec.hs
-    source-dirs:         test
+    source-dirs:         tests
     ghc-options:
     - -threaded
     - -rtsopts

@@ -1,0 +1,25 @@
+def list_append as bs k :=
+  as . { Nil -> bs . k
+       | List:: a as' -> list_append @ as' bs { rest -> List:: a rest . k } };
+
+def list_map f xs k :=
+  xs . { Nil -> Nil . k
+       | List:: x xs' ->
+            do y <- f x,
+               ys' <- list_map f xs',
+            then List:: y ys' . k };
+
+def list_reverse xs acc k :=
+    xs . { Nil -> acc . k
+         | List:: x xs' -> 
+            xs' (List:: x acc) k @ list_reverse };
+
+def list_length xs k := 
+  let 
+      nil_case = Z . k,
+      cons_case = xs' { rest -> S rest . k } @ list_length
+  in
+  xs . { Nil -> nil_case
+       | List:: x xs' -> cons_case }
+
+export list_append, list_map, list_length

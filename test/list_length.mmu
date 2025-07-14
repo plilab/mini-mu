@@ -1,9 +1,0 @@
-def list_length xs k := 
-    let 
-        nil_case = Z . k,
-        cons_case = xs' { rest -> S rest . k } @ list_length
-    in
-    xs . { Nil -> nil_case
-         | List:: x xs' -> cons_case };
-
-run (List:: Z (List:: Z (List:: Z Nil))) Halt @ list_length

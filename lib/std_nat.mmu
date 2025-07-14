@@ -1,0 +1,32 @@
+def lt a b k :=
+  (a, b) . { (Z, Z) -> False . k
+           | (Z, S _) -> True . k
+           | (S _, Z) -> False . k
+           | (S a', S b') -> lt @ a' b' k };
+
+def geq a b k :=
+  (a, b) . { (Z, Z) -> True . k
+           | (Z, S _) -> False . k
+           | (S _, Z) -> True . k
+           | (S a', S b') -> geq @ a' b' k };
+
+def leq a b k :=
+  (a, b) . { (Z, Z) -> True . k
+           | (Z, S _) -> True . k
+           | (S a', Z) -> False . k
+           | (S a', S b') -> leq @ a' b' k };
+
+def eq a b k :=
+  a . { Z -> b . { Z -> True . k | S b' -> False . k }
+       | S a' -> b . { Z -> False . k | S b' -> eq @ a' b' k } };
+
+def add x y k :=
+    x . { Z -> y . k
+        | S x' -> x' (S y) k @ add };
+
+def dec x k :=
+  x . { Z -> x . k | S x' -> x' . k };
+
+def inc x k := S x . k
+
+export lt, geq, add, leq, eq, dec, inc
