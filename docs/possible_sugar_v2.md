@@ -14,6 +14,11 @@
 -- f x y >>= proc1 >>= proc2 >>= cont then k
 === do t1 <- f x y, t2 <- process t1 then t2 k @ cont
 
+
+f . (1, 2, 3) === f @ 1 2 3
+f = mu[ Ap ...]
+f = mu[ (a b c) -> ...]
+
 Original quicksort, unsugared, for documentation.
 
 ```

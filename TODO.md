@@ -33,3 +33,22 @@
 
 - Syntactic Sugar
 - Develop Programs in mini-mu
+
+- Explore the connection with Zipper
+- Explore how to use macros...
+- Parsec with 4 kinds of continuations
+- backtracking search
+- Regular expression, derivatives
+- variance on list_map/list_fold...
+- Implementation of a exception system, monad/comonad system
+- Object-Orientation system
+- positive negative pair/sum system
+- excluded-middle law / devil's bargan
+  - Either devil gives $1M or (you give devil $1M and devil gives one wish)
+    - one wish = impossible value (bottom / infinite loop)
+    - $1M = object of type "A"
+  - call/cc: cont (cont a) ~= ((a -> bot) -> bot) ~=? { k -> k . a }
+- codata
+- sequent logic
+- async (e.g., JavaScript)
+- type

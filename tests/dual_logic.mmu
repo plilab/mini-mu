@@ -1,0 +1,39 @@
+-- data PairType a b = Pair a b
+-- data CoSumType a b = { Left k -> k . a | Right k -> k . b }
+
+-- data SumType a b = Left a | Right b
+-- data CoPairType a b = { (k, _) -> k . a } | { (_, k) -> k . b }
+
+def pair12 = Pair 1 2
+def cosum12 = { Left k -> k . 1 | Right k -> k . 2 }
+
+pair12 . { (left, right) -> add @ left right k }
+add @ { k -> cosum12 @ Left k } { k -> cosum12 @ Right k }
+
+def cons a b k = k . Pair a b -- Pair
+def cocons a b k = k . { Left kl -> kl . a | Right kr -> kr . a } -- CoSum
+
+def proj_left pair k = { (left, right) -> k . left } -- Pair
+def coproj_left cosum k = cosum . Left k -- CoSum
+
+def sumL1 = Left 1
+def copairL1 = { (k, _) -> k 1 }
+
+sumL1 . { Left a -> ... | Right b -> ... }
+copairL1 @ { a -> ...} { b -> ... }
+
+def left a k = k . Left a
+def coleft a k = k . { (k, _) -> k a }
+
+def case sum k1 k2 = sum . { Left a -> k1 . a | Right b -> k2 . b }
+def cocase copair k1 k2 = coair . (k1, k2)
+
+o = { GetLeftOrRight k -> k . (PutLeft 1) | ... }
+
+x = o.letLeft()
+y = o.getHeight
+
+do x <- o.letLeft
+   y <- o.getHeight
+
+o . (GetLeftOrRight (object { PutLeft = ... o.getHeight ...; PutRight = ... })) -- javascript async
