@@ -1,4 +1,5 @@
 STACK = stack
+STEP ?= false
 
 .PHONY: build
 build:
@@ -10,15 +11,11 @@ update:
 
 .PHONY: run
 run:
-	$(STACK) run
-
-.PHONY: test
-test:
 	@if [ -z "$(FILE)" ]; then \
-		echo "Usage: make test FILE=<test-file>"; \
+		echo "Usage: make run FILE=<program-file> [STEP=true]"; \
 		exit 1; \
 	fi
-	$(STACK) runhaskell src/Main.hs $(FILE) main
+	$(STACK) runhaskell src/Main.hs $(FILE) main $(STEP)
 
 .PHONY: test-all
 test-all:

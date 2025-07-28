@@ -10,4 +10,5 @@ Run ```make build``` to build the project and its dependencies.
 
 To run all test cases, run script ```make test-all``` in your terminal.
 
-To run specific file, run script ```make test FILE=<test-file>```
+To run a specific file, run script ```make run FILE=<test-file> [STEP= true | false ]```.
+`STEP` defaults to false - setting it to true will make it display all steps of the program evaluation.
