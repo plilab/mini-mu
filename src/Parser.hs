@@ -27,6 +27,19 @@ import qualified Text.Megaparsec.Char.Lexer as L
 
 type Parser = Parsec Void String
 
+-- Keywords for our language
+keywords :: [String]
+keywords =
+  [ "mu",
+    "def",
+    "run",
+    "let",
+    "in",
+    "where",
+    "do",
+    "then"
+  ]
+
 -- Space consumer
 sc :: Parser ()
 sc =
@@ -71,8 +84,6 @@ varIdentifier =
       if word `elem` keywords
         then fail $ "keyword " ++ show word ++ " cannot be the name of a variable"
         else return word
-  where
-    keywords = ["mu", "def", "run", "let", "in", "where", "do", "then"]
 
 -- Parse a constructor (starting with uppercase)
 consIdentifier :: Parser String
@@ -109,8 +120,6 @@ cmdIdentifier =
       if word `elem` keywords
         then fail $ "keyword " ++ show word ++ " cannot be the name of a command"
         else return word
-  where
-    keywords = ["mu", "def", "run", "let", "in", "where", "do", "then"]
 
 nat :: Parser Expr
 nat = label "natural number" $ lexeme $ do
