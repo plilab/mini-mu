@@ -10,10 +10,12 @@ description:    Please see the README on GitHub at <https://github.com/plilab/mi
 homepage:       https://github.com/plilab/mini-mu#readme
 bug-reports:    https://github.com/plilab/mini-mu/issues
 author:         Ding Feng,
+                Kyriel Abad,
                 Michael D. Adams
 maintainer:     Ding Feng,
+                Kyriel Abad,
                 Michael D. Adams
-copyright:      2025 Ding Feng and Michael D. Adams
+copyright:      2025 Ding Feng, Kyriel Abad, Michael D. Adams
 license:        BSD-2-Clause
 license-file:   LICENSE
 build-type:     Simple

@@ -2,8 +2,8 @@ name:                mini-mu
 version:             0.1.0.0
 github:              "plilab/mini-mu"
 license:             BSD-2-Clause
-author:              ["Ding Feng", "Michael D. Adams"]
-copyright:           "2025 Ding Feng and Michael D. Adams"
+author:              ["Ding Feng", "Kyriel Abad", "Michael D. Adams"]
+copyright:           "2025 Ding Feng, Kyriel Abad, Michael D. Adams"
 
 extra-source-files:
 - README.md
@@ -28,7 +28,6 @@ dependencies:
 - directory
 - filepath
 - process
-
 
 ghc-options:
 - -Wall
