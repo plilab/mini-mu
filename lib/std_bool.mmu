@@ -2,8 +2,8 @@
 -- cobool = (cont_true, cont_false) (product type - pair of continuations)
 
 -- cobool constructors
-def true k := True . k;
-def false k := False . k;
+def true k := 1 . k;
+def false k := 0 . k;
 
 def cotrue k_t k := (k_t, { a -> a }) . k; 
 def cofalse k_f k := ({ a -> a }, k_f) . k;
@@ -12,18 +12,18 @@ def conot cb k :=
   cb . { (k_true, k_false) -> (k_false, k_true) . k };
 
 def not b k :=
-  b . { True -> False . k
-      | False -> True . k };
+  b . { 0 -> 1 . k
+      | x -> 0 . k };
 
 -- functional if - based on cond returns expression
 def if cond cons alt k := 
-  cond . { True -> cons . k
-         | False -> alt . k };
+  cond . { 0 -> alt . k
+         | x -> cons . k };
 
 -- imperative if - based on cond returns continuation
 def branch cond then_k else_k :=
-  cond . { True -> then_k 
-         | False -> else_k };
+  cond . { 0 -> else_k 
+         | x -> then_k };
 
 -- dual to if: co-if (takes a pair, applies both parts)
 -- is it really dual?

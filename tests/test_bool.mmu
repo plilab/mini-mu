@@ -1,0 +1,8 @@
+import "std_bool" (if, branch)
+import "std_nat" (inc)
+
+-- depending on the value of x, incr by 1 or stay the same
+def test x k :=
+   x . { x -> branch @ x {x -> inc @ x k} k };
+
+run test @ 1 Halt
