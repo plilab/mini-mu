@@ -28,6 +28,7 @@ dependencies:
 - directory
 - filepath
 - process
+- optparse-applicative
 
 ghc-options:
 - -Wall

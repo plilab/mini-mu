@@ -1,24 +1,55 @@
 module Main (main) where
 
-import Eval (Config (..), evalProgram, step)
--- import Graph (graphMain)
+import Eval (Config (..), step)
 import Parser (program)
 import Pretty
-import System.Environment
 import Text.Megaparsec (errorBundlePretty, parse)
 import Module (evalProgramWithDepDecls)
+import Options.Applicative
+
+data RunOptions = RunOptions
+  { programFile :: String
+  , entryPoint :: String
+  , viewEvalProcess :: Bool
+  }
+
+runOptions :: Parser RunOptions
+runOptions = RunOptions
+  <$> strArgument
+      ( metavar "PROGRAM_FILE"
+        <> help "Path to the program file to evaluate" )
+  <*> option str
+      ( long "entry-point"
+        <> metavar "ENTRY_POINT"
+        <> short 'e'
+        <> value "main"
+        <> showDefault
+        <> help "Name of the entry point function" )
+  <*> switch
+      ( long "step-by-step"
+        <> short 's'
+        <> help "View evaluation process step by step" )
 
 main :: IO ()
-main = do
-  -- read command line args: args <- getArgs
-  [programFile, var, viewEvalProcess] <- getArgs
-  programText <- readFile programFile
-  programAst <- case parse program programFile programText of
+main = run =<< execParser opts
+  where
+    opts = info (runOptions <**> helper)
+      ( fullDesc
+        <> progDesc "Evaluate a MiniMu program"
+        <> header "MiniMu Interpreter" )
+
+run :: RunOptions -> IO ()
+run opts = do
+  let file = programFile opts
+      entry = entryPoint opts
+      view = viewEvalProcess opts
+  programText <- readFile file
+  programAst <- case parse program file programText of
     Left e -> do
       putStrLn $ errorBundlePretty e
       error "Parse error"
     Right p -> return p
-  initConfig <- evalProgramWithDepDecls programAst var
+  initConfig <- evalProgramWithDepDecls programAst entry
   -- print config
   let go :: [Config] -> IO ()
       go [] = 
@@ -27,9 +58,9 @@ main = do
         putStrLn "----------------------------------------------------------"
         mapM_ (putStrLn . renderPretty . prettyConfig) configs
         go (concatMap step configs)
-  case viewEvalProcess of
-    "true" -> go [initConfig]
-    _ -> do
+  case view of
+    True -> go [initConfig]
+    False -> do
       let finalConfig = until isHalted step1 initConfig
       putStrLn "----------------------------------------------------------"
       putStrLn $ renderPretty $ prettyConfig finalConfig

@@ -12,3 +12,5 @@ To run all test cases, run script ```make test-all``` in your terminal.
 
 To run a specific file, run script ```make run FILE=<test-file> [STEP= true | false ]```.
 `STEP` defaults to false - setting it to true will make it display all steps of the program evaluation.
+
+To view the AST generated from a file, run script ``````.

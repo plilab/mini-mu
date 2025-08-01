@@ -51,6 +51,7 @@ library
     , filepath
     , graphviz
     , megaparsec
+    , optparse-applicative
     , parser-combinators
     , prettyprinter
     , process
@@ -74,6 +75,7 @@ executable mini-mu
     , graphviz
     , megaparsec
     , mini-mu
+    , optparse-applicative
     , parser-combinators
     , prettyprinter
     , process
@@ -99,6 +101,7 @@ test-suite mini-mu-test
     , graphviz
     , megaparsec
     , mini-mu
+    , optparse-applicative
     , parser-combinators
     , prettyprinter
     , process
