@@ -4,13 +4,11 @@ MiniMu is an experimental language of construction and destruction to explore th
 
 ## Setup
 
-Run ```make build``` to build the project and its dependencies.
+Run ```stack build``` to build the project and its dependencies.
 
 ## Testing
 
-To run all test cases, run script ```make test-all``` in your terminal.
-
-To run a specific file, run script ```make run FILE=<test-file> [STEP= true | false ]```.
-`STEP` defaults to false - setting it to true will make it display all steps of the program evaluation.
-
-To view the AST generated from a file, run script ``````.
+To run a specific file, run script ```./src/Main <file>``` or ```./src/Main run <file>```.
+To run all test cases, run script ```./src/Main test-all``` in your terminal.
+To visualize the AST of a program, run script ```./src/Main viz <file>```
+For further options run ```./src/Main --help```.
