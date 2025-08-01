@@ -65,11 +65,13 @@ testCommand :: Parser Command
 testCommand = pure Test
 
 cmdParser :: Parser Command
-cmdParser = hsubparser
-      ( command "run" (info runCommand (progDesc "Run a MiniMu program"))
-          <> command "viz" (info vizCommand (progDesc "Visualize a MiniMu program as an Abstract Syntax Tree (AST)"))
-          <> command "test-all" (info testCommand (progDesc "Run tests for MiniMu"))
-      ) <|> runCommand
+cmdParser =
+  hsubparser
+    ( command "run" (info runCommand (progDesc "Run a MiniMu program"))
+        <> command "viz" (info vizCommand (progDesc "Visualize a MiniMu program as an Abstract Syntax Tree (AST)"))
+        <> command "test-all" (info testCommand (progDesc "Run tests for MiniMu"))
+    )
+    <|> runCommand
 
 run :: RunOptions -> IO ()
 run opts = do
@@ -146,6 +148,6 @@ main = execCommand =<< execParser opts
       info
         (cmdParser <**> helper)
         ( fullDesc
-            <> progDesc "Evaluate a MiniMu program"
-            <> header "MiniMu Interpreter"
+            <> progDesc "A set of tools to use and analyze the MiniMu language"
+            <> header "MiniMu CLI"
         )
