@@ -4,12 +4,11 @@ import Control.Monad (forM_, when)
 import Eval (Config (..), step)
 import Module (evalProgramWithDepDecls)
 import Options.Applicative
-import Parser (program)
+import Parser (parseMiniMu)
 import Pretty
 import System.Directory (listDirectory)
 import System.Exit (exitFailure)
 import System.FilePath (takeBaseName, takeExtension, (</>))
-import Text.Megaparsec (errorBundlePretty, parse)
 
 data RunOptions = RunOptions
   { programFile :: String,
@@ -78,12 +77,7 @@ run opts = do
   let file = programFile opts
       entry = entryPoint opts
       view = viewEvalProcess opts
-  programText <- readFile file
-  programAst <- case parse program file programText of
-    Left e -> do
-      putStrLn $ errorBundlePretty e
-      error "Parse error"
-    Right p -> return p
+  programAst <- parseMiniMu file
   initConfig <- evalProgramWithDepDecls programAst entry
   -- print config
   let go :: [Config] -> IO ()
@@ -116,8 +110,8 @@ run opts = do
 
 runViz :: VizOptions -> IO ()
 runViz opts = do
-  putStrLn $ "Visualizing program: " ++ vizFile opts
-  putStrLn "Visualization is not implemented yet."
+  program <- parseMiniMu $ vizFile opts
+  mapM_ (putStrLn . renderPretty . prettyProgram) [program]
 
 runTests :: IO ()
 runTests = do

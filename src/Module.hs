@@ -2,7 +2,7 @@ module Module (main, evalProgramWithDepDecls) where
 
 import Debug.Trace (trace)
 import Eval
-import Parser (parseFile)
+import Parser (parseMiniMu, parseFile)
 import Pretty
 import Syntax
 
@@ -12,14 +12,11 @@ type ModuleName = String
 loadModule :: ModuleName -> IO [Decl]
 loadModule moduleName = trace ("loading module \"" ++ moduleName ++ "\"") $ do
   let filepath = "./lib/" ++ moduleName ++ ".mmu"
-  parseResult <- parseFile filepath
-  case parseResult of
-    Left err -> error $ "Error parsing module file: " ++ show err
-    Right program -> do
-      -- First, recursively load all dependencies
-      parentDecls <- buildDeclsFromProgram program
-      -- Then, return the declarations from the current module
-      return $ concat [decls | Program _ decls _ <- [program]] ++ parentDecls
+  program <- parseMiniMu filepath
+  -- First, recursively load all dependencies
+  parentDecls <- buildDeclsFromProgram program
+  -- Then, return the declarations from the current module
+  return $ concat [decls | Program _ decls _ <- [program]] ++ parentDecls
       
 
 -- Build module environment by reading imports from a program

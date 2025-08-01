@@ -1,20 +1,7 @@
 module Parser
-  ( parseString,
+  ( 
+    parseMiniMu,
     parseFile,
-    program,
-    Parser,
-    expr,
-    symbol,
-    brackets,
-    angles,
-    parens,
-    varIdentifier,
-    consIdentifier,
-    varId,
-    consId,
-    command,
-    decl,
-    patr,
   )
 where
 
@@ -39,6 +26,22 @@ keywords =
     "do",
     "then"
   ]
+
+-- Parse a MiniMu program from a file, handing errors
+-- Main entry point for parsing
+parseMiniMu :: FilePath -> IO Program
+parseMiniMu file = do
+  ast <- parseFile file
+  either (\err -> do
+    putStrLn $ errorBundlePretty err
+    error "Failed to parse MiniMu program")
+    return ast
+
+-- Parse a file into a Program, consuming leading whitespace
+parseFile :: String -> IO (Either (ParseErrorBundle String Void) Program)
+parseFile file = do
+  contents <- readFile file
+  return $ parse (sc *> program <* eof) file contents
 
 -- Space consumer
 sc :: Parser ()
@@ -437,12 +440,6 @@ program = do
 -- Parse a string into a Command, consuming leading whitespace, this is used for testing
 parseString :: String -> Either (ParseErrorBundle String Void) Command
 parseString = parse (sc *> command <* eof) ""
-
--- Parse a file into a Program, consuming leading whitespace
-parseFile :: String -> IO (Either (ParseErrorBundle String Void) Program)
-parseFile file = do
-  contents <- readFile file
-  return $ parse (sc *> program <* eof) file contents
 
 ---- -- Sugar functions for parsing commands and declarations
 

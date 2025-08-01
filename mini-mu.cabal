@@ -86,7 +86,6 @@ test-suite mini-mu-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Tests
       Paths_mini_mu
   autogen-modules:
       Paths_mini_mu

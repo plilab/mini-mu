@@ -9,6 +9,7 @@ module Pretty
     -- prettyTopLevelEitherValue,
     prettyTopLevelValue,
     -- prettyTopLevelCoValue,
+    prettyProgram
   )
 where
 
@@ -39,6 +40,31 @@ prettyConfig (ErrorConfig string) =
 -- prettyTopLevelEitherValue :: Either Value CoValue -> Doc ann
 -- prettyTopLevelEitherValue (Left v) = prettyTopLevelValue v
 -- prettyTopLevelEitherValue (Right cv) = prettyTopLevelCoValue cv
+
+prettyProgram :: Program -> Doc ann
+prettyProgram (Program imports decls mainExpr) =
+  pretty "Program"
+    <+> braces
+      ( line
+          <> indent 2 (prettyImports imports)
+          <> line
+          <> indent 2 (prettyDecls decls)
+          <> line
+          <> indent 2 (prettyMainExpr mainExpr)
+          <> line
+      )
+  where
+    prettyImports [] = mempty
+    prettyImports (ImportDecl name _ : is) =
+      pretty "Import" <+> pretty name
+        <> line
+        <> prettyImports is
+    prettyDecls [] = mempty
+    prettyDecls (Decl varId expr : ds) =
+      pretty "Decl" <+> pretty varId <+> prettyExpr expr
+        <> line
+        <> prettyDecls ds
+    prettyMainExpr = pretty
 
 prettyTopLevelValue :: Value -> Doc ann
 prettyTopLevelValue (ConsValue "Z" []) = pretty "0"
