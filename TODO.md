@@ -26,8 +26,8 @@
 
 - pretty-printer to latex [?]
 
-- underscore/wildcard patterns: [ Z -> False . k | S _ -> ... | _ -> True . k ] 
-- nested patterns: [ (Pair Z (Pair j k)) -> ...]
+- underscore/wildcard patterns: [ Z -> False . k | S _ -> ... | _ -> True . k ]  [done]
+- nested patterns: [ (Pair Z (Pair j k)) -> ...] [done]
 
 - Figure out why and stop `Main` build artifacts from appearing
 - Allow definition of user-defined constructors in mini-mu
@@ -46,22 +46,30 @@
 - Syntactic Sugar
 - Develop Programs in mini-mu
 
-- Explore the connection with Zipper
-- Explore how to use macros...
+- Explore the connection with Zipper[ding]
+  - context with/wo pointers reversal
+  - The Derivative of a Regular Type is its Type of One-Hole Contexts[http://strictlypositive.org/diff.pdf]
+  - https://simon.peytonjones.org/codata-in-action/ section 1 & 2 & 3
+  - https://www.cs.uoregon.edu/Reports/DRP-201905-Sullivan.pdf
+- Explore how to use macros...[ky]
+- user defined infix operator[ky]
 - Parsec with 4 kinds of continuations
-- backtracking search
+- backtracking search[ding]
 - Regular expression, derivatives
 - variance on list_map/list_fold...
-- Implementation of a exception system, monad/comonad system
-- Object-Orientation system
+- Implementation of a exception system, monad/comonad system[ding]
+  - exception monad, reader comonad
+- Object-Orientation system[ky]
 - positive negative pair/sum system
 - excluded-middle law / devil's bargan
   - Either devil gives $1M or (you give devil $1M and devil gives one wish)
     - one wish = impossible value (bottom / infinite loop)
     - $1M = object of type "A"
   - call/cc: cont (cont a) ~= ((a -> bot) -> bot) ~=? { k -> k . a }
-- codata
-- sequent logic
-- async (e.g., JavaScript)
-- type
+- codata[interesting]
+- sequent logic[ky]
+  - fallback to nd
+- async (e.g., JavaScript)[d]
+- type[HARD]
+- applicative functors
 - Develop a Parsec parser -> BNF function
