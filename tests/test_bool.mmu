@@ -1,0 +1,9 @@
+import "std_bool" (if, branch, not)
+import "std_nat" (inc)
+
+def inc1 x cond k :=
+   branch @ cond 
+     { t -> inc @ x k } 
+     { f -> x . k };
+
+run inc1 @ 1 1 Halt

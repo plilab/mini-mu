@@ -1,0 +1,39 @@
+-- ATM there seems to be an issue with the std_bool library if i use True and False
+
+def not b k :=
+  b . { 0 -> 1 . k
+      | x -> 0 . k };
+
+-- functional if - based on cond returns expression
+def if cond cons alt k := 
+  cond . { 0 -> alt . k
+         | x -> cons . k };
+
+-- imperative if - based on cond takes a continuation
+def branch cond then_k else_k :=
+  cond . { 0 -> cond . else_k 
+         | x -> cond . then_k }
+
+{-
+WIP exploration of cobools
+
+def cotrue k_t k := (k_t, { a -> a }) . k; 
+def cofalse k_f k := ({ a -> a }, k_f) . k;
+
+def conot cb k :=
+  cb . { (k_true, k_false) -> (k_false, k_true) . k };
+
+-- dual to if: co-if (takes a pair, applies both parts)
+-- is it really dual?
+def coif cocond true_val false_val :=
+  -- cocond . { (k_true, k_false) -> (true_val . k_true, false_val . k_false) };
+  cocond . { _ -> Not_implemented . Halt };
+
+-- dual to branch: co-branch (takes a pair, applies to both continuations)  
+-- is it really dual?
+def cobranch cocond k :=
+  -- pair . k ???
+  cocond . { _ -> Not_implemented . Halt }
+-}
+
+export if, branch, not

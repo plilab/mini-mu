@@ -1,3 +1,14 @@
-# Stack working directory
+# stack working directory
 .stack-work/
 .DS_Store
+
+# haskell build artifacts
+Main
+**/Main
+*.o
+*.hi
+*.chi
+
+# cabal build artifacts
+dist-newstyle/
+dist/ 

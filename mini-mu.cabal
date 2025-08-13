@@ -10,10 +10,12 @@ description:    Please see the README on GitHub at <https://github.com/plilab/mi
 homepage:       https://github.com/plilab/mini-mu#readme
 bug-reports:    https://github.com/plilab/mini-mu/issues
 author:         Ding Feng,
+                Kyriel Abad,
                 Michael D. Adams
 maintainer:     Ding Feng,
+                Kyriel Abad,
                 Michael D. Adams
-copyright:      2025 Ding Feng and Michael D. Adams
+copyright:      2025 Ding Feng, Kyriel Abad, Michael D. Adams
 license:        BSD-2-Clause
 license-file:   LICENSE
 build-type:     Simple
@@ -49,6 +51,7 @@ library
     , filepath
     , graphviz
     , megaparsec
+    , optparse-applicative
     , parser-combinators
     , prettyprinter
     , process
@@ -58,11 +61,19 @@ library
 executable mini-mu
   main-is: Main.hs
   other-modules:
+      Eval
+      Graph
+      Lib
+      Module
+      Parser
+      Pretty
+      SmallStep
+      Syntax
       Paths_mini_mu
   autogen-modules:
       Paths_mini_mu
   hs-source-dirs:
-      app
+      src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
@@ -72,6 +83,7 @@ executable mini-mu
     , graphviz
     , megaparsec
     , mini-mu
+    , optparse-applicative
     , parser-combinators
     , prettyprinter
     , process
@@ -82,7 +94,6 @@ test-suite mini-mu-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Tests
       Paths_mini_mu
   autogen-modules:
       Paths_mini_mu
@@ -97,6 +108,7 @@ test-suite mini-mu-test
     , graphviz
     , megaparsec
     , mini-mu
+    , optparse-applicative
     , parser-combinators
     , prettyprinter
     , process
