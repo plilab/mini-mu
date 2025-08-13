@@ -61,11 +61,19 @@ library
 executable mini-mu
   main-is: Main.hs
   other-modules:
+      Eval
+      Graph
+      Lib
+      Module
+      Parser
+      Pretty
+      SmallStep
+      Syntax
       Paths_mini_mu
   autogen-modules:
       Paths_mini_mu
   hs-source-dirs:
-      app
+      src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
