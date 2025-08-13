@@ -29,6 +29,18 @@
 - underscore/wildcard patterns: [ Z -> False . k | S _ -> ... | _ -> True . k ] 
 - nested patterns: [ (Pair Z (Pair j k)) -> ...]
 
+- Figure out why and stop `Main` build artifacts from appearing
+- Allow definition of user-defined constructors in mini-mu
+- Passing commands as arguments: { _ -> v . k} -> { v . k } for syntactic sugar
+  - Sugar: { ... it ... } ==> { it -> ... it ... }
+- Ap -> (,,,) ???
+- "Debugger" to explore enivronments and stores
+- REPL
+- Better Error Messages
+- Pass through the AST to verify variables in scope (syntax-level)
+- When invalid constructor is passed to mu-closure, raise error
+- Investigate issues with `True`, `False` constructors, especially in `std_bool.mmu`
+
 ## Long Term
 
 - Syntactic Sugar
@@ -52,3 +64,4 @@
 - sequent logic
 - async (e.g., JavaScript)
 - type
+- Develop a Parsec parser -> BNF function

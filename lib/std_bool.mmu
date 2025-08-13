@@ -1,15 +1,4 @@
--- bool = True | False (sum type)
--- cobool = (cont_true, cont_false) (product type - pair of continuations)
-
--- cobool constructors
-def true k := 1 . k;
-def false k := 0 . k;
-
-def cotrue k_t k := (k_t, { a -> a }) . k; 
-def cofalse k_f k := ({ a -> a }, k_f) . k;
-
-def conot cb k :=
-  cb . { (k_true, k_false) -> (k_false, k_true) . k };
+-- ATM there seems to be an issue with the std_bool library if i use True and False
 
 def not b k :=
   b . { 0 -> 1 . k
@@ -20,10 +9,19 @@ def if cond cons alt k :=
   cond . { 0 -> alt . k
          | x -> cons . k };
 
--- imperative if - based on cond returns continuation
+-- imperative if - based on cond takes a continuation
 def branch cond then_k else_k :=
-  cond . { 0 -> else_k 
-         | x -> then_k };
+  cond . { 0 -> cond . else_k 
+         | x -> cond . then_k }
+
+{-
+WIP exploration of cobools
+
+def cotrue k_t k := (k_t, { a -> a }) . k; 
+def cofalse k_f k := ({ a -> a }, k_f) . k;
+
+def conot cb k :=
+  cb . { (k_true, k_false) -> (k_false, k_true) . k };
 
 -- dual to if: co-if (takes a pair, applies both parts)
 -- is it really dual?
@@ -36,5 +34,6 @@ def coif cocond true_val false_val :=
 def cobranch cocond k :=
   -- pair . k ???
   cocond . { _ -> Not_implemented . Halt }
+-}
 
-export if, branch, coif, cobranch, cotrue, cofalse, conot
+export if, branch, not
