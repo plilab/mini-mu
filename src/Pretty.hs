@@ -42,7 +42,7 @@ prettyConfig (ErrorConfig string) =
 -- prettyTopLevelEitherValue (Right cv) = prettyTopLevelCoValue cv
 
 prettyProgram :: Program -> Doc ann
-prettyProgram (Program imports decls mainExpr) =
+prettyProgram (Program imports decls exports) =
   pretty "Program"
     <+> braces
       ( line
@@ -50,7 +50,7 @@ prettyProgram (Program imports decls mainExpr) =
           <> line
           <> indent 2 (prettyDecls decls)
           <> line
-          <> indent 2 (prettyMainExpr mainExpr)
+          <> indent 2 (prettyMainExpr exports)
           <> line
       )
   where
@@ -61,10 +61,10 @@ prettyProgram (Program imports decls mainExpr) =
         <> prettyImports is
     prettyDecls [] = mempty
     prettyDecls (Decl varId expr : ds) =
-      pretty "Decl" <+> pretty varId <+> prettyExpr expr
+      pretty varId <+> pretty ":=" <+> prettyExpr expr
         <> line
         <> prettyDecls ds
-    prettyMainExpr = pretty
+    prettyMainExpr es = pretty "Exports:" <+> hsep (map pretty es)
 
 prettyTopLevelValue :: Value -> Doc ann
 prettyTopLevelValue (ConsValue "Z" []) = pretty "0"

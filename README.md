@@ -1,6 +1,6 @@
 # MiniMu
 
-MiniMu is an experimental language of construction and destruction to explore the dual lambda-mu calculus.
+MiniMu is an experimental language of construction and destruction to explore the dual $\mu\tilde{\mu}-$ calculus.
 
 ## Setup
 
