@@ -24,6 +24,11 @@ def add x y k :=
     x . { Z -> y . k
         | S x' -> x' (S y) k @ add };
 
+def sub a b k :=
+  b . { Z -> a . k
+      | S b' -> a . { Z -> Z . k
+                    | S a' -> sub @ a' b' k } };
+
 def dec x k :=
   x . { Z -> x . k | S x' -> x' . k };
 

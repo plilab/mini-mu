@@ -1,0 +1,22 @@
+import "std_nat" (add, eq)
+
+def find_pair_sum xs ys target k :=
+  xs . {
+    Nil -> NO_RESULT . k
+  | List:: x xs' -> 
+    find_pair_sum_aux @ x ys target {
+      (x, y) -> (x, y) . k -- found a pair, early return, hard to do in fp
+    | _ -> find_pair_sum @ xs' ys target k } };
+
+def find_pair_sum_aux x ys target k :=
+  ys . {
+    Nil -> NO_RESULT . k
+  | List:: y ys' -> add @ x y {
+    sum -> eq @ sum target {
+      True -> (x, y) . k
+    | _ -> find_pair_sum_aux @ x ys' target k } } };
+
+run let l1 = (List:: 1 (List:: 2 (List:: 3 Nil))), 
+        l2 = (List:: 4 (List:: 5 (List:: 6 Nil))),
+        target = 8
+    in find_pair_sum @ l1 l2 target Halt 
