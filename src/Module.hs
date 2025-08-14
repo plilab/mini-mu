@@ -1,9 +1,8 @@
-module Module (main, evalProgramWithDepDecls) where
+module Module (evalProgramWithDepDecls) where
 
 import Debug.Trace (trace)
 import Eval
 import Parser (parseMiniMu, parseFile)
-import Pretty
 import Syntax
 
 type ModuleName = String
@@ -52,22 +51,3 @@ runProgram filepath varId = do
     Right program -> do
       config <- evalProgramWithDepDecls program varId
       return $ Right config
-
-main :: IO ()
-main = do
-  result <-
-    runProgram
-      "./test/quicksort_sugared.mmu"
-      "main"
-  case result of
-    Left err -> putStrLn $ "Error: " ++ err
-    Right config -> do
-      let finalConfig = until isHalted step1 config
-      putStrLn "----------------------------------------------------------"
-      putStrLn $ renderPretty $ prettyConfig finalConfig
-      where
-        step1 c = case step c of
-          [next] -> next
-          _ -> c -- In case of non-determinism, just return the current config
-        isHalted (ErrorConfig _) = True
-        isHalted _ = False

@@ -68,9 +68,9 @@ step (ValueConfig store v@(MuValue env clauses) cv@(MuValue env' clauses')) =
   match env' store v clauses' ++ match env store cv clauses
 -- temporary hack to deal with "Halt"
 step (ValueConfig _ cons@(ConsValue _ _) (ConsValue "Halt" [])) =
-  [ErrorConfig ("Halt with result: " ++ renderPretty (prettyTopLevelValue cons))]
+  [ErrorConfig ("Halt with result: " ++ renderPretty (prettyTopLevelValue cons False))]
 step (ValueConfig _ (ConsValue "Halt" []) cons@(ConsValue _ _)) =
-  [ErrorConfig ("Halt with result: " ++ renderPretty (prettyTopLevelValue cons))]
+  [ErrorConfig ("Halt with result: " ++ renderPretty (prettyTopLevelValue cons False))]
 step (ValueConfig _ (ConsValue {}) (ConsValue {})) =
   [ErrorConfig "Bad type: cannot continue with 2 constructors"]
 step (ErrorConfig {}) = []

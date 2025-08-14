@@ -1,0 +1,519 @@
+// DONE BY AI, PENDING FOR FIX
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>μ-Calculus Step Visualizer</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .visualization-area {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            margin: 20px 0;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .data-circle {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+            border: 3px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+            transition: all 0.5s ease;
+            cursor: pointer;
+            font-size: 12px;
+            text-align: center;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+
+        .codata-circle {
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            border: 3px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+            transition: all 0.5s ease;
+            cursor: pointer;
+            font-size: 11px;
+            text-align: center;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .step-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #4ecdc4;
+        }
+
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 0 10px;
+            transition: transform 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .step-counter {
+            text-align: center;
+            font-size: 18px;
+            margin: 10px 0;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .input-area {
+            margin-bottom: 20px;
+        }
+
+        .input-area textarea {
+            width: 100%;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            resize: vertical;
+        }
+
+        .input-area textarea::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .bounce-in {
+            animation: bounceIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.1); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .error-state {
+            background: linear-gradient(45deg, #ff4757, #ff3838) !important;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .command-indicator {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 30px;
+            height: 30px;
+            background: #feca57;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            border: 2px solid white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔄 μ-Calculus Step Visualizer</h1>
+            <p>Interactive visualization of μ-calculus evaluation steps</p>
+        </div>
+
+        <div class="input-area">
+            <textarea id="stepsInput" placeholder="Paste your evaluation steps here..."></textarea>
+            <div class="controls">
+                <button class="btn" onclick="parseSteps()">📝 Parse Steps</button>
+                <button class="btn" onclick="loadExample()">📋 Load Example</button>
+            </div>
+        </div>
+
+        <div class="step-counter">
+            <span id="stepCounter">Step 0 of 0</span>
+        </div>
+
+        <div class="visualization-area" id="vizArea">
+            <div style="text-align: center; margin-top: 150px; color: rgba(255,255,255,0.6);">
+                📊 Visualization will appear here after parsing steps
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" id="prevBtn" onclick="previousStep()" disabled>⬅️ Previous</button>
+            <button class="btn" id="nextBtn" onclick="nextStep()" disabled>➡️ Next</button>
+            <button class="btn" id="resetBtn" onclick="resetVisualization()" disabled>🔄 Reset</button>
+        </div>
+
+        <div class="step-info" id="stepInfo">
+            <strong>Current Step:</strong> Ready to load evaluation steps
+        </div>
+    </div>
+
+    <script>
+        let evaluationSteps = [];
+        let currentStepIndex = 0;
+
+        const exampleSteps = `----------------------------------------------------------
+<Command Config> 
+Environment (not shown)
+Store (not shown)
+< main ▷ Halt >
+----------------------------------------------------------
+<Value Config> 
+Store (not shown)
+μ-Closure {
+  Environment (not shown) μ[ Halt  ->
+                             < (Ap (S (S (S (S (S Z))))) (S (S (S (S (S (S (S (S (S Z))))))))) Halt) ▷ add >]
+} | Halt
+----------------------------------------------------------
+<Command Config> 
+Environment (not shown)
+Store (not shown)
+< (Ap (S (S (S (S (S Z))))) (S (S (S (S (S (S (S (S (S Z))))))))) Halt) ▷ add >
+----------------------------------------------------------
+<Value Config> 
+Store (not shown)
+(Ap 5 9 Halt) | μ-Closure {
+  Environment (not shown) μ[ Ap x y k ->
+                             < x ▷ μ[ Z  ->
+                                      < y ▷ k >
+                                    | S x' ->
+                                      < (Ap x' (S y) k) ▷ add >] >]
+}
+----------------------------------------------------------
+<Message> Halt with result: 14
+----------------------------------------------------------
+DONE`;
+
+        function loadExample() {
+            document.getElementById('stepsInput').value = exampleSteps;
+            parseSteps();
+        }
+
+        function parseSteps() {
+            const input = document.getElementById('stepsInput').value;
+            const stepBlocks = input.split('----------------------------------------------------------').filter(block => block.trim());
+            
+            evaluationSteps = [];
+            
+            stepBlocks.forEach(block => {
+                const trimmed = block.trim();
+                if (trimmed.startsWith('<Command Config>')) {
+                    // Look for the command pattern with multiline support
+                    const commandMatch = trimmed.match(/<\s*([\s\S]*?)\s*▷\s*([\s\S]*?)\s*>/);
+                    if (commandMatch) {
+                        evaluationSteps.push({
+                            type: 'command',
+                            data: commandMatch[1].trim().replace(/\s+/g, ' '),
+                            codata: commandMatch[2].trim().replace(/\s+/g, ' '),
+                            raw: trimmed
+                        });
+                    }
+                } else if (trimmed.startsWith('<Value Config>')) {
+                    // Extract everything after "Store (not shown)" and before any closing patterns
+                    let contentAfterStore = trimmed;
+                    const storeIndex = contentAfterStore.indexOf('Store (not shown)');
+                    if (storeIndex !== -1) {
+                        contentAfterStore = contentAfterStore.substring(storeIndex + 'Store (not shown)'.length).trim();
+                    }
+                    
+                    // Find the | separator that splits data and codata
+                    let dataValue = '';
+                    let codataValue = '';
+                    
+                    // Look for the pattern: [content] | [content]
+                    const pipeRegex = /^([\s\S]*?)\s*\|\s*([\s\S]*)$/;
+                    const match = contentAfterStore.match(pipeRegex);
+                    
+                    if (match) {
+                        dataValue = match[1].trim().replace(/\s+/g, ' ');
+                        codataValue = match[2].trim().replace(/\s+/g, ' ');
+                    } else {
+                        // Fallback: use the entire content as data
+                        dataValue = contentAfterStore.replace(/\s+/g, ' ');
+                        codataValue = 'Continuation';
+                    }
+                    
+                    evaluationSteps.push({
+                        type: 'value',
+                        data: dataValue || 'Value',
+                        codata: codataValue || 'Continuation',
+                        raw: trimmed
+                    });
+                } else if (trimmed.startsWith('<Message>')) {
+                    evaluationSteps.push({
+                        type: 'message',
+                        data: trimmed.replace('<Message>', '').trim(),
+                        codata: '',
+                        raw: trimmed
+                    });
+                }
+            });
+            
+            currentStepIndex = 0;
+            updateVisualization();
+            updateControls();
+            updateStepCounter();
+        }
+
+        function updateVisualization() {
+            const vizArea = document.getElementById('vizArea');
+            vizArea.innerHTML = '';
+            
+            if (evaluationSteps.length === 0) {
+                vizArea.innerHTML = '<div style="text-align: center; margin-top: 150px; color: rgba(255,255,255,0.6);">📊 No steps to visualize</div>';
+                return;
+            }
+            
+            const step = evaluationSteps[currentStepIndex];
+            
+            if (step.type === 'command') {
+                // Create data circle (center)
+                const dataCircle = document.createElement('div');
+                dataCircle.className = 'data-circle bounce-in';
+                dataCircle.style.left = '50%';
+                dataCircle.style.top = '50%';
+                dataCircle.style.transform = 'translate(-50%, -50%)';
+                dataCircle.innerHTML = truncateText(step.data, 80);
+                
+                // Add command indicator
+                const indicator = document.createElement('div');
+                indicator.className = 'command-indicator';
+                indicator.innerHTML = '⚡';
+                dataCircle.appendChild(indicator);
+                
+                // Create codata circle (surrounding)
+                const codataCircle = document.createElement('div');
+                codataCircle.className = 'codata-circle fade-in';
+                codataCircle.style.left = '50%';
+                codataCircle.style.top = '50%';
+                codataCircle.style.transform = 'translate(-50%, -50%)';
+                codataCircle.style.zIndex = '1';
+                codataCircle.innerHTML = truncateText(step.codata, 120);
+                
+                dataCircle.style.zIndex = '2';
+                
+                vizArea.appendChild(codataCircle);
+                vizArea.appendChild(dataCircle);
+                
+            } else if (step.type === 'value') {
+                // Create two circles side by side
+                const dataCircle = document.createElement('div');
+                dataCircle.className = 'data-circle bounce-in';
+                dataCircle.style.left = '30%';
+                dataCircle.style.top = '50%';
+                dataCircle.style.transform = 'translate(-50%, -50%)';
+                dataCircle.innerHTML = truncateText(step.data, 80);
+                
+                const codataCircle = document.createElement('div');
+                codataCircle.className = 'codata-circle bounce-in';
+                codataCircle.style.left = '70%';
+                codataCircle.style.top = '50%';
+                codataCircle.style.transform = 'translate(-50%, -50%)';
+                codataCircle.innerHTML = truncateText(step.codata, 120);
+                
+                // Add connection line
+                const line = document.createElement('div');
+                line.style.position = 'absolute';
+                line.style.left = '40%';
+                line.style.top = '50%';
+                line.style.width = '20%';
+                line.style.height = '3px';
+                line.style.background = 'linear-gradient(90deg, #ff6b6b, #4ecdc4)';
+                line.style.transform = 'translateY(-50%)';
+                line.className = 'fade-in';
+                
+                vizArea.appendChild(line);
+                vizArea.appendChild(dataCircle);
+                vizArea.appendChild(codataCircle);
+                
+            } else if (step.type === 'message') {
+                const messageCircle = document.createElement('div');
+                messageCircle.className = 'data-circle error-state bounce-in';
+                messageCircle.style.left = '50%';
+                messageCircle.style.top = '50%';
+                messageCircle.style.transform = 'translate(-50%, -50%)';
+                messageCircle.style.width = '200px';
+                messageCircle.style.height = '200px';
+                messageCircle.innerHTML = truncateText(step.data, 150);
+                
+                vizArea.appendChild(messageCircle);
+            }
+            
+            updateStepInfo();
+        }
+
+        function truncateText(text, maxLength) {
+            if (text.length <= maxLength) return text;
+            return text.substring(0, maxLength - 3) + '...';
+        }
+
+        function updateStepInfo() {
+            const stepInfo = document.getElementById('stepInfo');
+            if (evaluationSteps.length === 0) {
+                stepInfo.innerHTML = '<strong>Current Step:</strong> Ready to load evaluation steps';
+                return;
+            }
+            
+            const step = evaluationSteps[currentStepIndex];
+            let info = `<strong>Step ${currentStepIndex + 1}:</strong> ${step.type.toUpperCase()} Configuration<br>`;
+            
+            if (step.type === 'command') {
+                info += `<strong>Data:</strong> ${step.data}<br><strong>Codata:</strong> ${step.codata}`;
+            } else if (step.type === 'value') {
+                info += `<strong>Value:</strong> ${step.data}<br><strong>Continuation:</strong> ${step.codata}`;
+            } else if (step.type === 'message') {
+                info += `<strong>Message:</strong> ${step.data}`;
+            }
+            
+            stepInfo.innerHTML = info;
+        }
+
+        function updateControls() {
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            
+            prevBtn.disabled = currentStepIndex === 0 || evaluationSteps.length === 0;
+            nextBtn.disabled = currentStepIndex >= evaluationSteps.length - 1 || evaluationSteps.length === 0;
+            resetBtn.disabled = evaluationSteps.length === 0;
+        }
+
+        function updateStepCounter() {
+            const counter = document.getElementById('stepCounter');
+            if (evaluationSteps.length === 0) {
+                counter.textContent = 'Step 0 of 0';
+            } else {
+                counter.textContent = `Step ${currentStepIndex + 1} of ${evaluationSteps.length}`;
+            }
+        }
+
+        function nextStep() {
+            if (currentStepIndex < evaluationSteps.length - 1) {
+                currentStepIndex++;
+                updateVisualization();
+                updateControls();
+                updateStepCounter();
+            }
+        }
+
+        function previousStep() {
+            if (currentStepIndex > 0) {
+                currentStepIndex--;
+                updateVisualization();
+                updateControls();
+                updateStepCounter();
+            }
+        }
+
+        function resetVisualization() {
+            currentStepIndex = 0;
+            updateVisualization();
+            updateControls();
+            updateStepCounter();
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.code === 'ArrowRight' || e.code === 'Space') {
+                e.preventDefault();
+                nextStep();
+            } else if (e.code === 'ArrowLeft') {
+                e.preventDefault();
+                previousStep();
+            } else if (e.code === 'KeyR' && e.ctrlKey) {
+                e.preventDefault();
+                resetVisualization();
+            }
+        });
+
+        // Click visualization to advance
+        document.getElementById('vizArea').addEventListener('click', function() {
+            nextStep();
+        });
+    </script>
+</body>
+</html>

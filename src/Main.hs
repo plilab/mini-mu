@@ -9,19 +9,31 @@ import Pretty
 import System.Directory (listDirectory)
 import System.Exit (exitFailure)
 import System.FilePath (takeBaseName, takeExtension, (</>))
+import Graph (visualizeEvalTree)
+import EvalTree (printEvalTree, generateEvalTreeWithDepth)
 
 data RunOptions = RunOptions
   { programFile :: String,
     entryPoint :: String,
-    viewEvalProcess :: Bool
+    viewEvalProcess :: Bool,
+    viewFullEnvRun :: Bool
   }
 
 newtype VizOptions = VizOptions
   {vizFile :: String}
 
+data TreeOptions = TreeOptions
+  { treeFile :: String
+  , treeEntryPoint :: String
+  , treeDepth :: Int
+  , outputFormat :: String
+  , viewFullEnvTree :: Bool
+  }
+
 data UserCommand
   = Run RunOptions
   | Viz VizOptions
+  | Tree TreeOptions
   | Test
 
 runOptions :: Parser RunOptions
@@ -45,6 +57,11 @@ runOptions =
           <> short 's'
           <> help "View evaluation process step by step"
       )
+    <*> switch
+      ( long "full-env"
+          <> short 'f'
+          <> help "View evaluation environment"
+      )
 
 vizOptions :: Parser VizOptions
 vizOptions =
@@ -54,11 +71,54 @@ vizOptions =
           <> help "Path to the program file to visualize"
       )
 
+treeOptions :: Parser TreeOptions
+treeOptions =
+  TreeOptions
+    <$> strArgument
+      ( metavar "PROGRAM_FILE"
+          <> help "Path to the program file to generate evaluation tree for"
+      )
+    <*> option
+      str
+      ( long "entry-point"
+          <> metavar "ENTRY_POINT"
+          <> short 'e'
+          <> value "main"
+          <> showDefault
+          <> help "Name of the entry point - the expression to evaluate"
+      )
+    <*> option
+      auto
+      ( long "depth"
+          <> metavar "DEPTH"
+          <> short 'd'
+          <> value 10
+          <> showDefault
+          <> help "Maximum depth of the evaluation tree"
+      )
+    <*> option
+      str
+      ( long "output"
+          <> metavar "FORMAT"
+          <> short 'o'
+          <> value "text"
+          <> showDefault
+          <> help "Output format: text or svg"
+      )
+    <*> switch
+      ( long "full-env"
+          <> short 'f'
+          <> help "View full evaluation environment"
+      )
+
 runCommand :: Parser UserCommand
 runCommand = Run <$> runOptions
 
 vizCommand :: Parser UserCommand
 vizCommand = Viz <$> vizOptions
+
+treeCommand :: Parser UserCommand
+treeCommand = Tree <$> treeOptions
 
 testCommand :: Parser UserCommand
 testCommand = pure Test
@@ -68,6 +128,7 @@ cmdParser =
   hsubparser
     ( command "run" (info runCommand (progDesc "Run a MiniMu program"))
         <> command "viz" (info vizCommand (progDesc "Visualize a MiniMu program as an Abstract Syntax Tree (AST)"))
+        <> command "tree" (info treeCommand (progDesc "Generate evaluation tree for a MiniMu program"))
         <> command "test-all" (info testCommand (progDesc "Run tests for MiniMu"))
     )
     <|> runCommand
@@ -77,6 +138,7 @@ run opts = do
   let file = programFile opts
       entry = entryPoint opts
       view = viewEvalProcess opts
+      viewEnv = viewFullEnvRun opts
   programAst <- parseMiniMu file
   initConfig <- evalProgramWithDepDecls programAst entry
   -- print config
@@ -85,14 +147,16 @@ run opts = do
         putStrLn "----------------------------------------------------------\nDONE"
       go configs = do
         putStrLn "----------------------------------------------------------"
-        mapM_ (putStrLn . renderPretty . prettyConfig) configs
+        mapM_ (putStrLn . renderPretty . flip prettyConfig viewEnv) configs
         go (concatMap step configs)
   case view of
     True -> go [initConfig]
     False -> do
       let finalConfig = until isHalted step1 initConfig
       putStrLn "----------------------------------------------------------"
-      putStrLn $ renderPretty $ prettyConfig finalConfig
+      putStrLn $ renderPretty $ prettyConfig finalConfig viewEnv
+      when (isHalted finalConfig) $
+        putStrLn "Evaluation halted."
       where
         step1 c = case step c of
           [next] -> next
@@ -113,6 +177,24 @@ runViz opts = do
   program <- parseMiniMu $ vizFile opts
   mapM_ (putStrLn . renderPretty . prettyProgram) [program]
 
+runTree :: TreeOptions -> IO ()
+runTree opts = do
+  let file = treeFile opts
+      entry = treeEntryPoint opts
+      depth = treeDepth opts
+      format = outputFormat opts
+      fullEnv = viewFullEnvTree opts
+  programAst <- parseMiniMu file
+  initConfig <- evalProgramWithDepDecls programAst entry
+  case format of
+    "svg" -> do
+      let outputFile = file ++ "_eval_tree.svg"
+      visualizeEvalTree initConfig depth fullEnv outputFile
+    "text" -> do
+      let tree = generateEvalTreeWithDepth depth initConfig
+      putStrLn $ printEvalTree tree fullEnv
+    _ -> putStrLn "Invalid output format. Use 'text' or 'svg'."
+
 runTests :: IO ()
 runTests = do
   let filesDir = "./tests"
@@ -127,12 +209,13 @@ runTests = do
   forM_ mmuFiles $ \file -> do
     let fullPath = filesDir </> file
     putStrLn $ "\nRunning: stack exec mini-mu " ++ fullPath
-    let opt = RunOptions fullPath "main" False
+    let opt = RunOptions fullPath "main" False False
     run opt
 
 execCommand :: UserCommand -> IO ()
 execCommand (Run opts) = run opts
 execCommand (Viz opts) = runViz opts
+execCommand (Tree opts) = runTree opts
 execCommand Test = runTests
 
 main :: IO ()

@@ -29,6 +29,7 @@ source-repository head
 library
   exposed-modules:
       Eval
+      EvalTree
       Graph
       Lib
       Main
@@ -62,6 +63,7 @@ executable mini-mu
   main-is: Main.hs
   other-modules:
       Eval
+      EvalTree
       Graph
       Lib
       Module

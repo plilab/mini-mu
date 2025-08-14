@@ -19,22 +19,22 @@ import Prettyprinter.Render.String
 import Syntax
 
 -- | Pretty print a configuration.
-prettyConfig :: Config -> Doc ann
-prettyConfig (CommandConfig env store command) =
+prettyConfig :: Config -> Bool -> Doc ann
+prettyConfig (CommandConfig env store command) _show =
   pretty "<Command Config> "
-    <> prettyEnv env
     <> line
-    <> prettyStore store
+    <> prettyEnv env _show
+    <> line
+    <> prettyStore store _show
     <> line
     <> prettyCommand command
-prettyConfig (ValueConfig store value value') =
+prettyConfig (ValueConfig store value value') _show =
   pretty "<Value Config> "
-    <> prettyStore store
     <> line
-    <> prettyValue value
-    <+> pretty "|"
-    <+> prettyValue value'
-prettyConfig (ErrorConfig string) =
+    <> prettyStore store _show
+    <> line
+    <> prettyValue value _show <+> pretty "|" <+> prettyValue value' _show
+prettyConfig (ErrorConfig string) _ =
   pretty "<Message> " <> pretty string
 
 -- prettyTopLevelEitherValue :: Either Value CoValue -> Doc ann
@@ -66,14 +66,14 @@ prettyProgram (Program imports decls exports) =
         <> prettyDecls ds
     prettyMainExpr es = pretty "Exports:" <+> hsep (map pretty es)
 
-prettyTopLevelValue :: Value -> Doc ann
-prettyTopLevelValue (ConsValue "Z" []) = pretty "0"
-prettyTopLevelValue (ConsValue "S" [v]) =
+prettyTopLevelValue :: Value -> Bool -> Doc ann
+prettyTopLevelValue (ConsValue "Z" []) _ = pretty "0"
+prettyTopLevelValue (ConsValue "S" [v]) _ =
   pretty (peanoToInt (ConsValue "S" [v]))
-prettyTopLevelValue (ConsValue con args) =
-  pretty con <+> hsep (map prettyValue args)
-prettyTopLevelValue mu@(MuValue _ _) =
-  prettyMuValueAux mu
+prettyTopLevelValue (ConsValue con args) showEnv =
+  pretty con <+> hsep (map (`prettyValue` showEnv) args)
+prettyTopLevelValue mu@(MuValue _ _) showEnv =
+  prettyMuValueAux mu showEnv
 
 -- prettyTopLevelCoValue :: CoValue -> Doc ann
 -- prettyTopLevelCoValue (CoConsValue con args) =
@@ -85,16 +85,16 @@ prettyTopLevelValue mu@(MuValue _ _) =
 -- prettyEitherValue (Left v) = prettyValue v
 -- prettyEitherValue (Right cv) = prettyCoValue cv
 
-prettyValue :: Value -> Doc ann
-prettyValue (ConsValue "Z" []) = pretty "0"
-prettyValue (ConsValue "S" [v]) =
+prettyValue :: Value -> Bool -> Doc ann
+prettyValue (ConsValue "Z" []) _ = pretty "0"
+prettyValue (ConsValue "S" [v]) _ =
   pretty (peanoToInt (ConsValue "S" [v]))
-prettyValue (ConsValue con args) =
+prettyValue (ConsValue con args) showEnv =
   case args of
     [] -> pretty con
-    _ -> pretty "(" <> pretty con <+> hsep (map prettyValue args) <> pretty ")"
-prettyValue mu@(MuValue _ _) =
-  prettyMuValueAux mu
+    _ -> pretty "(" <> pretty con <+> hsep (map (`prettyValue` showEnv) args) <> pretty ")"
+prettyValue mu@(MuValue _ _) showEnv =
+  prettyMuValueAux mu showEnv
 
 -- Helper function to convert Peano numbers to integers
 peanoToInt :: Value -> Integer
@@ -123,12 +123,12 @@ peanoToInt _ = error "Not a Peano number"
    }
 -}
 
-prettyMuValueAux :: Value -> Doc ann
-prettyMuValueAux (MuValue env cases) =
+prettyMuValueAux :: Value -> Bool -> Doc ann
+prettyMuValueAux (MuValue env cases) showEnv =
   pretty "μ-Closure"
     <+> braces
       ( line
-          <> indent 2 (prettyEnv env
+          <> indent 2 (prettyEnv env showEnv
           <+> pretty "μ"
           <> brackets (hang (-1) (prettyCases cases)))
           <> line
@@ -139,7 +139,7 @@ prettyMuValueAux (MuValue env cases) =
       space
         <> prettyCase c
         <> mconcat [line <> pipe <> space <> prettyCase c' | c' <- cs]
-prettyMuValueAux _ = error "Expected a MuValue"
+prettyMuValueAux _ _ = error "Expected a MuValue"
 
 -- prettyCoMuValueAux :: Value -> Doc ann
 -- prettyCoMuValueAux (CoMuValue env cases) =
@@ -216,8 +216,8 @@ prettyPattern WildcardPattern = pretty "_"
 -- prettyEitherVar (Left v) = pretty v
 -- prettyEitherVar (Right cv) = pretty cv
 
-prettyEnv :: Env -> Doc ann
-prettyEnv (Env varMap cmdMap) =
+prettyEnv :: Env -> Bool -> Doc ann
+prettyEnv (Env varMap cmdMap) True =
   pretty "Environment"
     <+> braces
       ( line
@@ -262,6 +262,7 @@ prettyEnv (Env varMap cmdMap) =
                   )
                 <> line
             )
+prettyEnv _ False = pretty "Environment (not shown)"
 
 prettyAddr :: Addr -> Doc ann
 prettyAddr (Addr n) = pretty "#" <> pretty n
@@ -269,8 +270,8 @@ prettyAddr (Addr n) = pretty "#" <> pretty n
 -- prettyCoAddr :: CoAddr -> Doc ann
 -- prettyCoAddr (CoAddr n) = pretty "#" <> pretty n
 
-prettyStore :: Store -> Doc ann
-prettyStore (Store addr cmdAddr valMap cmdMap) =
+prettyStore :: Store -> Bool -> Doc ann
+prettyStore (Store addr cmdAddr valMap cmdMap) True =
   pretty "Store"
     <+> braces
       ( line
@@ -299,7 +300,7 @@ prettyStore (Store addr cmdAddr valMap cmdMap) =
                   ( vsep
                       [ prettyAddr addr'
                           <+> pretty "↦"
-                          <+> prettyTopLevelValue val
+                          <+> prettyTopLevelValue val True
                         | (addr', val) <- Map.toList m
                       ]
                   )
@@ -322,6 +323,7 @@ prettyStore (Store addr cmdAddr valMap cmdMap) =
                   )
                 <> line
             )
+prettyStore _ False = pretty "Store (not shown)"
 
 -- Helper functions to convert to String
 

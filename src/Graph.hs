@@ -1,82 +1,53 @@
-module Graph (graphMain) where
+module Graph (visualizeEvalTree, generateTreeGraph) where
 
 import Data.GraphViz
 import qualified Data.GraphViz.Attributes.Complete as A
--- import qualified Data.GraphViz.Types as T
 
-import qualified Data.Map as Map
-import qualified Data.Set as Set
-import Data.Text.Lazy (pack)
-import Eval (Config, step)
+import Eval (Config(..))
+import EvalTree (EvalTree(..), generateEvalTreeWithDepth)
+import Pretty (renderPretty, prettyConfig)
+import qualified Data.Text.Lazy as TL
 
-graphMain :: IO ()
-graphMain = do
-  let dotGraph = graphElemsToDot nonClusteredParams nodes edges
-      nodes :: [(Int, [A.Attribute])]
-      nodes =
-        [ (1, [A.Label $ A.StrLabel $ pack "Node 1"]),
-          (2, [A.Label $ A.StrLabel $ pack "Node 2"]),
-          (3, [A.Label $ A.StrLabel $ pack "Node 3"])
-        ]
-      edges :: [(Int, Int, [A.Attribute])]
-      edges = [(1, 2, [A.Label $ A.StrLabel $ pack "Edge 1->2"])]
-  print $ printDotGraph dotGraph
-  addrs <- runGraphvizCommand Dot dotGraph Svg "graph.svg"
-  print addrs
+-- | Generate a graph representation of an evaluation tree
+generateTreeGraph :: Config -> Int -> Bool -> ([(Int, String)], [(Int, Int, String)])
+generateTreeGraph initialConfig maxDepth _show =
+  let tree = generateEvalTreeWithDepth maxDepth initialConfig
+      (nodes, edges, _) = treeToGraph tree 0 _show
+      edgesWithLabels = map (\(src, dst) -> (src, dst, "")) edges
+  in (nodes, edgesWithLabels)
 
-type EvalGraph = Map.Map Config (Int, String)
+-- | Convert EvalTree to nodes and edges for GraphViz
+treeToGraph :: EvalTree -> Int -> Bool -> ([(Int, String)], [(Int, Int)], Int)
+treeToGraph (EvalNode config children) nodeId _show =
+  let configStr = configToString config _show
+      currentNode = (nodeId, configStr)
+      (childNodes, childEdges, nextId) =
+        foldl
+          (\(nodes, edges, currentId) child ->
+             let (childNodes', childEdges', newId) = treeToGraph child (currentId + 1) _show
+                 newEdges = (nodeId, currentId + 1) : edges
+             in (nodes ++ childNodes', newEdges ++ childEdges', newId)
+          )
+          ([], [], nodeId)
+          children
+  in (currentNode : childNodes, childEdges, nextId)
 
-buildEvaluationGraph :: Config -> (EvalGraph, Int)
-buildEvaluationGraph initialConfig =
-  let initialGraph = Map.singleton initialConfig (0, showConfig initialConfig)
-   in explore initialGraph initialConfig 0 Set.empty
-  where
-    explore :: EvalGraph -> Config -> Int -> Set.Set Config -> (EvalGraph, Int)
-    explore graph current nodeCount visited
-      | Set.member current visited = (graph, nodeCount) -- Already explored
-      | otherwise =
-          let nextConfigs = step current
-              visited' = Set.insert current visited
+configToString :: Config -> Bool -> String
+configToString config _show = renderPretty $ prettyConfig config _show
 
-              -- Add new nodes and continue exploration
-              (graph', nodeCount', visited'') =
-                foldl
-                  ( \(g, nc, vs) next ->
-                      if Map.member next g
-                        then (g, nc, vs) -- Node exists
-                        else
-                          let newId = nc + 1
-                              g' = Map.insert next (newId, showConfig next) g
-                              (g'', nc'') = explore g' next newId vs
-                           in (g'', nc'', Set.insert next vs)
-                  )
-                  (graph, nodeCount, visited')
-                  nextConfigs
-           in (graph', nodeCount')
+-- | Visualize an evaluation tree and save as SVG
+visualizeEvalTree :: Config -> Int -> Bool -> String -> IO ()
+visualizeEvalTree initialConfig maxDepth _show outputFile = do
+  let (nodes, edges) = generateTreeGraph initialConfig maxDepth _show
+      dotGraph = graphElemsToDot treeGraphParams nodes edges
+  _ <- runGraphvizCommand Dot dotGraph Svg outputFile
+  putStrLn $ "Evaluation tree saved to " ++ outputFile
 
-showConfig :: Config -> String
-showConfig = show
-
-generateEdges :: EvalGraph -> [(Int, Int, [A.Attribute])]
-generateEdges graph =
-  let configs = Map.keys graph
-   in concatMap
-        ( \src ->
-            let (srcId, _) = graph Map.! src
-                nextConfigs = step src
-             in map
-                  ( \dst ->
-                      let (dstId, _) = graph Map.! dst
-                       in (srcId, dstId, [])
-                  )
-                  nextConfigs
-        )
-        configs
-
-evalGraphParams :: GraphvizParams Int String String () String
-evalGraphParams =
+-- | GraphViz parameters for tree visualization
+treeGraphParams :: GraphvizParams Int String String () String
+treeGraphParams =
   nonClusteredParams
-    { globalAttributes = [GraphAttrs [A.RankDir A.FromLeft]],
-      fmtNode = \(_, label) -> [A.Label $ A.StrLabel $ pack label],
-      fmtEdge = \(_, _, _) -> []
+    { globalAttributes = [GraphAttrs [A.RankDir A.FromTop]],
+      fmtNode = \(_, label) -> [A.Label $ A.StrLabel $ TL.pack label, A.Shape A.BoxShape],
+      fmtEdge = \(_, _, _) -> [A.Dir A.Forward]
     }
