@@ -19,7 +19,7 @@ data RunOptions = RunOptions
 newtype VizOptions = VizOptions
   {vizFile :: String}
 
-data Command
+data UserCommand
   = Run RunOptions
   | Viz VizOptions
   | Test
@@ -54,16 +54,16 @@ vizOptions =
           <> help "Path to the program file to visualize"
       )
 
-runCommand :: Parser Command
+runCommand :: Parser UserCommand
 runCommand = Run <$> runOptions
 
-vizCommand :: Parser Command
+vizCommand :: Parser UserCommand
 vizCommand = Viz <$> vizOptions
 
-testCommand :: Parser Command
+testCommand :: Parser UserCommand
 testCommand = pure Test
 
-cmdParser :: Parser Command
+cmdParser :: Parser UserCommand
 cmdParser =
   hsubparser
     ( command "run" (info runCommand (progDesc "Run a MiniMu program"))
@@ -130,7 +130,7 @@ runTests = do
     let opt = RunOptions fullPath "main" False
     run opt
 
-execCommand :: Command -> IO ()
+execCommand :: UserCommand -> IO ()
 execCommand (Run opts) = run opts
 execCommand (Viz opts) = runViz opts
 execCommand Test = runTests
