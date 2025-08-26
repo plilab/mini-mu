@@ -73,3 +73,6 @@
 - type[HARD]
 - applicative functors
 - Develop a Parsec parser -> BNF function
+
+- debuger
+- test system

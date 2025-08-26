@@ -80,12 +80,31 @@ func (Foo) some {
   ...
 }
 
-mu[Foo a b -> ..] // missing for polymophism. the method should depends on instance
 
-mu[ GetVar k1 -> do_smt . k1 | SetVar k2 -> do_smt . k2] == Object {func get_var; func set_var;}
-
-Cons { k1 -> do_smt . k1 } { k2 ->  do_smt . k2 } ?
-
-* Visualization: the command is represented using whole screen, the data is represented using a central circle and codata is the context with a whole surrounding. Use html or something interactive 
+* Visualization: the command is represented using whole screen, the data is represented using a central circle and codata is the context with a whole surrounding. Use html or something interactive [halfdone]
 
 * is DFS dual to BFS (stack dual to queue) ?
+- by Danvy's paper the DFS is the counterpart of shift/reset, BFS is of prompt/control
+
+* Guarded Command Language (dijkstra's), weakest-precondition, Dijkstra Monad For Free [https://arxiv.org/pdf/1608.06499#:~:text=Dijkstra%20monads%20enable%20a%20dependent,)%2C%20and%20Ynot%20are%20built.]
+
+[https://why-lambda.blogspot.com/2014/09/dijkstra-monads.html]
+
+FWIW, the Dijkstra monad is nothing more than the continuized state monad. It's well know that there is an isomorphism
+
+a -> b    ~    forall r. (b -> r) -> a -> r
+and anyone paying close enough attention will notice that this is just flipped function composition:
+
+fwd :: (a -> b) -> forall r. (b -> r) -> a -> r
+fwd f g x = g (f x)
+
+bwd :: (forall r. (b -> r) -> a -> r) -> a -> b
+bwd h = h id
+(Other ken observers will then naturally yell "Yoneda!")
+
+The forward direction is also know as continuization, wherein you turn a function into a continuation, where instead of transforming an a into a b, it transforms a b continuation into an a continuation. This is the basis of van Laarhoeven lenses, incidentally.
+
+The Dijkstra monad, defined as
+
+data Dijkstra s a = Dijkstra { runDijkstra :: forall r. ((a,s) -> r) -> s -> r }
+is obviously just a special case of this more general continuized form of functions, when applied to state transformers. The monadicity of Dijkstra s is then completely trivial, since Dijkstra a is equivalent to State s, a well-established monad. We could readily define the Dijkstra s monad instance in terms of the state monad instance because of the isomorphism.

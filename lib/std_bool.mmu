@@ -1,18 +1,18 @@
 -- ATM there seems to be an issue with the std_bool library if i use True and False
 
 def not b k :=
-  b . { 0 -> 1 . k
-      | x -> 0 . k };
+  b . { False -> True . k
+      | True -> False . k };
 
 -- functional if - based on cond returns expression
 def if cond cons alt k := 
-  cond . { 0 -> alt . k
-         | x -> cons . k };
+  cond . { False -> alt . k
+         | True -> cons . k };
 
 -- imperative if - based on cond takes a continuation
 def branch cond then_k else_k :=
-  cond . { 0 -> cond . else_k 
-         | x -> cond . then_k }
+  cond . { False -> cond . else_k
+         | True -> cond . then_k }
 
 {-
 WIP exploration of cobools

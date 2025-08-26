@@ -252,3 +252,9 @@ def handle_packet packet k := do
     [ Valid data -> process data >>= send_response then k ]
     | Invalid err -> err k @ send_error;
 ```
+
+## 15.08
+
+some visualization
+cli (done by ky)
+exploring and ideas written in docs/ideas.md
