@@ -63,10 +63,6 @@ symbol = L.symbol sc
 curly :: Parser a -> Parser a
 curly = between (symbol "{") (symbol "}")
 
--- Parse something between brackets
-brackets :: Parser a -> Parser a
-brackets = between (symbol "[") (symbol "]")
-
 -- Parse something between angle brackets
 angles :: Parser a -> Parser a
 angles = between (symbol "<") (symbol ">")
@@ -131,7 +127,7 @@ pairExpr :: Parser Expr
 pairExpr = pair "pair" (\x y -> Cons "Pair" [x, y]) expr
 
 pairPattern :: Parser Pattern
-pairPattern = pair "pair pattern" (\x y -> ConsPattern "Pair" [x, y]) patr
+pairPattern = pair "pair pattern" (\x y -> ConsPattern "Pair" [x, y]) pattern
 
 natExpr :: Parser Expr
 natExpr = label "natural number" $ intToPeano <$> lexeme L.decimal
@@ -194,21 +190,21 @@ consId =
 --     )
 
 -- Parse a pattern
-patr :: Parser Pattern -- TODO: rename to pattern
-patr =
+pattern :: Parser Pattern -- TODO: rename to pattern
+pattern =
   label "pattern" $
     choice
       [ try $ WildcardPattern <$ symbol "_", -- wild card pattern (e.g., "_")
         try natPattern, -- Sugar 6: Expand numerical patterns to S...Z
         try pairPattern, -- Sugar 9: Expand pairs
-        try $ ConsPattern <$> consId <*> many patr, -- e.g., "C x _ z"
+        try $ ConsPattern <$> consId <*> many pattern, -- e.g., "C x _ z"
         try $ VarPattern <$> varId, -- variable patterns (e.g., "x")
-        parens patr -- Allow parentheses for grouping
+        parens pattern -- Allow parentheses for grouping
       ]
 
 -- Parse a case pattern -> command in a Mu
 patternCase :: Parser (Pattern, Command)
-patternCase = label "pattern case" $ (,) <$> patr <* symbol "->" <*> command
+patternCase = label "pattern case" $ (,) <$> pattern <* symbol "->" <*> command
 
 -- Expressions that can inside a list (i.e., `many`) such as the arguments to a constructor
 atom :: Parser Expr
@@ -278,10 +274,7 @@ decl =
     $ choice
       [ try defDecl,
         try runDecl,
-        do
-          ident <- varId
-          _ <- symbol "="
-          Decl ident <$> expr
+        Decl <$> varId <* symbol "=" <*> expr
       ]
 
 decls :: Parser [Decl]
@@ -305,21 +298,14 @@ program = do
 
 -- Utility function to run the parser
 
--- Parse a string into a Command, consuming leading whitespace, this is used for testing
-parseString :: String -> Either (ParseErrorBundle String Void) Command
-parseString = parse (sc *> command <* eof) ""
-
 ---- -- Sugar functions for parsing commands and declarations
 
 -- | . and @ operator for generating commands
 commandSugar :: Parser Command
 commandSugar = trace "Parsing Sugared Command" $ do
   choice
-    [ try $ do
-        -- . operator sugar: x . y === < x |> y >
-        e <- expr
-        _ <- symbol "."
-        Command e <$> expr,
+    [ try $ Command <$> expr <* symbol "." <*> expr,
+      -- . operator sugar: x . y === < x |> y >
       do
         -- @ operator sugar: x k @ fun === < Ap x k |> fun >
         -- X Y Z @ U V W
@@ -329,15 +315,8 @@ commandSugar = trace "Parsing Sugared Command" $ do
         -- ... @ let x = .. in ...
         -- x y z @ y
         choice
-          [ try $ do
-              fun <- atom
-              _ <- symbol "@"
-              args <- many atom
-              return $ desugarAt fun args,
-            do
-              args <- many atom
-              _ <- symbol "@"
-              coDesugarAt args <$> expr -- a b c @ fun
+          [ try $ desugarAt <$> atom <* symbol "@" <*> many atom, -- fun @ a b c
+            coDesugarAt <$> many atom <* symbol "@" <*> atom -- a b c @ fun
           ]
     ]
   where
@@ -353,14 +332,14 @@ commandSugar = trace "Parsing Sugared Command" $ do
 -- | Sugar for definitions: def/run
 -- def NAME ARGS* := COMMAND === NAME = mu[ Ap ARGS... -> COMMAND ]
 defDecl :: Parser Decl
-defDecl = trace "Parsing Sugared Declaration" $
-  label "Sugared Declaration" $
-    do
-      _ <- symbol "def"
-      name <- varId
-      args <- many patr
-      _ <- symbol ":="
-      Decl name . desugarDef args <$> command
+defDecl =
+  trace "Parsing Sugared Declaration" $
+    label "Sugared Declaration" $
+      (\n args cmd -> Decl n (desugarDef args cmd))
+        <$> (symbol "def" *> varId)
+        <*> many pattern
+        <* symbol ":="
+        <*> command
   where
     desugarDef :: [Pattern] -> Command -> Expr
     desugarDef args cmd =
@@ -369,8 +348,7 @@ defDecl = trace "Parsing Sugared Declaration" $
 -- | run COMMAND === main = mu[ Halt -> COMMAND ]
 runDecl :: Parser Decl
 runDecl = do
-  _ <- symbol "run"
-  Decl "main" . desugarRun <$> command
+  Decl "main" . desugarRun <$> (symbol "run" *> command)
   where
     desugarRun :: Command -> Expr
     desugarRun cmd = Mu [(ConsPattern "Halt" [], cmd)]
@@ -485,7 +463,7 @@ doThenCommand = trace "Parsing do/then command" $ label "do/then command" $ do
   desugarDoThen bindings <$> command
   where
     doBinding = do
-      pat <- patr
+      pat <- pattern
       _ <- symbol "<-"
       fun <- expr
       args <- many expr
