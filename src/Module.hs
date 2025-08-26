@@ -2,7 +2,7 @@ module Module (evalProgramWithDepDecls) where
 
 import Debug.Trace (trace)
 import Eval
-import Parser (parseMiniMu, parseFile)
+import Parser (parseMiniMu)
 import Syntax
 
 type ModuleName = String
@@ -16,7 +16,6 @@ loadModule moduleName = trace ("loading module \"" ++ moduleName ++ "\"") $ do
   parentDecls <- buildDeclsFromProgram program
   -- Then, return the declarations from the current module
   return $ concat [decls | Program _ decls _ <- [program]] ++ parentDecls
-      
 
 -- Build module environment by reading imports from a program
 buildDeclsFromProgram :: Program -> IO [Decl]
@@ -41,13 +40,3 @@ evalProgramWithDepDecls prog@(Program _ decls _) varId = do
       (Command (Var varId) halt)
   where
     halt = Cons "Halt" []
-
--- Simple function to run a program file with automatic dependency resolution
-runProgram :: FilePath -> VarId -> IO (Either String Config)
-runProgram filepath varId = do
-  parseResult <- parseFile filepath
-  case parseResult of
-    Left err -> return $ Left $ show err
-    Right program -> do
-      config <- evalProgramWithDepDecls program varId
-      return $ Right config

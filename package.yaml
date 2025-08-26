@@ -80,3 +80,5 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - mini-mu
+    - hspec
+    - megaparsec

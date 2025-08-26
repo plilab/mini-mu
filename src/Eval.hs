@@ -7,6 +7,7 @@ module Eval
     initEnv,
     initStore,
     Config (..),
+    tryMatch,
   )
 where
 

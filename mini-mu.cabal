@@ -108,6 +108,7 @@ test-suite mini-mu-test
     , directory
     , filepath
     , graphviz
+    , hspec
     , megaparsec
     , mini-mu
     , optparse-applicative
