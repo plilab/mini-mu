@@ -1,0 +1,19 @@
+import "std_ctrl" (call_cc)
+
+{-
+    several questions:
+    since we can directly use k,
+    call_cc is redundant.
+    but it's cool that call_cc 
+    can be done 
+-}
+def early_return xs k :=
+  call_cc @ ({
+    Ap cont k ->
+      do
+        any <- { Ap k' -> Early . cont },
+      then Late . k
+  })   
+  k;
+
+run early_return @ (List:: 1 (List:: 2 Nil)) Halt

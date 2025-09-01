@@ -1,0 +1,6 @@
+-- f must be a binary-continuation closure
+def call_cc f k :=
+    let cont = { any -> any . k } in
+    Ap cont k . f
+
+export call_cc
