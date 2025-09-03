@@ -108,3 +108,19 @@ The Dijkstra monad, defined as
 
 data Dijkstra s a = Dijkstra { runDijkstra :: forall r. ((a,s) -> r) -> s -> r }
 is obviously just a special case of this more general continuized form of functions, when applied to state transformers. The monadicity of Dijkstra s is then completely trivial, since Dijkstra a is equivalent to State s, a well-established monad. We could readily define the Dijkstra s monad instance in terms of the state monad instance because of the isomorphism.
+
+
+pair := Pair a b
+pair_lazy := { Fst k -> a . k | Snd k -> b . k }
+
+swap = { (p, k) -> p . { (y, z) -> (z, y) . k } }
+swap_lazy = { (p_l, k0) -> { Fst k -> Snd k . p_l | Snd k -> Fst k . p_l } . k0 }
+
+much clearer than: def swap_lazy(𝑥; 𝛼)≔ ⟨cocase {fst(𝛽)⇒⟨𝑥 |snd(𝛽)⟩,snd(𝛽)⇒⟨𝑥 |fst(𝛽)⟩}|𝛼⟩
+
+swap @ (2, 3) k => (3, 2) . k
+{ Fst k -> 2 . k | Snd k -> 3 . k } k0 @ swap_lazy => 
+{ Fst k -> Snd k . { Fst k -> 2 . k | Snd k -> 3 . k }s 
+| Snd k -> Fst k . { Fst k -> 2 . k | Snd k -> 3 . k } } . k0
+
+much cleaner and unified in minimu than in lambda mu calculus

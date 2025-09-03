@@ -1,0 +1,1 @@
+Program {programImports = [ImportDecl "std_list" ["list_map"],ImportDecl "std_nat" ["inc"]], programDecls = [Decl "main" (Mu [(ConsPattern "Halt" [],Command (Cons "Ap" [Var "inc",Cons "List::" [Cons "S" [Cons "S" [Cons "Z" []]],Cons "List::" [Cons "S" [Cons "Z" []],Cons "List::" [Cons "Z" [],Cons "Nil" []]]],Cons "Halt" []]) (Var "list_map"))])], programExports = []}

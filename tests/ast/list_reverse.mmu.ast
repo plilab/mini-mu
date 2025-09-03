@@ -1,0 +1,1 @@
+Program {programImports = [ImportDecl "std_list" ["list_reverse"]], programDecls = [Decl "main" (Mu [(ConsPattern "Halt" [],Command (Cons "Ap" [Cons "List::" [Cons "S" [Cons "S" [Cons "Z" []]],Cons "List::" [Cons "S" [Cons "Z" []],Cons "List::" [Cons "Z" [],Cons "Nil" []]]],Cons "Nil" [],Cons "Halt" []]) (Var "list_reverse"))])], programExports = []}

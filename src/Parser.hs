@@ -209,23 +209,21 @@ patternCase = label "pattern case" $ (,) <$> pattern <* symbol "->" <*> command
 -- Expressions that can inside a list (i.e., `many`) such as the arguments to a constructor
 atom :: Parser Expr
 atom =
-  trace "Parsing atom" $
-    label "atom expr" $
-      choice
-        [ -- Sugar 7: Simplify mu[] as []
-          try (Mu <$> curly (sepBy1 patternCase (symbol "|"))),
-          try natExpr, -- Sugar 8: Expand numerical to S...Z
-          try pairExpr, -- Sugar 9: Expand pairs
-          try $ (\c -> Cons c []) <$> consId, -- constructor with no arguments
-          try $ Var <$> varId,
-          parens expr
-        ]
+  label "atom expr" $
+    choice
+      [ -- Sugar 7: Simplify mu[] as []
+        try (Mu <$> curly (sepBy1 patternCase (symbol "|"))),
+        try natExpr, -- Sugar 8: Expand numerical to S...Z
+        try pairExpr, -- Sugar 9: Expand pairs
+        try $ (\c -> Cons c []) <$> consId, -- constructor with no arguments
+        try $ Var <$> varId,
+        parens expr
+      ]
 
 expr :: Parser Expr
 expr =
-  trace "Parsing expr"
-    $ label
-      "expression"
+  label
+    "expression"
     $ choice
       [ try letExpr, -- TODO: move to atom so we allow: x @ X let y = ... in ...
         try $ Cons <$> consId <*> many atom,
@@ -235,9 +233,8 @@ expr =
 -- Parse a command
 command :: Parser Command
 command =
-  trace "Parsing command"
-    $ label
-      "command"
+  label
+    "command"
     $ choice
       [ try letCommand,
         try commandSugar,
@@ -268,9 +265,8 @@ exportList = do
 
 decl :: Parser Decl
 decl =
-  trace "Parsing declaration"
-    $ label
-      "Declaration"
+  label
+    "Declaration"
     $ choice
       [ try defDecl,
         try runDecl,
@@ -302,7 +298,7 @@ program = do
 
 -- | . and @ operator for generating commands
 commandSugar :: Parser Command
-commandSugar = trace "Parsing Sugared Command" $ do
+commandSugar = label "Sugared Command" $ do
   choice
     [ try $ Command <$> expr <* symbol "." <*> expr,
       -- . operator sugar: x . y === < x |> y >
@@ -333,13 +329,12 @@ commandSugar = trace "Parsing Sugared Command" $ do
 -- def NAME ARGS* := COMMAND === NAME = mu[ Ap ARGS... -> COMMAND ]
 defDecl :: Parser Decl
 defDecl =
-  trace "Parsing Sugared Declaration" $
-    label "Sugared Declaration" $
-      (\n args cmd -> Decl n (desugarDef args cmd))
-        <$> (symbol "def" *> varId)
-        <*> many pattern
-        <* symbol ":="
-        <*> command
+  label "Sugared Declaration" $
+    (\n args cmd -> Decl n (desugarDef args cmd))
+      <$> (symbol "def" *> varId)
+      <*> many pattern
+      <* symbol ":="
+      <*> command
   where
     desugarDef :: [Pattern] -> Command -> Expr
     desugarDef args cmd =
@@ -355,7 +350,7 @@ runDecl = do
 
 -- Sugar 4: let grammar
 letExpr :: Parser Expr
-letExpr = label "let expression" $ trace "Parsing let expression" $ do
+letExpr = label "let expression" $ do
   _ <- symbol "let"
   bindings <- sepBy1 binding (symbol ",")
   _ <- symbol "in"
@@ -377,7 +372,7 @@ letExpr = label "let expression" $ trace "Parsing let expression" $ do
         bindings
 
 letCommand :: Parser Command
-letCommand = trace "Parsing let command" $ label "let command" $ do
+letCommand = label "let command" $ do
   _ <- symbol "let"
   bindings <- sepBy1 binding (symbol ",")
   _ <- symbol "in"
@@ -399,14 +394,14 @@ letCommand = trace "Parsing let command" $ label "let command" $ do
         bindings
 
 binding :: Parser (Either VarId CommandId, Either Expr Command)
-binding = trace "Parsing binding in let/where" $ do
+binding = label "Parsing binding in let/where" $ do
   choice
-    [ try $ trace "Parsing a command binding" $ do
+    [ try $ label "Parsing a command binding" $ do
         name <- commandId
         _ <- symbol "="
         c <- command
         return (Right name, Right c),
-      trace "Parsing an expr binding" $ do
+      label "Parsing an expr binding" $ do
         name <- varId
         _ <- symbol "="
         e <- expr
@@ -456,7 +451,7 @@ findAndSubstCmdInCmd name cmd (CommandVar cmdId) =
 
 -- Sugar: do...then grammar
 doThenCommand :: Parser Command
-doThenCommand = trace "Parsing do/then command" $ label "do/then command" $ do
+doThenCommand = label "do/then command" $ do
   _ <- symbol "do"
   bindings <- many (try $ notFollowedBy (symbol "then") *> doBinding)
   _ <- symbol "then"
