@@ -74,5 +74,13 @@
 - applicative functors
 - Develop a Parsec parser -> BNF function
 
-- debuger
-- test system
+- debuger[Done?]
+- test system[Done]
+
+- Partial Application
+
+add = { Ap x y k -> x . { Z -> y . k | S x' -> x' (S y) k @ add } }
+add 2 = { Ap y k -> 2 . { Z -> y . k | S x' -> x' (S y) k @ add } }
+add _ 3 = { Ap x k -> x . { Z -> 3 . k | S x' -> x' 4 k @ add } }
+
+- ? some partial evaluation
