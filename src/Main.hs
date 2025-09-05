@@ -69,7 +69,7 @@ runOptions =
       )
     <*> switch
       ( long "standard"
-          <> short 's'
+          <> short 'r'
           <> help "Record this run as standard"
       )
 
@@ -131,7 +131,7 @@ testOptions =
   TestOptions
     <$> switch
       ( long "standard"
-          <> short 's'
+          <> short 'r'
           <> help "Record this test as standard"
       )
 
@@ -178,34 +178,48 @@ run opts = do
 
   initConfig <- evalProgramWithDepDecls programAst entry
   -- print config
-  let go :: [Config] -> IO ()
-      go [] =
-        putStrLn "----------------------------------------------------------\nDONE"
-      go configs = do
-        putStrLn "----------------------------------------------------------"
+  let go :: String -> Bool -> [Config] -> IO ()
+      go fileName save [] = do
+        let message = "----------------------------------------------------------\nDONE"
+        putStrLn message
+        when save $ do
+          appendFile fileName message
+          putStrLn $ "Config graph saved to " ++ fileName
+      go fileName save configs = do
+        let message = "----------------------------------------------------------"
+        putStrLn message
         mapM_ (putStrLn . renderPretty . flip prettyConfig viewEnv) configs
-        go (concatMap step configs)
+        when save $ do
+          appendFile fileName (message ++ "\n")
+          mapM_ (appendFile fileName . (++ "\n") . renderPretty . flip prettyConfig viewEnv) configs
+
+        go fileName save (concatMap step configs)
 
   case view of
-    True -> go [initConfig]
+    True -> do
+      let baseFileName = takeBaseName file
+          outFile = "tests/out/" ++ baseFileName ++ ".mmu.out"
+      writeFile outFile "" -- clear the file before writing
+      go outFile True [initConfig]
     False -> do
-      let finalConfig = until isHalted step1 initConfig
+      let finalConfigs = until isHalted step1 [initConfig]
       putStrLn "----------------------------------------------------------"
-      putStrLn $ renderPretty $ prettyConfig finalConfig viewEnv
-      when (isHalted finalConfig) $
+      mapM_ (putStrLn . renderPretty . flip prettyConfig viewEnv) finalConfigs
+      when (isHalted finalConfigs) $
         putStrLn "Evaluation halted."
 
       -- Save final config to ./tests/out/*.mmu if standard run
       when standard $ do
         let baseFileName = takeBaseName file
             outFile = "tests/out/" ++ baseFileName ++ ".mmu.out"
-        writeFile outFile (renderPretty $ prettyConfig finalConfig viewEnv)
+        writeFile outFile (concatMap (renderPretty . flip prettyConfig viewEnv) finalConfigs)
         putStrLn $ "Final config saved to " ++ outFile
       where
-        step1 c = case step c of
-          [next] -> next
-          _ -> c -- In case of non-determinism, just return the current config
-        isHalted (ErrorConfig _) = True
+        step1 :: [Config] -> [Config]
+        step1 = concatMap step
+
+        isHalted :: [Config] -> Bool
+        isHalted ((ErrorConfig _) : _) = True
         isHalted _ = False
   -- graph = [evalProg on parsed file]
   -- while notDone:

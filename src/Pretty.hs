@@ -21,7 +21,7 @@ import Syntax
 -- | Pretty print a configuration.
 prettyConfig :: Config -> Bool -> Doc ann
 prettyConfig (CommandConfig env store command) _show =
-  pretty "<Command Config> "
+  pretty "<Command Config>"
     <> line
     <> prettyEnv env _show
     <> line
@@ -29,12 +29,13 @@ prettyConfig (CommandConfig env store command) _show =
     <> line
     <> prettyCommand command
 prettyConfig (ValueConfig store value value') _show =
-  pretty "<Value Config> "
+  pretty "<Value Config>"
     <> line
     <> prettyStore store _show
     <> line
-    <> prettyTopLevelValue value _show
-    <+> pretty "|"
+    <> pretty "value:"
+    <+> prettyTopLevelValue value _show
+    <+> pretty ", co-value:"
     <+> prettyTopLevelValue value' _show
 prettyConfig (ErrorConfig string) _ =
   pretty "<Message> " <> pretty string
@@ -299,7 +300,7 @@ prettyEnv (Env varMap cmdMap) True =
                   )
                 <> line
             )
-prettyEnv _ False = pretty "Environment (not shown)"
+prettyEnv _ False = pretty "{ Environment }"
 
 prettyAddr :: Addr -> Doc ann
 prettyAddr (Addr n) = pretty "#" <> pretty n
@@ -360,7 +361,7 @@ prettyStore (Store addr cmdAddr valMap cmdMap) True =
                   )
                 <> line
             )
-prettyStore _ False = pretty "Store (not shown)"
+prettyStore _ False = pretty "{ Store }"
 
 -- Helper functions to convert to String
 
