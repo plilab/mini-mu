@@ -9,7 +9,7 @@ module Pretty
     -- prettyTopLevelEitherValue,
     prettyTopLevelValue,
     -- prettyTopLevelCoValue,
-    prettyProgram
+    prettyProgram,
   )
 where
 
@@ -33,7 +33,9 @@ prettyConfig (ValueConfig store value value') _show =
     <> line
     <> prettyStore store _show
     <> line
-    <> prettyValue value _show <+> pretty "|" <+> prettyValue value' _show
+    <> prettyTopLevelValue value _show
+    <+> pretty "|"
+    <+> prettyTopLevelValue value' _show
 prettyConfig (ErrorConfig string) _ =
   pretty "<Message> " <> pretty string
 
@@ -56,12 +58,15 @@ prettyProgram (Program imports decls exports) =
   where
     prettyImports [] = mempty
     prettyImports (ImportDecl name _ : is) =
-      pretty "Import" <+> pretty name
+      pretty "Import"
+        <+> pretty name
         <> line
         <> prettyImports is
     prettyDecls [] = mempty
     prettyDecls (Decl varId expr : ds) =
-      pretty varId <+> pretty ":=" <+> prettyExpr expr
+      pretty varId
+        <+> pretty ":="
+        <+> prettyExpr expr
         <> line
         <> prettyDecls ds
     prettyMainExpr es = pretty "Exports:" <+> hsep (map pretty es)
@@ -69,7 +74,7 @@ prettyProgram (Program imports decls exports) =
 prettyTopLevelValue :: Value -> Bool -> Doc ann
 prettyTopLevelValue (ConsValue "Z" []) _ = pretty "0"
 prettyTopLevelValue (ConsValue "S" [v]) _ =
-  pretty (peanoToInt (ConsValue "S" [v]))
+  pretty (peanoValueToInt (ConsValue "S" [v]))
 prettyTopLevelValue (ConsValue con args) showEnv =
   pretty con <+> hsep (map (`prettyValue` showEnv) args)
 prettyTopLevelValue mu@(MuValue _ _) showEnv =
@@ -88,7 +93,7 @@ prettyTopLevelValue mu@(MuValue _ _) showEnv =
 prettyValue :: Value -> Bool -> Doc ann
 prettyValue (ConsValue "Z" []) _ = pretty "0"
 prettyValue (ConsValue "S" [v]) _ =
-  pretty (peanoToInt (ConsValue "S" [v]))
+  pretty (peanoValueToInt (ConsValue "S" [v]))
 prettyValue (ConsValue con args) showEnv =
   case args of
     [] -> pretty con
@@ -97,10 +102,11 @@ prettyValue mu@(MuValue _ _) showEnv =
   prettyMuValueAux mu showEnv
 
 -- Helper function to convert Peano numbers to integers
-peanoToInt :: Value -> Integer
-peanoToInt (ConsValue "Z" []) = 0
-peanoToInt (ConsValue "S" [v]) = 1 + peanoToInt v
-peanoToInt _ = error "Not a Peano number"
+-- safe cause there is no variable names in values
+peanoValueToInt :: Value -> Integer
+peanoValueToInt (ConsValue "Z" []) = 0
+peanoValueToInt (ConsValue "S" [v]) = 1 + peanoValueToInt v
+peanoValueToInt _ = error "Not a Peano number"
 
 -- prettyCoValue :: CoValue -> Doc ann
 -- prettyCoValue (CoConsValue con args) =
@@ -128,9 +134,12 @@ prettyMuValueAux (MuValue env cases) showEnv =
   pretty "μ-Closure"
     <+> braces
       ( line
-          <> indent 2 (prettyEnv env showEnv
-          <+> pretty "μ"
-          <> brackets (hang (-1) (prettyCases cases)))
+          <> indent
+            2
+            ( prettyEnv env showEnv
+                <+> pretty "μ"
+                <> brackets (hang (-1) (prettyCases cases))
+            )
           <> line
       )
   where
@@ -156,12 +165,37 @@ prettyMuValueAux _ _ = error "Expected a MuValue"
 
 prettyCommand :: Command -> Doc ann
 prettyCommand (Command e k) =
-  pretty "< " <> prettyExpr e <+> pretty "▷" <+> prettyExpr k <> pretty " >"
+  space
+    <> pretty "< "
+    <> prettyTopLevelExpr e
+    <+> pretty "▷"
+    <+> prettyTopLevelExpr k
+    <> pretty " >"
+    <> space
 prettyCommand (CommandVar x) = pretty x
 
 -- prettyEitherExpr :: Either Expr CoExpr -> Doc ann
 -- prettyEitherExpr (Left e) = prettyExpr e
 -- prettyEitherExpr (Right k) = prettyCoExpr k
+peanoExprToInt :: Expr -> Maybe Integer
+peanoExprToInt (Cons "Z" []) = Just 0
+peanoExprToInt (Cons "S" [e]) = (+ 1) <$> peanoExprToInt e
+peanoExprToInt _ = Nothing
+
+prettyTopLevelExpr :: Expr -> Doc ann
+prettyTopLevelExpr (Var x) = pretty x
+prettyTopLevelExpr (Cons "Z" []) = pretty "0"
+prettyTopLevelExpr add1@(Cons "S" _) =
+  maybe (prettyTopLevelPeanoExprFallback add1) pretty (peanoExprToInt add1)
+prettyTopLevelExpr (Cons con args) =
+  pretty con <+> hsep (map prettyExpr args)
+prettyTopLevelExpr mu@(Mu _) =
+  prettyMuExprAux mu
+
+prettyTopLevelPeanoExprFallback :: Expr -> Doc ann
+prettyTopLevelPeanoExprFallback (Cons "Z" []) = pretty "0"
+prettyTopLevelPeanoExprFallback (Cons "S" n) = pretty "S" <+> prettyTopLevelPeanoExprFallback (head n)
+prettyTopLevelPeanoExprFallback e = prettyExpr e
 
 prettyExpr :: Expr -> Doc ann
 prettyExpr (Var x) = pretty x
@@ -169,15 +203,18 @@ prettyExpr (Cons c args) =
   case args of
     [] -> pretty c
     _ -> pretty "(" <> pretty c <+> hsep (map prettyExpr args) <> pretty ")"
-prettyExpr (Mu cases) =
-  pretty "μ"
-    <> brackets (hang (-1) (prettyCases cases))
+prettyExpr (Mu cases) = prettyMuExprAux (Mu cases)
+
+prettyMuExprAux :: Expr -> Doc ann
+prettyMuExprAux (Mu cases) =
+  pretty "μ" <> brackets (hang (-1) (prettyCases cases))
   where
     prettyCases [] = mempty
     prettyCases (c : cs) =
       space
         <> prettyCase c
         <> mconcat [line <> pipe <> space <> prettyCase c' | c' <- cs]
+prettyMuExprAux _ = error "Expected a Mu expression"
 
 -- prettyCoExpr :: CoExpr -> Doc ann
 -- prettyCoExpr (CoVar x) = pretty x

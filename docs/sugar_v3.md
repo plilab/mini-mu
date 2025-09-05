@@ -10,7 +10,7 @@ def list_mult xs :=
 label might resolve the necessity on the continuation variable for function decl
 use ... to bind to the nearest label
 
-An idea: Let's keep using Ap as a special constructor, in which case we can
+An idea: Let's keep using Ap as a special constructor, in which case we can enforce it to have a continuation, to distinguish it from normal tuples.
 
 introduce command in Expr might introduces hygienic issue.
 e.g.
