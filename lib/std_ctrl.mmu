@@ -1,6 +1,14 @@
--- f must be a binary-continuation closure
+-- this example should show how 
+-- call_cc is brought down to understandable level!
 def call_cc f k :=
-    let cont = { any -> any . k } in
-    Ap cont k . f
+    Ap k k . f
+
+-- to discuss during meeting. lambda-mu-mu itself
+-- does not seem powerful enough to directly implement
+-- the lambda mu mu calculus - peeking around seems to 
+-- indicate we need some sort of polarized(?) lambda mu mu calculus.
+
+-- so for now we have reset and shift only in a monadic interface :<
+
 
 export call_cc
