@@ -1,0 +1,690 @@
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < main ▷ Halt  > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Halt  ->
+                      < Ap some_tree Halt ▷ walk_alt > ]
+} , co-value: Halt 
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap some_tree Halt ▷ walk_alt > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap (Node (Node (Leaf 1) (Leaf 2)) (Node (Leaf 3) (Leaf 4))) Halt , co-value: μ-Closure {
+  { Environment } μ[ Ap t k ->
+                      < Ap t μ[ acc ->
+                                 < Ap Nil k ▷ acc > ] ▷ walk_alt_aux > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap t μ[ acc ->
+            < Ap Nil k ▷ acc > ] ▷ walk_alt_aux > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap (Node (Node (Leaf 1) (Leaf 2)) (Node (Leaf 3) (Leaf 4))) μ-Closure {
+  { Environment } μ[ acc ->
+                      < Ap Nil k ▷ acc > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ Ap t k ->
+                      < t ▷ μ[ Leaf x ->
+                                < μ[ Ap xs k' ->
+                                      < List:: x xs ▷ k' > ] ▷ k > 
+                             | Node t1 t2 ->
+                                < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                                           < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                                      < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < t ▷ μ[ Leaf x ->
+           < μ[ Ap xs k' ->
+                 < List:: x xs ▷ k' > ] ▷ k > 
+        | Node t1 t2 ->
+           < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                      < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                 < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Node (Node (Leaf 1) (Leaf 2)) (Node (Leaf 3) (Leaf 4)) , co-value: μ-Closure {
+  { Environment } μ[ Leaf x ->
+                      < μ[ Ap xs k' ->
+                            < List:: x xs ▷ k' > ] ▷ k > 
+                   | Node t1 t2 ->
+                      < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                                 < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                            < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                            < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                       < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap t k ->
+                      < t ▷ μ[ Leaf x ->
+                                < μ[ Ap xs k' ->
+                                      < List:: x xs ▷ k' > ] ▷ k > 
+                             | Node t1 t2 ->
+                                < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                                           < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                                      < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ] > ]
+} , co-value: Ap (Node (Leaf 1) (Leaf 2)) μ-Closure {
+  { Environment } μ[ flat_t1 ->
+                      < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                 < Ap flat_t1 flat_t2 k ▷ compose > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < t ▷ μ[ Leaf x ->
+           < μ[ Ap xs k' ->
+                 < List:: x xs ▷ k' > ] ▷ k > 
+        | Node t1 t2 ->
+           < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                      < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                 < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Node (Leaf 1) (Leaf 2) , co-value: μ-Closure {
+  { Environment } μ[ Leaf x ->
+                      < μ[ Ap xs k' ->
+                            < List:: x xs ▷ k' > ] ▷ k > 
+                   | Node t1 t2 ->
+                      < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                                 < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                            < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                            < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                       < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap t k ->
+                      < t ▷ μ[ Leaf x ->
+                                < μ[ Ap xs k' ->
+                                      < List:: x xs ▷ k' > ] ▷ k > 
+                             | Node t1 t2 ->
+                                < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                                           < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                                      < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ] > ]
+} , co-value: Ap (Leaf 1) μ-Closure {
+  { Environment } μ[ flat_t1 ->
+                      < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                 < Ap flat_t1 flat_t2 k ▷ compose > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < t ▷ μ[ Leaf x ->
+           < μ[ Ap xs k' ->
+                 < List:: x xs ▷ k' > ] ▷ k > 
+        | Node t1 t2 ->
+           < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                      < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                 < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Leaf 1 , co-value: μ-Closure {
+  { Environment } μ[ Leaf x ->
+                      < μ[ Ap xs k' ->
+                            < List:: x xs ▷ k' > ] ▷ k > 
+                   | Node t1 t2 ->
+                      < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                                 < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                            < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < μ[ Ap xs k' ->
+       < List:: x xs ▷ k' > ] ▷ k > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap xs k' ->
+                      < List:: x xs ▷ k' > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ flat_t1 ->
+                      < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                 < Ap flat_t1 flat_t2 k ▷ compose > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                            < Ap flat_t1 flat_t2 k ▷ compose > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap t k ->
+                      < t ▷ μ[ Leaf x ->
+                                < μ[ Ap xs k' ->
+                                      < List:: x xs ▷ k' > ] ▷ k > 
+                             | Node t1 t2 ->
+                                < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                                           < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                                      < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ] > ]
+} , co-value: Ap (Leaf 2) μ-Closure {
+  { Environment } μ[ flat_t2 ->
+                      < Ap flat_t1 flat_t2 k ▷ compose > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < t ▷ μ[ Leaf x ->
+           < μ[ Ap xs k' ->
+                 < List:: x xs ▷ k' > ] ▷ k > 
+        | Node t1 t2 ->
+           < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                      < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                 < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Leaf 2 , co-value: μ-Closure {
+  { Environment } μ[ Leaf x ->
+                      < μ[ Ap xs k' ->
+                            < List:: x xs ▷ k' > ] ▷ k > 
+                   | Node t1 t2 ->
+                      < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                                 < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                            < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < μ[ Ap xs k' ->
+       < List:: x xs ▷ k' > ] ▷ k > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap xs k' ->
+                      < List:: x xs ▷ k' > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ flat_t2 ->
+                      < Ap flat_t1 flat_t2 k ▷ compose > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap flat_t1 flat_t2 k ▷ compose > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap μ-Closure {
+  { Environment } μ[ Ap xs k' ->
+                      < List:: x xs ▷ k' > ]
+} μ-Closure {
+  { Environment } μ[ Ap xs k' ->
+                      < List:: x xs ▷ k' > ]
+} μ-Closure {
+  { Environment } μ[ flat_t1 ->
+                      < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                 < Ap flat_t1 flat_t2 k ▷ compose > ] > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ Ap f g k ->
+                      < μ[ Ap x k' ->
+                            < g ▷ Ap x μ[ gx ->
+                                           < Ap gx k' ▷ f > ] > ] ▷ k > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < μ[ Ap x k' ->
+       < g ▷ Ap x μ[ gx ->
+                      < Ap gx k' ▷ f > ] > ] ▷ k > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap x k' ->
+                      < g ▷ Ap x μ[ gx ->
+                                     < Ap gx k' ▷ f > ] > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ flat_t1 ->
+                      < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                 < Ap flat_t1 flat_t2 k ▷ compose > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                            < Ap flat_t1 flat_t2 k ▷ compose > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap t k ->
+                      < t ▷ μ[ Leaf x ->
+                                < μ[ Ap xs k' ->
+                                      < List:: x xs ▷ k' > ] ▷ k > 
+                             | Node t1 t2 ->
+                                < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                                           < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                                      < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ] > ]
+} , co-value: Ap (Node (Leaf 3) (Leaf 4)) μ-Closure {
+  { Environment } μ[ flat_t2 ->
+                      < Ap flat_t1 flat_t2 k ▷ compose > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < t ▷ μ[ Leaf x ->
+           < μ[ Ap xs k' ->
+                 < List:: x xs ▷ k' > ] ▷ k > 
+        | Node t1 t2 ->
+           < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                      < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                 < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Node (Leaf 3) (Leaf 4) , co-value: μ-Closure {
+  { Environment } μ[ Leaf x ->
+                      < μ[ Ap xs k' ->
+                            < List:: x xs ▷ k' > ] ▷ k > 
+                   | Node t1 t2 ->
+                      < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                                 < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                            < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                            < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                       < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap t k ->
+                      < t ▷ μ[ Leaf x ->
+                                < μ[ Ap xs k' ->
+                                      < List:: x xs ▷ k' > ] ▷ k > 
+                             | Node t1 t2 ->
+                                < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                                           < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                                      < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ] > ]
+} , co-value: Ap (Leaf 3) μ-Closure {
+  { Environment } μ[ flat_t1 ->
+                      < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                 < Ap flat_t1 flat_t2 k ▷ compose > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < t ▷ μ[ Leaf x ->
+           < μ[ Ap xs k' ->
+                 < List:: x xs ▷ k' > ] ▷ k > 
+        | Node t1 t2 ->
+           < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                      < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                 < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Leaf 3 , co-value: μ-Closure {
+  { Environment } μ[ Leaf x ->
+                      < μ[ Ap xs k' ->
+                            < List:: x xs ▷ k' > ] ▷ k > 
+                   | Node t1 t2 ->
+                      < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                                 < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                            < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < μ[ Ap xs k' ->
+       < List:: x xs ▷ k' > ] ▷ k > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap xs k' ->
+                      < List:: x xs ▷ k' > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ flat_t1 ->
+                      < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                 < Ap flat_t1 flat_t2 k ▷ compose > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                            < Ap flat_t1 flat_t2 k ▷ compose > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap t k ->
+                      < t ▷ μ[ Leaf x ->
+                                < μ[ Ap xs k' ->
+                                      < List:: x xs ▷ k' > ] ▷ k > 
+                             | Node t1 t2 ->
+                                < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                                           < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                                      < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ] > ]
+} , co-value: Ap (Leaf 4) μ-Closure {
+  { Environment } μ[ flat_t2 ->
+                      < Ap flat_t1 flat_t2 k ▷ compose > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < t ▷ μ[ Leaf x ->
+           < μ[ Ap xs k' ->
+                 < List:: x xs ▷ k' > ] ▷ k > 
+        | Node t1 t2 ->
+           < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                      < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                 < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Leaf 4 , co-value: μ-Closure {
+  { Environment } μ[ Leaf x ->
+                      < μ[ Ap xs k' ->
+                            < List:: x xs ▷ k' > ] ▷ k > 
+                   | Node t1 t2 ->
+                      < walk_alt_aux ▷ Ap t1 μ[ flat_t1 ->
+                                                 < walk_alt_aux ▷ Ap t2 μ[ flat_t2 ->
+                                                                            < Ap flat_t1 flat_t2 k ▷ compose > ] > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < μ[ Ap xs k' ->
+       < List:: x xs ▷ k' > ] ▷ k > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap xs k' ->
+                      < List:: x xs ▷ k' > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ flat_t2 ->
+                      < Ap flat_t1 flat_t2 k ▷ compose > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap flat_t1 flat_t2 k ▷ compose > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap μ-Closure {
+  { Environment } μ[ Ap xs k' ->
+                      < List:: x xs ▷ k' > ]
+} μ-Closure {
+  { Environment } μ[ Ap xs k' ->
+                      < List:: x xs ▷ k' > ]
+} μ-Closure {
+  { Environment } μ[ flat_t2 ->
+                      < Ap flat_t1 flat_t2 k ▷ compose > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ Ap f g k ->
+                      < μ[ Ap x k' ->
+                            < g ▷ Ap x μ[ gx ->
+                                           < Ap gx k' ▷ f > ] > ] ▷ k > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < μ[ Ap x k' ->
+       < g ▷ Ap x μ[ gx ->
+                      < Ap gx k' ▷ f > ] > ] ▷ k > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap x k' ->
+                      < g ▷ Ap x μ[ gx ->
+                                     < Ap gx k' ▷ f > ] > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ flat_t2 ->
+                      < Ap flat_t1 flat_t2 k ▷ compose > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap flat_t1 flat_t2 k ▷ compose > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap μ-Closure {
+  { Environment } μ[ Ap x k' ->
+                      < g ▷ Ap x μ[ gx ->
+                                     < Ap gx k' ▷ f > ] > ]
+} μ-Closure {
+  { Environment } μ[ Ap x k' ->
+                      < g ▷ Ap x μ[ gx ->
+                                     < Ap gx k' ▷ f > ] > ]
+} μ-Closure {
+  { Environment } μ[ acc ->
+                      < Ap Nil k ▷ acc > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ Ap f g k ->
+                      < μ[ Ap x k' ->
+                            < g ▷ Ap x μ[ gx ->
+                                           < Ap gx k' ▷ f > ] > ] ▷ k > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < μ[ Ap x k' ->
+       < g ▷ Ap x μ[ gx ->
+                      < Ap gx k' ▷ f > ] > ] ▷ k > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap x k' ->
+                      < g ▷ Ap x μ[ gx ->
+                                     < Ap gx k' ▷ f > ] > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ acc ->
+                      < Ap Nil k ▷ acc > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap Nil k ▷ acc > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap Nil Halt , co-value: μ-Closure {
+  { Environment } μ[ Ap x k' ->
+                      < g ▷ Ap x μ[ gx ->
+                                     < Ap gx k' ▷ f > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < g ▷ Ap x μ[ gx ->
+                < Ap gx k' ▷ f > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap x k' ->
+                      < g ▷ Ap x μ[ gx ->
+                                     < Ap gx k' ▷ f > ] > ]
+} , co-value: Ap Nil μ-Closure {
+  { Environment } μ[ gx ->
+                      < Ap gx k' ▷ f > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < g ▷ Ap x μ[ gx ->
+                < Ap gx k' ▷ f > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap xs k' ->
+                      < List:: x xs ▷ k' > ]
+} , co-value: Ap Nil μ-Closure {
+  { Environment } μ[ gx ->
+                      < Ap gx k' ▷ f > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < List:: x xs ▷ k' > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 4 Nil , co-value: μ-Closure {
+  { Environment } μ[ gx ->
+                      < Ap gx k' ▷ f > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap gx k' ▷ f > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap (List:: 4 Nil) μ-Closure {
+  { Environment } μ[ gx ->
+                      < Ap gx k' ▷ f > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ Ap xs k' ->
+                      < List:: x xs ▷ k' > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < List:: x xs ▷ k' > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 3 (List:: 4 Nil) , co-value: μ-Closure {
+  { Environment } μ[ gx ->
+                      < Ap gx k' ▷ f > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap gx k' ▷ f > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap (List:: 3 (List:: 4 Nil)) Halt , co-value: μ-Closure {
+  { Environment } μ[ Ap x k' ->
+                      < g ▷ Ap x μ[ gx ->
+                                     < Ap gx k' ▷ f > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < g ▷ Ap x μ[ gx ->
+                < Ap gx k' ▷ f > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ Ap xs k' ->
+                      < List:: x xs ▷ k' > ]
+} , co-value: Ap (List:: 3 (List:: 4 Nil)) μ-Closure {
+  { Environment } μ[ gx ->
+                      < Ap gx k' ▷ f > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < List:: x xs ▷ k' > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 2 (List:: 3 (List:: 4 Nil)) , co-value: μ-Closure {
+  { Environment } μ[ gx ->
+                      < Ap gx k' ▷ f > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap gx k' ▷ f > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap (List:: 2 (List:: 3 (List:: 4 Nil))) Halt , co-value: μ-Closure {
+  { Environment } μ[ Ap xs k' ->
+                      < List:: x xs ▷ k' > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < List:: x xs ▷ k' > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 1 (List:: 2 (List:: 3 (List:: 4 Nil))) , co-value: Halt 
+----------------------------------------------------------
+<Message> Halt with result: List:: 1 (List:: 2 (List:: 3 (List:: 4 Nil)))
+----------------------------------------------------------
+DONE

@@ -1,0 +1,68 @@
+data Tree a
+  = Leaf a
+  | Node (Tree a) (Tree a)
+
+cons :: a -> [a] -> [a]
+cons x xs = x : xs
+
+o :: (b -> c) -> (a -> b) -> a -> c
+o f g x = f (g x)
+
+flatten :: Tree t -> [t]
+flatten t = walk t []
+
+walk :: Tree t -> [t] -> [t]
+walk (Leaf x) = cons x
+walk (Node t1 t2) = o (walk t1) (walk t2)
+
+data Lam a
+  = LamCons a
+  | LamO (Lam a) (Lam a)
+  deriving (Show)
+
+apply :: Lam a -> [a] -> [a]
+apply (LamCons x) xs = x : xs
+apply (LamO f1 f2) xs = apply f1 (apply f2 xs)
+
+cons_def :: a -> Lam a
+cons_def x = LamCons x
+
+o_def :: Lam a -> Lam a -> Lam a
+o_def f1 f2 = LamO f1 f2
+
+flatten_def :: Tree t -> [t]
+flatten_def t = apply (walk_def t) []
+
+walk_def :: Tree t -> Lam t
+walk_def (Leaf x) = cons_def x
+walk_def (Node t1 t2) = o_def (walk_def t1) (walk_def t2)
+
+append :: [t] -> [t] -> [t]
+append [] b = b
+append (a : as) b = a : (append as b)
+
+walk_alt :: Tree t -> [t]
+walk_alt (Leaf x) = [x]
+walk_alt (Node t1 t2) = append (walk_alt t1) (walk_alt t2)
+
+main :: IO ()
+main = do
+  let someTree = Node (Node (Leaf 1) (Leaf 2)) (Node (Leaf 3) (Leaf 4))
+
+  let result = walk someTree []
+  let resultdef = walk_def someTree
+  let resultalt = walk_alt someTree
+  print result
+  print resultdef
+  print resultalt 
+
+--------------
+
+def walk t k :=
+  t . {
+    Leaf x -> x . k
+  | Node t1 t2 -> do
+      flat_t1 <- walk t1,
+      flat_t2 <- walk t2,
+      then append flat_t1 flat_t2 . k
+  };

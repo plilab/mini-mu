@@ -12,18 +12,29 @@ use ... to bind to the nearest label
 
 An idea: Let's keep using Ap as a special constructor, in which case we can enforce it to have a continuation, to distinguish it from normal tuples.
 
+allow constructor to register a contract? where a contract defines what's inside.
+
 introduce command in Expr might introduces hygienic issue.
 e.g.
 
 def list_mult xs k := 
     xs . { Nil -> 1 . k
          | List:: 0 xs' -> 0 . k
-         | List:: x xs' -> (mul @ x (list_mult @ xs')) . k };
-            expands to list_mult @ xs' { prod -> mul @ x prod k }
+         | List:: x xs' -> (mul @ x (list_mult @ xs')) . k }; mul @ x {list_mult @ xs' ~1}
+            expands to list_mult @ xs' { prod -> mul @ x prod k } , mul @ x { k -> list_mult @ xs' k }
 
 do can be further simplifed using >> or >>=
 mul a b >>= inc >>= inc >>= k
 this gives a*b+2.
+add . 2 3 >>= { a -> add 3 4 >>= {b -> add a b}}
+{ k -> add 2 3 k } >>= { a -> { k -> add 3 4 k } >>= { b -> { k -> add a b k } } }
+if there is a bind op as a function not a sugar?
+
+a <- add . 2 3
+_ <- add . 3 4 
+_ <- add 
+
+{ add @ 2 3 { a -> add @ 3 4 { b -> add @ a b k } } }
 
 This might be more useful when we have Partial application[ding]
 cause now we can only use "functions" that require 1 arg

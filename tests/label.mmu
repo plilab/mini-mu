@@ -5,7 +5,7 @@ def list_mult xs k :=
          | List:: 0 xs' -> 0 . k
          | List:: x xs' ->
             do rest <- list_mult xs',
-                acc <- mul x rest,
+                acc <- mul x rest
             then acc . k }; -- how partial application/currying works in minimu?
 
 superlonglist = List:: 3 (List:: 5 (List:: 2 (List:: 4 (List:: 6 (List:: 8 (List:: 7 (List:: 9 (List:: 1 Nil))))))));

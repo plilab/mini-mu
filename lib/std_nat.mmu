@@ -33,7 +33,7 @@ def mul a b k :=
   a . { Z -> Z . k
       | S a' -> 
           b . { Z -> Z . k
-              | _ -> do prod <- mul a' b,
+              | _ -> do prod <- mul a' b
                      then add @ b prod k } };
 
 def dec x k :=

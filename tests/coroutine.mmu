@@ -9,7 +9,7 @@ def main_routine main_v co_v k := -- A problem is that bindings in coroutine mus
 
 def coroutine co_v k := do
     plus1 <- inc co_v,
-    plus2 <- inc plus1,
+    plus2 <- inc plus1
     then plus2 . k; -- yield control back to the main routine
 
 run main_routine @ 5 0 Halt

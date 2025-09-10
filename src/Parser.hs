@@ -5,7 +5,6 @@ module Parser
 where
 
 import Data.Void
-import Debug.Trace
 import Syntax
 import Text.Megaparsec
 import Text.Megaparsec.Char
@@ -453,7 +452,7 @@ findAndSubstCmdInCmd name cmd (CommandVar cmdId) =
 doThenCommand :: Parser Command
 doThenCommand = label "do/then command" $ do
   _ <- symbol "do"
-  bindings <- many (try $ notFollowedBy (symbol "then") *> doBinding)
+  bindings <- sepBy (notFollowedBy (symbol "then") *> doBinding) (symbol ",")
   _ <- symbol "then"
   desugarDoThen bindings <$> command
   where
@@ -462,7 +461,6 @@ doThenCommand = label "do/then command" $ do
       _ <- symbol "<-"
       fun <- expr
       args <- many expr
-      _ <- symbol ","
       return (pat, fun, args)
 
     desugarDoThen :: [(Pattern, Expr, [Expr])] -> Command -> Command

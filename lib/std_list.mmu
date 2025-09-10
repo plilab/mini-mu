@@ -6,7 +6,7 @@ def list_map f xs k :=
   xs . { Nil -> Nil . k
        | List:: x xs' ->
             do y <- f x,
-               ys' <- list_map f xs',
+               ys' <- list_map f xs'
             then List:: y ys' . k };
 
 def list_reverse xs acc k :=
