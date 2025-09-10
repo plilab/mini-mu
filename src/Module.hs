@@ -12,10 +12,12 @@ loadModule :: ModuleName -> IO [Decl]
 loadModule moduleName = trace ("loading module \"" ++ moduleName ++ "\"") $ do
   let filepath = "./lib/" ++ moduleName ++ ".mmu"
   program <- parseMiniMu filepath
-  -- First, recursively load all dependencies
+  -- First, recursively load all dependencies, must be exported declarations
   parentDecls <- buildDeclsFromProgram program
   -- Then, return the declarations from the current module
-  return $ concat [decls | Program _ decls _ <- [program]] ++ parentDecls
+  let (Program _ decls exports) = program
+  let localDecls = filter (\(Decl name _) -> name `elem` exports) decls
+  return $ localDecls ++ parentDecls
 
 -- Build module environment by reading imports from a program
 buildDeclsFromProgram :: Program -> IO [Decl]

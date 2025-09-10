@@ -22,4 +22,4 @@ def list_length xs k :=
   xs . { Nil -> nil_case
        | List:: x xs' -> cons_case }
 
-export list_append, list_map, list_length
+export list_append, list_map, list_length, list_reverse

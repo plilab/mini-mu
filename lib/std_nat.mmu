@@ -41,4 +41,4 @@ def dec x k :=
 
 def inc x k := S x . k
 
-export lt, geq, add, leq, eq, dec, inc
+export lt, geq, add, leq, eq, dec, inc, mul, sub
