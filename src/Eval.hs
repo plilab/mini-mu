@@ -12,7 +12,6 @@ module Eval
 where
 
 import qualified Data.Map as Map
-
 import Pretty (prettyTopLevelValue, renderPretty)
 import Syntax
 
@@ -85,26 +84,23 @@ match env store v ((pat, cmd) : clauses) =
 
 -- Core pattern matching logic
 tryMatch :: Env -> Store -> Value -> Pattern -> Maybe (Env, Store)
-tryMatch env store _ WildcardPattern = 
-  Just (env, store)  -- Wildcard always matches
-
-tryMatch env store v (VarPattern x) = 
-  Just (envStoreInsert env store x v)  -- Bind variable
-
+tryMatch env store _ WildcardPattern =
+  Just (env, store) -- Wildcard always matches
+tryMatch env store v (VarPattern x) =
+  Just (envStoreInsert env store x v) -- Bind variable
 tryMatch env store (ConsValue con args) (ConsPattern con' pats)
-  | con == con' && length args == length pats = 
+  | con == con' && length args == length pats =
       foldM matchArg (env, store) (zip args pats)
   | otherwise = Nothing
   where
-    matchArg (env', store') (arg, pat) = 
+    matchArg (env', store') (arg, pat) =
       tryMatch env' store' arg pat
+tryMatch _ _ (MuValue {}) (ConsPattern {}) =
+  Nothing -- Cannot match MuValue with constructor pattern
 
-tryMatch _ _ (MuValue {}) (ConsPattern {}) = 
-  Nothing  -- Cannot match MuValue with constructor pattern
-
-foldM :: Monad m => (a -> b -> m a) -> a -> [b] -> m a
+foldM :: (Monad m) => (a -> b -> m a) -> a -> [b] -> m a
 foldM _ acc [] = return acc
-foldM f acc (x:xs) = do
+foldM f acc (x : xs) = do
   acc' <- f acc x
   foldM f acc' xs
 
@@ -174,7 +170,7 @@ evalProgram :: Program -> VarId -> Config
 evalProgram (Program _ decls _) varId =
   uncurry
     CommandConfig
-    (evalDecls initEnv initStore decls)  -- Still just eval local decls for now
+    (evalDecls initEnv initStore decls) -- Still just eval local decls for now
     (Command (Var varId) halt)
 
 -- stack exec mini-mu source.mmu var

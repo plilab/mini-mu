@@ -78,6 +78,8 @@ prettyTopLevelValue (ConsValue "S" [v]) _ =
   pretty (peanoValueToInt (ConsValue "S" [v]))
 prettyTopLevelValue (ConsValue con args) showEnv =
   pretty con <+> hsep (map (`prettyValue` showEnv) args)
+prettyTopLevelValue (IncompleteConsValue con args) showEnv =
+  pretty con <+> hsep (map (`prettyIncompleteConsValueAux` showEnv) args)
 prettyTopLevelValue mu@(MuValue _ _) showEnv =
   prettyMuValueAux mu showEnv
 
@@ -99,6 +101,10 @@ prettyValue (ConsValue con args) showEnv =
   case args of
     [] -> pretty con
     _ -> pretty "(" <> pretty con <+> hsep (map (`prettyValue` showEnv) args) <> pretty ")"
+prettyValue (IncompleteConsValue con args) showEnv =
+  case args of
+    [] -> pretty con
+    _ -> pretty "(" <> pretty con <+> hsep (map (`prettyIncompleteConsValueAux` showEnv) args) <> pretty ")"
 prettyValue mu@(MuValue _ _) showEnv =
   prettyMuValueAux mu showEnv
 
@@ -129,6 +135,10 @@ peanoValueToInt _ = error "Not a Peano number"
                                     < (List:: y ys') ▷ k >] >]
    }
 -}
+
+prettyIncompleteConsValueAux :: Either Value HoleValue -> Bool -> Doc ann
+prettyIncompleteConsValueAux (Left v) showEnv = prettyValue v showEnv
+prettyIncompleteConsValueAux (Right HoleValue) _ = pretty "_"
 
 prettyMuValueAux :: Value -> Bool -> Doc ann
 prettyMuValueAux (MuValue env cases) showEnv =
@@ -190,6 +200,8 @@ prettyTopLevelExpr add1@(Cons "S" _) =
   maybe (prettyTopLevelPeanoExprFallback add1) pretty (peanoExprToInt add1)
 prettyTopLevelExpr (Cons con args) =
   pretty con <+> hsep (map prettyExpr args)
+prettyTopLevelExpr (IncompleteCons con args) =
+  pretty con <+> hsep (map prettyIncompleteConsExprAux args)
 prettyTopLevelExpr mu@(Mu _) =
   prettyMuExprAux mu
 
@@ -204,7 +216,15 @@ prettyExpr (Cons c args) =
   case args of
     [] -> pretty c
     _ -> pretty "(" <> pretty c <+> hsep (map prettyExpr args) <> pretty ")"
+prettyExpr (IncompleteCons con args) =
+  case args of
+    [] -> pretty con
+    _ -> pretty "(" <> pretty con <+> hsep (map prettyIncompleteConsExprAux args) <> pretty ")"
 prettyExpr (Mu cases) = prettyMuExprAux (Mu cases)
+
+prettyIncompleteConsExprAux :: Either Expr HoleExpr -> Doc ann
+prettyIncompleteConsExprAux (Left e) = prettyExpr e
+prettyIncompleteConsExprAux (Right HoleExpr) = pretty "_"
 
 prettyMuExprAux :: Expr -> Doc ann
 prettyMuExprAux (Mu cases) =

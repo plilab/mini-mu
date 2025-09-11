@@ -205,16 +205,17 @@ pattern =
 patternCase :: Parser (Pattern, Command)
 patternCase = label "pattern case" $ (,) <$> pattern <* symbol "->" <*> command
 
--- Expressions that can inside a list (i.e., `many`) such as the arguments to a constructor
+-- atoms are naturally delimited expressions.
 atom :: Parser Expr
 atom =
   label "atom expr" $
     choice
       [ -- Sugar 7: Simplify mu[] as []
         try (Mu <$> curly (sepBy1 patternCase (symbol "|"))),
+        try letExpr, -- TODO: move to atom so we allow: x @ X let y = ... in ...
         try natExpr, -- Sugar 8: Expand numerical to S...Z
         try pairExpr, -- Sugar 9: Expand pairs
-        try $ (\c -> Cons c []) <$> consId, -- constructor with no arguments
+        try $ (`Cons` []) <$> consId, -- constructor with no arguments
         try $ Var <$> varId,
         parens expr
       ]
@@ -224,10 +225,28 @@ expr =
   label
     "expression"
     $ choice
-      [ try letExpr, -- TODO: move to atom so we allow: x @ X let y = ... in ...
-        try $ Cons <$> consId <*> many atom,
+      [ try completeCons,
+        -- notFollowedBy (symbol "_") will trigger backtracking
+        try incompleteCons,
         atom
       ]
+
+completeCons :: Parser Expr
+completeCons =
+  label "complete constructor" $
+    Cons <$> consId <*> many atom <* notFollowedBy (symbol "_")
+
+incompleteCons :: Parser Expr
+incompleteCons =
+  label "incomplete constructor" $
+    IncompleteCons
+      <$> consId
+      <*> many (try (Left <$> atom) <|> (Right <$> consHole))
+
+consHole :: Parser HoleExpr
+consHole =
+  label "constructor hole" $
+    HoleExpr <$ symbol "_"
 
 -- Parse a command
 command :: Parser Command
@@ -361,11 +380,11 @@ letExpr = label "let expression" $ do
       foldr
         ( \(name, value) acc -> case name of
             Left varid -> case value of
-              Left e -> findAndSubstExprInExpr varid e acc
+              Left e -> findAndSubstExprInExpr (varid, e) acc
               Right _ -> error "varId cannot be bound to a command"
             Right cmdid -> case value of
               Left _ -> error "commandId cannot be bound to an expression"
-              Right c -> findAndSubstCmdInExpr cmdid c acc
+              Right c -> findAndSubstCmdInExpr (cmdid, c) acc
         )
         body
         bindings
@@ -383,11 +402,11 @@ letCommand = label "let command" $ do
       foldr
         ( \(name, value) acc -> case name of
             Left varid -> case value of
-              Left e -> findAndSubstExprInCmd varid e acc
+              Left e -> findAndSubstExprInCmd (varid, e) acc
               Right _ -> error "varId cannot be bound to a command"
             Right cmdid -> case value of
               Left _ -> error "commandId cannot be bound to an expression"
-              Right c -> findAndSubstCmdInCmd cmdid c acc
+              Right c -> findAndSubstCmdInCmd (cmdid, c) acc
         )
         cmd
         bindings
@@ -407,32 +426,43 @@ binding = label "Parsing binding in let/where" $ do
         return (Left name, Left e)
     ]
 
-findAndSubstExprInExpr :: VarId -> Expr -> Expr -> Expr
-findAndSubstExprInExpr name e (Mu branches) =
-  Mu (map (\(p, c) -> (p, findAndSubstExprInCmd name e c)) branches)
-findAndSubstExprInExpr name e (Cons c args) =
-  Cons c (map (findAndSubstExprInExpr name e) args)
-findAndSubstExprInExpr name e (Var v) =
+-- Helper functions for substitution in let/where desugaring
+type ExprBinding = (VarId, Expr)
+
+type CommandBinding = (CommandId, Command)
+
+-- Structural recursions on Expr and Command for substitution
+
+findAndSubstExprInExpr :: ExprBinding -> Expr -> Expr
+findAndSubstExprInExpr (name, e) (Mu branches) =
+  Mu (map (\(p, c) -> (p, findAndSubstExprInCmd (name, e) c)) branches)
+findAndSubstExprInExpr (name, e) (Cons c args) =
+  Cons c (map (findAndSubstExprInExpr (name, e)) args)
+findAndSubstExprInExpr (name, e) (IncompleteCons c args) =
+  IncompleteCons c (map (either (Left . findAndSubstExprInExpr (name, e)) Right) args)
+findAndSubstExprInExpr (name, e) (Var v) =
   if v == name then e else Var v
 
-findAndSubstExprInCmd :: VarId -> Expr -> Command -> Command
-findAndSubstExprInCmd name e (Command expr1 expr2) =
-  Command (findAndSubstExprInExpr name e expr1) (findAndSubstExprInExpr name e expr2)
-findAndSubstExprInCmd _ _ (CommandVar cmdId) =
+findAndSubstExprInCmd :: ExprBinding -> Command -> Command
+findAndSubstExprInCmd (name, e) (Command expr1 expr2) =
+  Command (findAndSubstExprInExpr (name, e) expr1) (findAndSubstExprInExpr (name, e) expr2)
+findAndSubstExprInCmd _ (CommandVar cmdId) =
   CommandVar cmdId -- No substitution for command variables
 
-findAndSubstCmdInExpr :: CommandId -> Command -> Expr -> Expr
-findAndSubstCmdInExpr name cmd (Mu branches) =
-  Mu (map (\(p, c) -> (p, findAndSubstCmdInCmd name cmd c)) branches)
-findAndSubstCmdInExpr name cmd (Cons c args) =
-  Cons c (map (findAndSubstCmdInExpr name cmd) args)
-findAndSubstCmdInExpr _ _ (Var v) =
+findAndSubstCmdInExpr :: CommandBinding -> Expr -> Expr
+findAndSubstCmdInExpr (name, cmd) (Mu branches) =
+  Mu (map (\(p, c) -> (p, findAndSubstCmdInCmd (name, cmd) c)) branches)
+findAndSubstCmdInExpr (name, cmd) (Cons c args) =
+  Cons c (map (findAndSubstCmdInExpr (name, cmd)) args)
+findAndSubstCmdInExpr (name, cmd) (IncompleteCons c args) =
+  IncompleteCons c (map (either (Left . findAndSubstCmdInExpr (name, cmd)) Right) args)
+findAndSubstCmdInExpr _ (Var v) =
   Var v
 
-findAndSubstCmdInCmd :: CommandId -> Command -> Command -> Command
-findAndSubstCmdInCmd name cmd (Command expr1 expr2) =
-  Command (findAndSubstCmdInExpr name cmd expr1) (findAndSubstCmdInExpr name cmd expr2)
-findAndSubstCmdInCmd name cmd (CommandVar cmdId) =
+findAndSubstCmdInCmd :: CommandBinding -> Command -> Command
+findAndSubstCmdInCmd (name, cmd) (Command expr1 expr2) =
+  Command (findAndSubstCmdInExpr (name, cmd) expr1) (findAndSubstCmdInExpr (name, cmd) expr2)
+findAndSubstCmdInCmd (name, cmd) (CommandVar cmdId) =
   if cmdId == name then cmd else CommandVar cmdId
 
 -- whereClause :: Parser [(VarId, Either Expr Command)]

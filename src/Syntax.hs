@@ -8,9 +8,11 @@ module Syntax
     Command (..),
     Pattern (..),
     Expr (..),
+    HoleExpr (..),
     -- CoPattern (..),
     -- CoExpr (..),
     Value (..),
+    HoleValue (..),
     -- CoValue (..),
     Addr (..),
     -- CoAddr (..),
@@ -44,7 +46,6 @@ where
 
 import qualified Data.Map as Map
 
-
 type VarId = String
 
 type ConsId = String
@@ -54,13 +55,14 @@ type ConsId = String
 
 type CommandId = String
 
-data Program = Program 
-  { programImports :: [ImportDecl]  -- at beginning
-  , programDecls :: [Decl]          -- middle 
-  , programExports :: [VarId]       -- at end
-  } deriving (Show, Eq, Ord)
+data Program = Program
+  { programImports :: [ImportDecl], -- at beginning
+    programDecls :: [Decl], -- middle
+    programExports :: [VarId] -- at end
+  }
+  deriving (Show, Eq, Ord)
 
-data ImportDecl = ImportDecl String [VarId]  -- import "module" (x, y, z)
+data ImportDecl = ImportDecl String [VarId] -- import "module" (x, y, z)
   deriving (Show, Eq, Ord)
 
 data Decl
@@ -72,16 +74,19 @@ data Command
   | CommandVar CommandId
   deriving (Show, Eq, Ord)
 
+data HoleExpr = HoleExpr deriving (Show, Eq, Ord)
+
 data Expr -- e
   = Var VarId -- x
   | Cons ConsId [Expr] -- Foo e k
+  | IncompleteCons ConsId [Either Expr HoleExpr] -- Foo e _ e
   | Mu [(Pattern, Command)] -- mu [ Foo x y -> q | Bar x y -> q | k -> q ]
   deriving (Show, Eq, Ord)
 
 data Pattern
-  = ConsPattern ConsId [Pattern]  -- Cons [nested patterns]
-  | VarPattern VarId              -- Variable binding: x
-  | WildcardPattern               -- Wildcard: *
+  = ConsPattern ConsId [Pattern] -- Cons [nested patterns]
+  | VarPattern VarId -- Variable binding: x
+  | WildcardPattern -- Wildcard: *
   deriving (Show, Eq, Ord)
 
 -- data CoPattern
@@ -95,8 +100,11 @@ data Pattern
 --   | Mu [(Pattern, Command)] -- mu [ Foo x y -> q | Bar x y -> q | k -> q ]
 --   deriving (Show, Eq, Ord)
 
+data HoleValue = HoleValue deriving (Show, Eq, Ord)
+
 data Value
   = ConsValue ConsId [Value]
+  | IncompleteConsValue ConsId [Either Value HoleValue]
   | MuValue Env [(Pattern, Command)]
   deriving (Show, Eq, Ord)
 
@@ -104,7 +112,6 @@ data Value
 --   = CoConsValue ConsId [Either Value CoValue]
 --   | MuValue Env [(Pattern, Command)]
 --   deriving (Show, Eq, Ord)
-
 
 -- let-and-set
 -- CESK: Expr Env Store CoValue
@@ -115,13 +122,11 @@ data Value
 -- CommandConfig represents a command to be executed with the current environment and store.
 -- ValueConfig represents a value and its continuation in the store.
 -- ErrorConfig represents an error message.
-
 data Config
   = CommandConfig Env Store Command -- ρ |- q
   | ValueConfig Store Value Value
   | ErrorConfig String
   deriving (Eq, Show, Ord)
-
 
 newtype Addr = Addr Int deriving (Show, Eq, Ord)
 
@@ -133,9 +138,7 @@ addrInc (Addr n) = Addr (n + 1)
 -- coAddrInc :: CoAddr -> CoAddr
 -- coAddrInc (CoAddr n) = CoAddr (n + 1)
 
-
 -- | Env is a mapping from variable identifiers to addresses.
-
 data Env = Env (Map.Map VarId Addr) (Map.Map CommandId Addr)
   deriving (Show, Eq, Ord)
 
@@ -150,7 +153,7 @@ envLookup (Env env _) x = case Map.lookup x env of
 envLookupCommand :: Env -> CommandId -> Addr
 envLookupCommand (Env _ cmdEnv) x = case Map.lookup x cmdEnv of
   Just addr -> addr
-  Nothing -> error $ "Command not found in environment: " ++ x  
+  Nothing -> error $ "Command not found in environment: " ++ x
 
 -- envCoLookup :: Env -> CoVarId -> CoAddr
 -- envCoLookup (Env _ coenv) x = coenv Map.! x
@@ -167,10 +170,8 @@ envInsertCommand (Env env cmdEnv) c addr = Env env (Map.insert c addr cmdEnv)
 -- data Store = Store Addr CoAddr (Map.Map Addr Value) (Map.Map CoAddr CoValue)
 --   deriving (Show, Eq, Ord)
 
-
 -- | Definition of Store, which maps addresses to values.
--- It also contains the next available address for allocation. 
-
+-- It also contains the next available address for allocation.
 data Store = Store Addr Addr (Map.Map Addr Value) (Map.Map Addr Command)
   deriving (Show, Eq, Ord)
 
@@ -203,7 +204,6 @@ storeAllocCommand (Store nextAddr nextCmdAddr store cmdMap) =
 --   (nextCoAddr, Store nextAddr (coAddrInc nextCoAddr) store costore)
 
 -- | These functions insert a value or command into the store at a specific address.
-
 storeInsertAddr :: Store -> Addr -> Value -> Store
 storeInsertAddr (Store nextAddr nextCmdAddr store cmdStore) addr v =
   Store nextAddr nextCmdAddr (Map.insert addr v store) cmdStore
