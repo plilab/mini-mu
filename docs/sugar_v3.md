@@ -60,7 +60,34 @@ Definition： Command Tree
 self0, self1 are auto-generated variables where
 self0 = { res0 -> res0 @ (|add 1 2|) Halt }
 self1 = { res1 -> (|add 3|) @ res1 Halt }
-add 3 _
-== { Ap b -> 3 . { Z -> b . self0 | S x' -> add x' S(b) self0 } }
-mul 1 2
-== { () -> 1 . { Z -> 2 . self1 | S x' -> add x' 3 self1 }  }
+(|add 3|)
+== { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } . self0
+(|add 1 2|)
+== { Ap k -> 1 . { Z -> 2 . k | S x' -> add x' 3 k } } . self1
+
+now a interesting thing happen is that we need to supply a implicit continuation to (| add 1 2 |),
+but which? maybe call it "here", and here refer to "self" of that place. in this case self1
+
+now maybe lets change the notation when we need to add implicit to &(| |) ?
+or we simply put here explictly like (| add 1 2 here |) ?
+
+anyway now,
+&(| add 1 2 |)
+== { Ap here -> 1 . { Z -> 2 . here | S x' -> add x' 3 here } } . self1
+which reduce to 3 . here
+which is 3 . { res1 -> (|add 3|) @ res1 Halt }
+which is (| add 3 |) @ 3 Halt
+
+now the whole thing will be (if deal from left to right)
+=> { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } . self0
+=> { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } @ &(|add 1 2|) Halt
+
+notice that now "here" for add 1 2 is not same as above but:
+{ res -> { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } @ res Halt }
+
+now when we do &(| add 1 2 |):
+we have 3 . { res -> { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } @ res Halt }
+=> { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } @ 3 Halt
+=> 6 . Halt
+=> 6
+ok done!
