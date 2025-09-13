@@ -10,4 +10,4 @@ def for_loop i end xs body k :=
 
 def map_once i xs k := list_map @ inc xs k;
 
-run for_loop @ 0 (let three = 3 in three) (List:: 2 (List:: 1 (List:: 0 Nil))) map_once Halt
+run for_loop @ 0 (let three = 3 in three) (List:: 2 (List:: 1 (List:: 0 Nil))) map_once halt

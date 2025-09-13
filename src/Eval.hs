@@ -22,10 +22,22 @@ evalExpr env store (Cons ident args) = (ConsValue ident argValues, store')
   where
     (argValues, store') = foldl go ([], store) args
     go :: ([Value], Store) -> Expr -> ([Value], Store)
-    go (argValuesAccum, storeAccum) arg =
-      (argValuesAccum ++ [argValue], storeAccum')
+    go (argValuesAcc, storeAcc) arg =
+      (argValuesAcc ++ [argValue], storeAcc')
       where
-        (argValue, storeAccum') = eval env storeAccum arg
+        (argValue, storeAcc') = eval env storeAcc arg
+evalExpr env store (IncompleteCons ident args) = (IncompleteConsValue ident argValues, store')
+  where
+    (argValues, store') = foldl goIncomplete ([], store) args
+    goIncomplete :: ([Either Value HoleValue], Store) -> Either Expr HoleExpr -> ([Either Value HoleValue], Store)
+    goIncomplete (argValuesAcc, storeAcc) arg =
+      case arg of
+        Left expr ->
+          (argValuesAcc ++ [Left argValue], storeAcc')
+          where
+            (argValue, storeAcc') = eval env storeAcc expr
+        Right HoleExpr ->
+          (argValuesAcc ++ [Right HoleValue], storeAcc)
 
 -- evalCoExpr :: Env -> Store -> CoExpr -> (CoValue, Store)
 -- evalCoExpr env store (CoVar x) = (storeCoLookup store (envCoLookup env x), store)
@@ -66,14 +78,23 @@ step (ValueConfig store (MuValue env clauses) cons@(ConsValue {})) =
   match env store cons clauses
 step (ValueConfig store v@(MuValue env clauses) cv@(MuValue env' clauses')) =
   match env' store v clauses' ++ match env store cv clauses
+-- cases for partial applications
+--
+step (ValueConfig store iv@(IncompleteConsValue {}) (MuValue env clauses)) =
+  match env store iv clauses
+step (ValueConfig store (MuValue env clauses) iv@(IncompleteConsValue {})) =
+  match env store iv clauses
 -- temporary hack to deal with "Halt"
+--
 step (ValueConfig _ cons@(ConsValue _ _) (ConsValue "Halt" [])) =
   [ErrorConfig ("Halt with result: " ++ renderPretty (prettyTopLevelValue cons False))]
 step (ValueConfig _ (ConsValue "Halt" []) cons@(ConsValue _ _)) =
   [ErrorConfig ("Halt with result: " ++ renderPretty (prettyTopLevelValue cons False))]
-step (ValueConfig _ (ConsValue {}) (ConsValue {})) =
-  [ErrorConfig "Bad type: cannot continue with 2 constructors"]
+-- error cases
+--
 step (ErrorConfig {}) = []
+step _ =
+  [ErrorConfig "Bad type: cannot continue with 2 constructors"]
 
 match :: Env -> Store -> Value -> [(Pattern, Command)] -> [Config]
 match _ _ _ [] = []

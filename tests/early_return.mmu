@@ -19,4 +19,4 @@ def find_pair_sum_aux x ys target k :=
 run let l1 = (List:: 1 (List:: 2 (List:: 3 Nil))), 
         l2 = (List:: 4 (List:: 5 (List:: 6 Nil))),
         target = 8
-    in find_pair_sum @ l1 l2 target Halt 
+    in find_pair_sum @ l1 l2 target halt

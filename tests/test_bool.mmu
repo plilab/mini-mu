@@ -6,4 +6,4 @@ def inc1 x cond k :=
      { True -> inc @ x k }
      { False -> x . k };
 
-run inc1 @ 1 True Halt
+run inc1 @ 1 True halt

@@ -18,4 +18,4 @@ def quick_sort xs k :=
               sorted_g <- quick_sort greater
             then list_append @ sorted_s (List:: pivot sorted_g) k };
 
-run quick_sort @ (List:: 3 (List:: 1 (List:: 2 (List:: 0 (List:: 3 (List:: 1 (List:: 2 (List:: 0 Nil)))))))) Halt
+run quick_sort @ (List:: 3 (List:: 1 (List:: 2 (List:: 0 (List:: 3 (List:: 1 (List:: 2 (List:: 0 Nil)))))))) halt

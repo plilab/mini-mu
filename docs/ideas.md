@@ -120,7 +120,7 @@ much clearer than: def swap_lazy(𝑥; 𝛼)≔ ⟨cocase {fst(𝛽)⇒⟨𝑥 |
 
 swap @ (2, 3) k => (3, 2) . k
 { Fst k -> 2 . k | Snd k -> 3 . k } k0 @ swap_lazy => 
-{ Fst k -> Snd k . { Fst k -> 2 . k | Snd k -> 3 . k }s 
+{ Fst k -> Snd k . { Fst k -> 2 . k | Snd k -> 3 . k } 
 | Snd k -> Fst k . { Fst k -> 2 . k | Snd k -> 3 . k } } . k0
 
 much cleaner and unified in minimu than in lambda mu calculus

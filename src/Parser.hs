@@ -358,13 +358,13 @@ defDecl =
     desugarDef args cmd =
       Mu [(ConsPattern "Ap" args, cmd)]
 
--- | run COMMAND === main = mu[ Halt -> COMMAND ]
+-- | run COMMAND === main = mu[ halt -> COMMAND ]
 runDecl :: Parser Decl
 runDecl = do
   Decl "main" . desugarRun <$> (symbol "run" *> command)
   where
     desugarRun :: Command -> Expr
-    desugarRun cmd = Mu [(ConsPattern "Halt" [], cmd)]
+    desugarRun cmd = Mu [(VarPattern "halt", cmd)]
 
 -- Sugar 4: let grammar
 letExpr :: Parser Expr

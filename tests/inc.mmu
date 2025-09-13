@@ -1,6 +1,3 @@
 import "std_nat" (inc)
 
-run Z Halt @ inc
-
--- inc = mu[ Ap n -> < S n |> Halt > ];
--- main = mu[ Halt -> < Ap Z |> inc > ]
+run Z halt @ inc
