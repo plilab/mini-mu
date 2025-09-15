@@ -1,14 +1,80 @@
+import "std_nat" (eq)
+
 -- this example should show how 
 -- call_cc is brought down to understandable level!
 def call_cc f k :=
-    Ap k k . f
+  Ap k k . f
 
+{-
 -- to discuss during meeting. lambda-mu-mu itself
 -- does not seem powerful enough to directly implement
 -- the lambda mu mu calculus - peeking around seems to 
 -- indicate we need some sort of polarized(?) lambda mu mu calculus.
 
 -- so for now we have reset and shift only in a monadic interface :<
+-- Comp v prompts - a monad of computation v, as well as a
+-- STACK of all defined prompts
 
+-- Comp v s k
+-- a comp monad tracks several things:
+-- v: the current value,
+-- s: a stack of prompts and reset delimiter continuations - a list of pairs (prompt, cont). for now lets use numbers for prompts
+-- k: the current active delimited continuation (option)
+
+-- the types below ignore the final continuation.
+-- type 'a -> Comp 'a
+def pure v k :=
+  Comp v (Nil) None . k;
+
+-- type Comp 'a -> ('a -> 'b) -> Comp 'b
+def bind m f k :=
+  m . { Comp v s k' ->
+        
+      | _ -> Error . k 
+      };
+
+-- type Comp 'a -> Comp 'a
+def reset prompt m k :=
+  m . { Comp v s k' -> Comp v (List:: (Pair prompt k) s) k' . k
+      | _ -> Error . k
+      };
+
+-- helper functions
+def find_prompt prompt prompts k :=
+  prompts . { Nil -> Not_found . k
+            | List:: (Pair prompt' k') prompts' -> 
+                -- there is a need to escape all of the nested prompts as well.
+                eq @ prompt prompt' { True -> Pair k' prompts' . k
+                                    | False -> find_prompt @ prompt prompts' k
+                                    }
+            };
+
+-- shift generates the delimited continuation.
+-- body_k is a continuation expecting a delimited continuation.
+-- type prompt -> Comp 'a -> (cont _ -> _) -> Comp _ 
+def shift prompt m body_k k := 
+  m . { Comp v s k' ->
+          do prompt_k <- find_prompt prompt s,
+          then prompt_k . { Not_found -> Not_found . k
+                          | Pair prompt_k rest_prompts -> Not_implemented . k
+                          }
+      | _ -> Error . k 
+      };
+
+-- type Comp 'a -> a
+def yield m k :=
+  m . { Comp v s k' -> v . k 
+      | _ -> Error . k 
+      }
+-- halted for now. need to figure out how to make a monad within 
+-- mini-mu (done - look at std_option)
+-- wait... the problem is not monads.
+-- if we implement bind, with f working on the inner value
+-- and returning another Comp monad representing the 
+-- Comp as a data value, we LOSE the data context, since
+-- we cannot access the previously stored prompts!
+
+-- MODEL IT AS CODATA!
+-}
 
 export call_cc
