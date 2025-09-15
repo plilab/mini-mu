@@ -75,6 +75,7 @@ def yield m k :=
 -- we cannot access the previously stored prompts!
 
 -- MODEL IT AS CODATA!
+-- because a computation is just that - codata!
 -}
 
 export call_cc

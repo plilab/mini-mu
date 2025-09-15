@@ -21,6 +21,36 @@ def bind o f k :=
   o . {
     Some v -> f @ v k
   | None -> None . k
-  }
+  };
 
-export some, return, none, get, bind
+def map o f k :=
+  o . {
+    Some v -> f @ v { v -> Some v . k }
+  | None -> None . k
+  };
+
+-- coalgebraic representations!
+def none' k := {
+    Get k' -> Not_found . k'   
+  | Bind f k' -> none' @ k'
+  | Map f k' -> none' @ k'
+  | Fold ks kn -> Unit . kn 
+} . k;
+
+def some' v k := {
+    Get k' -> v . k'   
+  | Bind f k' -> f @ v k'
+  | Map f k' -> f @ v { v -> some' @ v k' }
+  | Fold ks kn -> v . ks
+} . k;
+
+def return' v k := some' @ v k;
+
+def get' o k := Get k . o;
+
+def bind' o f k := Bind f k . o;
+
+def map' o f k := Map f k . o
+
+export some, return, none, get, bind, map,
+       some', return', none', get', bind', map'
