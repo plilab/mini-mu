@@ -1,0 +1,20 @@
+import "std_stream" (head, tail, stream_gen)
+
+def id v k := v . k;
+
+-- the test is just to continue copying "tail" and see how it goes
+def stream_test k := 
+  do stream <- stream_gen 1 id,
+     stream <- tail stream,
+     stream <- tail stream,
+     stream <- tail stream,
+     stream <- tail stream,
+     stream <- tail stream,
+     stream <- tail stream,
+     stream <- tail stream,
+     stream <- tail stream,
+     stream <- tail stream,
+     stream <- tail stream,
+  then head @ stream k;
+
+run stream_test @ Halt

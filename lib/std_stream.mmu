@@ -1,0 +1,36 @@
+import "std_nat" (inc)
+
+-- a stream is a type of codata, represented as a 
+-- CONTINUATION/consumer
+
+-- we pass in constructors behaving like they are destructors
+def make_empty_stream k := {
+    Head k' -> Error . k'
+  | Tail k' -> Error . k'
+} . k;
+
+-- an interesting aspect, as you can see, is that
+-- destructors must pass in their return continuations
+
+-- so leaving covalues and values the same doesn't harm the expressiveness of the lang,
+-- - just that the user needs to manage destructor semantics themselves!
+
+def stream_cons elem stream k := {
+    Head k' -> elem . k'
+  | Tail k' -> stream . k'
+} . k;
+
+-- so we can actually provide helper functions
+def head s k :=
+  Head k . s;
+
+def tail s k :=
+  Tail k . s;
+
+-- a basic stream_generator, using numbers
+def stream_gen start gen_elem k := {
+    Head k' -> gen_elem @ start k'
+  | Tail k' -> inc @ start { v -> stream_gen @ v gen_elem k' }
+} . k
+
+export make_empty_stream, stream_cons, head, tail, stream_gen
