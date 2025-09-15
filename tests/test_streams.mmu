@@ -9,12 +9,16 @@ def stream_test k :=
      stream <- tail stream,
      stream <- tail stream,
      stream <- tail stream,
-     stream <- tail stream,
-     stream <- tail stream,
-     stream <- tail stream,
-     stream <- tail stream,
-     stream <- tail stream,
-     stream <- tail stream,
   then head @ stream k;
 
-run stream_test @ Halt
+-- alternative syntax?
+def stream_test_2 k := 
+  do s <- stream_gen 1 id,
+  then s . Tail { s ->
+       s . Tail { s -> 
+       s . Tail { s ->
+       s . Tail { s -> 
+       s . Head k
+  }}}};
+
+run stream_test_2 @ Halt

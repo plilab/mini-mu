@@ -78,4 +78,12 @@ def yield m k :=
 -- because a computation is just that - codata!
 -}
 
+-- not to be exposed to the user.
+def pure_comp v prompts current_cont k := {
+    Yield k' -> v . k'
+  | Make_prompt p k' -> pure_comp @ v (List:: (Pair p k') prompts) current_cont k'
+};
+
+def return v k := pure_comp @ v Nil None k
+
 export call_cc
