@@ -20,7 +20,7 @@ keywords =
     "let",
     "in",
     "where",
-    "do",
+    "seq",
     "then"
   ]
 
@@ -256,7 +256,7 @@ command =
     $ choice
       [ try letCommand,
         try commandSugar,
-        try doThenCommand,
+        try seqThenCommand,
         try $ angles $ do
           e <- expr
           _ <- symbol "|>"
@@ -479,9 +479,9 @@ findAndSubstCmdInCmd (name, cmd) (CommandVar cmdId) =
 --         ]
 
 -- Sugar: do...then grammar
-doThenCommand :: Parser Command
-doThenCommand = label "do/then command" $ do
-  _ <- symbol "do"
+seqThenCommand :: Parser Command
+seqThenCommand = label "seq/then command" $ do
+  _ <- symbol "seq"
   bindings <- sepBy (notFollowedBy (symbol "then") *> doBinding) (symbol ",")
   _ <- symbol "then"
   desugarDoThen bindings <$> command

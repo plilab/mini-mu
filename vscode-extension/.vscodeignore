@@ -1,0 +1,13 @@
+node_modules/.bin/
+node_modules/**/test/
+node_modules/**/tests/
+node_modules/**/*.md
+node_modules/**/*.txt
+node_modules/**/.gitignore
+node_modules/**/.editorconfig
+node_modules/**/.eslintrc*
+node_modules/**/tsconfig.json
+node_modules/**/*.map
+**/.git
+**/.DS_Store
+**/node_modules/.cache/

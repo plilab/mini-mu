@@ -37,6 +37,19 @@ This will build the project and install all necessary dependencies.
 
 ## Usage
 
+### Use Syntax Highlighting
+
+```bash
+cd vscode-extension
+
+npm install
+
+vsce build
+
+code --install-extension minimu-language-support-0.0.1.vsix
+
+```
+
 ### Running Programs
 
 ```bash

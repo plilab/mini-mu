@@ -5,24 +5,25 @@ import "std_list" (list_append)
 def walk t k :=
   t . {
     Leaf x -> List:: x Nil . k
-  | Node t1 t2 -> do
+  | Node t1 t2 -> seq
       flat_t1 <- walk t1,
       flat_t2 <- walk t2
       then list_append @ flat_t1 flat_t2 k
   };
 
 def compose f g k :=
-  { Ap x k' -> do gx <- g x then f @ gx k' } . k;
+  { Ap x k' -> seq gx <- g x then f @ gx k' } . k;
 
 def walk_alt_aux t k :=
   t . {
     Leaf x -> { Ap xs k' -> List:: x xs . k' } . k
-  | Node t1 t2 -> do
+  | Node t1 t2 -> seq
       flat_t1 <- walk_alt_aux t1,
       flat_t2 <- walk_alt_aux t2
       then compose @ flat_t1 flat_t2 k
   };
 
+-- walt_alt takes linear time
 def walk_alt t k := 
   walk_alt_aux @ t { acc -> acc @ Nil k };
 

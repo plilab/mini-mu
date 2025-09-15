@@ -4,7 +4,7 @@ import "std_nat" (inc, lt, eq)
 def for_loop i end xs body k :=
   lt @ i end { is_less ->
     is_less . { True ->
-                  do xs' <- body xs
+                  seq xs' <- body xs
                   then S i . { i_next -> for_loop @ i_next end xs' body k }
               | False -> xs . k } };
 
@@ -17,5 +17,5 @@ def map_once xs k :=
 def map_twice xs k :=
   for_loop @ 0 3 xs map_once k ;
 
-run do is_eq <- eq 1 0
+run seq is_eq <- eq 1 0
     then if @ is_eq map_once map_twice (List:: 2 (List:: 1 (List:: 3 Nil))) halt

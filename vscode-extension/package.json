@@ -1,0 +1,51 @@
+{
+  "name": "minimu-language-support",
+  "displayName": "MiniMu Language Support",
+  "description": "Language support for MiniMu programming language",
+  "version": "0.0.1",
+  "publisher": "plilab",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/plilab/mini-mu.git"
+  },
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:minimu"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "minimu",
+        "aliases": [
+          "MiniMu",
+          "minimu"
+        ],
+        "extensions": [
+          ".mmu"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "minimu",
+        "scopeName": "source.minimu",
+        "path": "./syntaxes/minimu.tmGrammar.json"
+      }
+    ]
+  },
+  "dependencies": {
+    "vscode-languageclient": "^8.1.0",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0"
+  }
+}

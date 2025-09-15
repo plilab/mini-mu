@@ -4,7 +4,7 @@ import "std_list" (list_append)
 def list_split pred xs cpr k :=
   xs . { Nil -> (Nil, Nil) . k
        | List:: x xs' ->
-            do rest <- list_split pred xs' cpr
+            seq rest <- list_split pred xs' cpr
             then rest . { (smaller, greater) ->
               pred @ x cpr { True -> ((List:: x smaller), greater) . k
                            | False -> (smaller, (List:: x greater)) . k } } };
@@ -12,7 +12,7 @@ def list_split pred xs cpr k :=
 def quick_sort xs k :=
   xs . { Nil -> Nil . k
        | List:: pivot xs' ->
-            do
+            seq
               (smaller, greater) <- list_split lt xs' pivot,
               sorted_s <- quick_sort smaller,
               sorted_g <- quick_sort greater

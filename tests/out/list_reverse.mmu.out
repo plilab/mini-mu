@@ -1,1 +1,477 @@
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < main ▷ Halt  > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: μ-Closure {
+  { Environment } μ[ halt ->
+                      < Ap (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) halt ▷ list_reverse > ]
+} , co-value: Halt 
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) halt ▷ list_reverse > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap (List:: 2 (List:: 1 (List:: 0 Nil))) Halt , co-value: μ-Closure {
+  { Environment } μ[ Ap xs k ->
+                      < xs ▷ μ[ Nil  ->
+                                 < Nil  ▷ k > 
+                              | List:: x xs' ->
+                                 < Ap xs' μ[ rest ->
+                                              < Ap rest (List:: x Nil) k ▷ list_append > ] ▷ list_reverse > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < xs ▷ μ[ Nil  ->
+            < Nil  ▷ k > 
+         | List:: x xs' ->
+            < Ap xs' μ[ rest ->
+                         < Ap rest (List:: x Nil) k ▷ list_append > ] ▷ list_reverse > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 2 (List:: 1 (List:: 0 Nil)) , co-value: μ-Closure {
+  { Environment } μ[ Nil  ->
+                      < Nil  ▷ k > 
+                   | List:: x xs' ->
+                      < Ap xs' μ[ rest ->
+                                   < Ap rest (List:: x Nil) k ▷ list_append > ] ▷ list_reverse > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap xs' μ[ rest ->
+              < Ap rest (List:: x Nil) k ▷ list_append > ] ▷ list_reverse > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap (List:: 1 (List:: 0 Nil)) μ-Closure {
+  { Environment } μ[ rest ->
+                      < Ap rest (List:: x Nil) k ▷ list_append > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ Ap xs k ->
+                      < xs ▷ μ[ Nil  ->
+                                 < Nil  ▷ k > 
+                              | List:: x xs' ->
+                                 < Ap xs' μ[ rest ->
+                                              < Ap rest (List:: x Nil) k ▷ list_append > ] ▷ list_reverse > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < xs ▷ μ[ Nil  ->
+            < Nil  ▷ k > 
+         | List:: x xs' ->
+            < Ap xs' μ[ rest ->
+                         < Ap rest (List:: x Nil) k ▷ list_append > ] ▷ list_reverse > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 1 (List:: 0 Nil) , co-value: μ-Closure {
+  { Environment } μ[ Nil  ->
+                      < Nil  ▷ k > 
+                   | List:: x xs' ->
+                      < Ap xs' μ[ rest ->
+                                   < Ap rest (List:: x Nil) k ▷ list_append > ] ▷ list_reverse > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap xs' μ[ rest ->
+              < Ap rest (List:: x Nil) k ▷ list_append > ] ▷ list_reverse > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap (List:: 0 Nil) μ-Closure {
+  { Environment } μ[ rest ->
+                      < Ap rest (List:: x Nil) k ▷ list_append > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ Ap xs k ->
+                      < xs ▷ μ[ Nil  ->
+                                 < Nil  ▷ k > 
+                              | List:: x xs' ->
+                                 < Ap xs' μ[ rest ->
+                                              < Ap rest (List:: x Nil) k ▷ list_append > ] ▷ list_reverse > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < xs ▷ μ[ Nil  ->
+            < Nil  ▷ k > 
+         | List:: x xs' ->
+            < Ap xs' μ[ rest ->
+                         < Ap rest (List:: x Nil) k ▷ list_append > ] ▷ list_reverse > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 0 Nil , co-value: μ-Closure {
+  { Environment } μ[ Nil  ->
+                      < Nil  ▷ k > 
+                   | List:: x xs' ->
+                      < Ap xs' μ[ rest ->
+                                   < Ap rest (List:: x Nil) k ▷ list_append > ] ▷ list_reverse > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap xs' μ[ rest ->
+              < Ap rest (List:: x Nil) k ▷ list_append > ] ▷ list_reverse > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap Nil μ-Closure {
+  { Environment } μ[ rest ->
+                      < Ap rest (List:: x Nil) k ▷ list_append > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ Ap xs k ->
+                      < xs ▷ μ[ Nil  ->
+                                 < Nil  ▷ k > 
+                              | List:: x xs' ->
+                                 < Ap xs' μ[ rest ->
+                                              < Ap rest (List:: x Nil) k ▷ list_append > ] ▷ list_reverse > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < xs ▷ μ[ Nil  ->
+            < Nil  ▷ k > 
+         | List:: x xs' ->
+            < Ap xs' μ[ rest ->
+                         < Ap rest (List:: x Nil) k ▷ list_append > ] ▷ list_reverse > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Nil  , co-value: μ-Closure {
+  { Environment } μ[ Nil  ->
+                      < Nil  ▷ k > 
+                   | List:: x xs' ->
+                      < Ap xs' μ[ rest ->
+                                   < Ap rest (List:: x Nil) k ▷ list_append > ] ▷ list_reverse > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Nil  ▷ k > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Nil  , co-value: μ-Closure {
+  { Environment } μ[ rest ->
+                      < Ap rest (List:: x Nil) k ▷ list_append > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap rest (List:: x Nil) k ▷ list_append > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap Nil (List:: 0 Nil) μ-Closure {
+  { Environment } μ[ rest ->
+                      < Ap rest (List:: x Nil) k ▷ list_append > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ Ap as bs k ->
+                      < as ▷ μ[ Nil  ->
+                                 < bs ▷ k > 
+                              | List:: a as' ->
+                                 < Ap as' bs μ[ rest ->
+                                                 < List:: a rest ▷ k > ] ▷ list_append > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < as ▷ μ[ Nil  ->
+            < bs ▷ k > 
+         | List:: a as' ->
+            < Ap as' bs μ[ rest ->
+                            < List:: a rest ▷ k > ] ▷ list_append > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Nil  , co-value: μ-Closure {
+  { Environment } μ[ Nil  ->
+                      < bs ▷ k > 
+                   | List:: a as' ->
+                      < Ap as' bs μ[ rest ->
+                                      < List:: a rest ▷ k > ] ▷ list_append > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < bs ▷ k > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 0 Nil , co-value: μ-Closure {
+  { Environment } μ[ rest ->
+                      < Ap rest (List:: x Nil) k ▷ list_append > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap rest (List:: x Nil) k ▷ list_append > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap (List:: 0 Nil) (List:: 1 Nil) μ-Closure {
+  { Environment } μ[ rest ->
+                      < Ap rest (List:: x Nil) k ▷ list_append > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ Ap as bs k ->
+                      < as ▷ μ[ Nil  ->
+                                 < bs ▷ k > 
+                              | List:: a as' ->
+                                 < Ap as' bs μ[ rest ->
+                                                 < List:: a rest ▷ k > ] ▷ list_append > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < as ▷ μ[ Nil  ->
+            < bs ▷ k > 
+         | List:: a as' ->
+            < Ap as' bs μ[ rest ->
+                            < List:: a rest ▷ k > ] ▷ list_append > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 0 Nil , co-value: μ-Closure {
+  { Environment } μ[ Nil  ->
+                      < bs ▷ k > 
+                   | List:: a as' ->
+                      < Ap as' bs μ[ rest ->
+                                      < List:: a rest ▷ k > ] ▷ list_append > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap as' bs μ[ rest ->
+                 < List:: a rest ▷ k > ] ▷ list_append > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap Nil (List:: 1 Nil) μ-Closure {
+  { Environment } μ[ rest ->
+                      < List:: a rest ▷ k > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ Ap as bs k ->
+                      < as ▷ μ[ Nil  ->
+                                 < bs ▷ k > 
+                              | List:: a as' ->
+                                 < Ap as' bs μ[ rest ->
+                                                 < List:: a rest ▷ k > ] ▷ list_append > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < as ▷ μ[ Nil  ->
+            < bs ▷ k > 
+         | List:: a as' ->
+            < Ap as' bs μ[ rest ->
+                            < List:: a rest ▷ k > ] ▷ list_append > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Nil  , co-value: μ-Closure {
+  { Environment } μ[ Nil  ->
+                      < bs ▷ k > 
+                   | List:: a as' ->
+                      < Ap as' bs μ[ rest ->
+                                      < List:: a rest ▷ k > ] ▷ list_append > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < bs ▷ k > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 1 Nil , co-value: μ-Closure {
+  { Environment } μ[ rest ->
+                      < List:: a rest ▷ k > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < List:: a rest ▷ k > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 0 (List:: 1 Nil) , co-value: μ-Closure {
+  { Environment } μ[ rest ->
+                      < Ap rest (List:: x Nil) k ▷ list_append > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap rest (List:: x Nil) k ▷ list_append > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap (List:: 0 (List:: 1 Nil)) (List:: 2 Nil) Halt , co-value: μ-Closure {
+  { Environment } μ[ Ap as bs k ->
+                      < as ▷ μ[ Nil  ->
+                                 < bs ▷ k > 
+                              | List:: a as' ->
+                                 < Ap as' bs μ[ rest ->
+                                                 < List:: a rest ▷ k > ] ▷ list_append > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < as ▷ μ[ Nil  ->
+            < bs ▷ k > 
+         | List:: a as' ->
+            < Ap as' bs μ[ rest ->
+                            < List:: a rest ▷ k > ] ▷ list_append > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 0 (List:: 1 Nil) , co-value: μ-Closure {
+  { Environment } μ[ Nil  ->
+                      < bs ▷ k > 
+                   | List:: a as' ->
+                      < Ap as' bs μ[ rest ->
+                                      < List:: a rest ▷ k > ] ▷ list_append > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap as' bs μ[ rest ->
+                 < List:: a rest ▷ k > ] ▷ list_append > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap (List:: 1 Nil) (List:: 2 Nil) μ-Closure {
+  { Environment } μ[ rest ->
+                      < List:: a rest ▷ k > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ Ap as bs k ->
+                      < as ▷ μ[ Nil  ->
+                                 < bs ▷ k > 
+                              | List:: a as' ->
+                                 < Ap as' bs μ[ rest ->
+                                                 < List:: a rest ▷ k > ] ▷ list_append > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < as ▷ μ[ Nil  ->
+            < bs ▷ k > 
+         | List:: a as' ->
+            < Ap as' bs μ[ rest ->
+                            < List:: a rest ▷ k > ] ▷ list_append > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 1 Nil , co-value: μ-Closure {
+  { Environment } μ[ Nil  ->
+                      < bs ▷ k > 
+                   | List:: a as' ->
+                      < Ap as' bs μ[ rest ->
+                                      < List:: a rest ▷ k > ] ▷ list_append > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < Ap as' bs μ[ rest ->
+                 < List:: a rest ▷ k > ] ▷ list_append > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Ap Nil (List:: 2 Nil) μ-Closure {
+  { Environment } μ[ rest ->
+                      < List:: a rest ▷ k > ]
+} , co-value: μ-Closure {
+  { Environment } μ[ Ap as bs k ->
+                      < as ▷ μ[ Nil  ->
+                                 < bs ▷ k > 
+                              | List:: a as' ->
+                                 < Ap as' bs μ[ rest ->
+                                                 < List:: a rest ▷ k > ] ▷ list_append > ] > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < as ▷ μ[ Nil  ->
+            < bs ▷ k > 
+         | List:: a as' ->
+            < Ap as' bs μ[ rest ->
+                            < List:: a rest ▷ k > ] ▷ list_append > ] > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: Nil  , co-value: μ-Closure {
+  { Environment } μ[ Nil  ->
+                      < bs ▷ k > 
+                   | List:: a as' ->
+                      < Ap as' bs μ[ rest ->
+                                      < List:: a rest ▷ k > ] ▷ list_append > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < bs ▷ k > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 2 Nil , co-value: μ-Closure {
+  { Environment } μ[ rest ->
+                      < List:: a rest ▷ k > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < List:: a rest ▷ k > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 1 (List:: 2 Nil) , co-value: μ-Closure {
+  { Environment } μ[ rest ->
+                      < List:: a rest ▷ k > ]
+}
+----------------------------------------------------------
+<Command Config>
+{ Environment }
+{ Store }
+ < List:: a rest ▷ k > 
+----------------------------------------------------------
+<Value Config>
+{ Store }
+value: List:: 0 (List:: 1 (List:: 2 Nil)) , co-value: Halt 
+----------------------------------------------------------
 <Message> Halt with result: List:: 0 (List:: 1 (List:: 2 Nil))
+----------------------------------------------------------
+DONE

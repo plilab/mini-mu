@@ -12,3 +12,6 @@ Main
 # cabal build artifacts
 dist-newstyle/
 dist/ 
+
+# node modules
+node_modules/

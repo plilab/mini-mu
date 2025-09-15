@@ -7,7 +7,7 @@ def main_routine main_v co_v k := -- A problem is that bindings in coroutine mus
             co_v { co_v_plus_one -> main_routine @ n co_v_plus_one k } @ coroutine
     };
 
-def coroutine co_v k := do
+def coroutine co_v k := seq
     plus1 <- inc co_v,
     plus2 <- inc plus1
     then plus2 . k; -- yield control back to the main routine

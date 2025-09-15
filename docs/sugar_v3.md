@@ -65,7 +65,7 @@ self1 = { res1 -> (|add 3|) @ res1 Halt }
 (|add 1 2|)
 == { Ap k -> 1 . { Z -> 2 . k | S x' -> add x' 3 k } } . self1
 
-now a interesting thing happen is that we need to supply a implicit continuation to (| add 1 2 |),
+now an interesting thing is that we need to supply a implicit continuation to (| add 1 2 |),
 but which? maybe call it "here", and here refer to "self" of that place. in this case self1
 
 now maybe lets change the notation when we need to add implicit to &(| |) ?
