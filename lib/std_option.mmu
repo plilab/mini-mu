@@ -1,0 +1,26 @@
+-- a minimal implementation of the option monad, used to explore
+-- how to implement monads in an LMM language.
+
+def some v k :=
+  Some v . k;
+
+def return v k :=
+  some @ v k;
+
+def none k :=
+  None . k;
+
+def get o k :=
+  o . {
+    Some v -> v . k
+  | None -> Not_found . k
+  };
+
+-- bind1 - using f as a function?
+def bind o f k :=
+  o . {
+    Some v -> f @ v k
+  | None -> None . k
+  }
+
+export some, return, none, get, bind
