@@ -127,3 +127,8 @@ much cleaner and unified in minimu than in lambda mu calculus
 
 
 It seems we dont have call-stacks, we dont have defunc either, and the pattern matching inside the interpreter is already a defunctionalization???
+
+Monad:
+
+pure x = x . k
+bind m f = seq x <- m then f @ x k
