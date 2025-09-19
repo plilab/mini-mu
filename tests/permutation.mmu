@@ -8,7 +8,7 @@ def format_input_aux n acc k :=
 def format_input n k :=
   format_input_aux @ n Nil k;
 
-def perm_aux xs xs_cp acc res n k :=
+def perm_aux xs acc res n k :=
   seq len <- list_length acc
   then eq @ len n {
       True -> List:: acc res . k
@@ -17,15 +17,17 @@ def perm_aux xs xs_cp acc res n k :=
       | List:: x xs' -> 
           seq contains <- list_contains acc x
           then contains . {
-              True -> perm_aux @ xs' xs_cp acc res n k
-            | _ -> seq res' <- perm_aux xs_cp xs_cp (List:: x acc) res n
-                   then perm_aux @ xs' xs_cp acc res' n k
+              True -> perm_aux @ xs' acc res n k
+            | _ -> seq
+                      full_list <- format_input n,
+                      res' <- perm_aux full_list (List:: x acc) res n
+                   then perm_aux @ xs' acc res' n k
           }
       }
     };
   
 def permutation n k :=
   seq xs <- format_input n
-  then perm_aux @ xs xs Nil Nil n k;
+  then perm_aux @ xs Nil Nil n k;
 
-run permutation @ 3 halt
+run permutation @ 4 halt
