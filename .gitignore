@@ -15,3 +15,8 @@ dist/
 
 # node modules
 node_modules/
+
+# test cases
+tests/out/
+tests/ast/
+tests/svg/
