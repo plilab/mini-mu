@@ -1,3 +1,5 @@
+import "std_nat" (eq)
+
 def list_append as bs k :=
   as . { Nil -> bs . k
        | List:: a as' -> list_append @ as' bs { rest -> List:: a rest . k } };
@@ -20,6 +22,12 @@ def list_length xs k :=
      cons_case = xs' { rest -> S rest . k } @ list_length
   in
   xs . { Nil -> nil_case
-       | List:: x xs' -> cons_case }
+       | List:: x xs' -> cons_case };
 
-export list_append, list_map, list_length, list_reverse
+def list_contains xs y k :=
+   xs . { Nil -> False . k
+        | List:: x xs' -> 
+            eq @ x y { True -> True . k 
+                     | _ -> list_contains @ xs' y k } }
+
+export list_append, list_map, list_length, list_reverse, list_contains

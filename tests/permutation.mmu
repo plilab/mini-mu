@@ -1,0 +1,31 @@
+import "std_list" (list_length, list_contains)
+import "std_nat" (eq)
+
+def format_input_aux n acc k :=
+  n . { Z -> acc . k
+      | S n' -> format_input_aux @ n' (List:: (S n') acc) k };
+
+def format_input n k :=
+  format_input_aux @ n Nil k;
+
+def perm_aux xs xs_cp acc res n k :=
+  seq len <- list_length acc
+  then eq @ len n {
+      True -> List:: acc res . k
+    | _ -> xs . {
+        Nil -> res . k
+      | List:: x xs' -> 
+          seq contains <- list_contains acc x
+          then contains . {
+              True -> perm_aux @ xs' xs_cp acc res n k
+            | _ -> seq res' <- perm_aux xs_cp xs_cp (List:: x acc) res n
+                   then perm_aux @ xs' xs_cp acc res' n k
+          }
+      }
+    };
+  
+def permutation n k :=
+  seq xs <- format_input n
+  then perm_aux @ xs xs Nil Nil n k;
+
+run permutation @ 3 halt
