@@ -1,1 +1,0 @@
-Program {programImports = [ImportDecl "std_nat" ["inc"]], programDecls = [Decl "main" (Mu [(ConsPattern "Halt" [],Command (Mu [(VarPattern "cbv",Command (Cons "Ap" [Cons "S" [Cons "S" [Cons "Z" []]],Cons "Halt" []]) (Var "cbv"))]) (Mu [(VarPattern "cbn",Command (Var "inc") (Var "cbn"))]))])], programExports = []}

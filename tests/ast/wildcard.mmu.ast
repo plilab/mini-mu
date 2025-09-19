@@ -1,1 +1,0 @@
-Program {programImports = [], programDecls = [Decl "main" (Mu [(ConsPattern "Halt" [],Command (Cons "Ap" [Cons "S" [Cons "Z" []],Cons "Halt" []]) (Mu [(ConsPattern "Ap" [VarPattern "n",VarPattern "k"],Command (Var "n") (Mu [(ConsPattern "Z" [],Command (Cons "False" []) (Var "k")),(ConsPattern "S" [WildcardPattern],Command (Cons "True" []) (Var "k"))]))]))])], programExports = []}
