@@ -7,14 +7,14 @@
 <Value Config>
 { Store }
 value: μ-Closure {
-  { Environment } μ[ Halt  ->
-                      < Ap some_tree Halt ▷ walk_alt > ]
+  { Environment } μ[ halt ->
+                      < Ap some_tree halt ▷ walk_alt > ]
 } , co-value: Halt 
 ----------------------------------------------------------
 <Command Config>
 { Environment }
 { Store }
- < Ap some_tree Halt ▷ walk_alt > 
+ < Ap some_tree halt ▷ walk_alt > 
 ----------------------------------------------------------
 <Value Config>
 { Store }

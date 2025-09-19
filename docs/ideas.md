@@ -124,3 +124,6 @@ swap @ (2, 3) k => (3, 2) . k
 | Snd k -> Fst k . { Fst k -> 2 . k | Snd k -> 3 . k } } . k0
 
 much cleaner and unified in minimu than in lambda mu calculus
+
+
+It seems we dont have call-stacks, we dont have defunc either, and the pattern matching inside the interpreter is already a defunctionalization???

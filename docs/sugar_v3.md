@@ -52,16 +52,22 @@ random question: what will be co-currying, i.e. currying a co-data?
 
 Definition： Command Tree
 ```()
-    (|add 3|) @ (|add 1 2|) Halt     --- self0 @ self1 Halt
+    (|(|add|) . 3|) @ (|add _ 2|) Halt     --- self0 @ self1 Halt
         |
-    
-    
+    {Ap b k -> ..} @ 3 Halt
+    add 3 (| add 1 2 |)
+    = add 3 { k -> add 1 2 k }
 ```
+self0 @ (| add 1 2 |) halt
+
 self0, self1 are auto-generated variables where
+
 self0 = { res0 -> res0 @ (|add 1 2|) Halt }
+
 self1 = { res1 -> (|add 3|) @ res1 Halt }
 (|add 3|)
 == { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } . self0
+== { b, k -> add . 3, b, k } .
 (|add 1 2|)
 == { Ap k -> 1 . { Z -> 2 . k | S x' -> add x' 3 k } } . self1
 
@@ -72,7 +78,7 @@ now maybe lets change the notation when we need to add implicit to &(| |) ?
 or we simply put here explictly like (| add 1 2 here |) ?
 
 anyway now,
-&(| add 1 2 |)
+&(| add 1 2 |) == (| add 1 2 here |)
 == { Ap here -> 1 . { Z -> 2 . here | S x' -> add x' 3 here } } . self1
 which reduce to 3 . here
 which is 3 . { res1 -> (|add 3|) @ res1 Halt }
@@ -91,3 +97,5 @@ we have 3 . { res -> { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } @ 
 => 6 . Halt
 => 6
 ok done!
+
+It seems we dont have ???
