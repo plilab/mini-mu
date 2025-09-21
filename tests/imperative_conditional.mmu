@@ -18,4 +18,4 @@ def map_twice xs k :=
   for_loop @ 0 3 xs map_once k ;
 
 run seq is_eq <- eq 1 0
-    then if @ is_eq map_once map_twice (List:: 2 (List:: 1 (List:: 3 Nil))) halt
+    then if @ is_eq map_once map_twice (List:: 2 (List:: 1 (List:: 3 Nil))) halt;

@@ -14,4 +14,4 @@ def insertion_sort xs k :=
             seq sorted_tail <- insertion_sort xs'
             then insert @ sorted_tail x k };
 
-run insertion_sort @ (List:: 3 (List:: 1 (List:: 2 (List:: 0 (List:: 3 (List:: 1 (List:: 2 (List:: 0 Nil)))))))) halt
+run insertion_sort @ (List:: 3 (List:: 1 (List:: 2 (List:: 0 (List:: 3 (List:: 1 (List:: 2 (List:: 0 Nil)))))))) halt;

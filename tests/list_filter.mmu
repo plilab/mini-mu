@@ -6,4 +6,4 @@ def list_filter pred xs cpr k :=
           pred @ x cpr { True -> list_filter @ pred xs' cpr { ys' -> List:: x ys' . k } 
                        | False -> list_filter @ pred xs' cpr { ys' -> ys' . k } } };
 
-run list_filter @ geq (List:: 3 (List:: 1 (List:: 0 (List:: 4 (List:: 2 (List:: 1 Nil)))))) 2 halt
+run list_filter @ geq (List:: 3 (List:: 1 (List:: 0 (List:: 4 (List:: 2 (List:: 1 Nil)))))) 2 halt;

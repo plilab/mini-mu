@@ -29,4 +29,4 @@ def walk_alt t k :=
 
 some_tree = Node (Node (Leaf 1) (Leaf 2)) (Node (Leaf 3) (Leaf 4));
 
-run walk_alt @ some_tree halt
+run walk_alt @ some_tree halt;

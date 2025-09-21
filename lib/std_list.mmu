@@ -28,6 +28,6 @@ def list_contains xs y k :=
    xs . { Nil -> False . k
         | List:: x xs' -> 
             eq @ x y { True -> True . k 
-                     | _ -> list_contains @ xs' y k } }
+                     | _ -> list_contains @ xs' y k } };
 
 export list_append, list_map, list_length, list_reverse, list_contains

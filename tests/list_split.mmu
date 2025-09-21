@@ -8,4 +8,4 @@ def list_split pred xs cpr k :=
               pred @ x cpr { True -> Pair (List:: x smaller) greater . k
                            | False -> Pair smaller (List:: x greater) . k } } };
 
-run list_split @ lt (List:: 3 (List:: 1 (List:: 2 (List:: 0 Nil)))) 2 halt
+run list_split @ lt (List:: 3 (List:: 1 (List:: 2 (List:: 0 Nil)))) 2 halt;

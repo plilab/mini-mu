@@ -292,7 +292,7 @@ decl =
       ]
 
 decls :: Parser [Decl]
-decls = sepBy1 decl (symbol ";")
+decls = many $ notFollowedBy (symbol "export") *> decl <* symbol ";"
 
 -- (do
 -- d <- decl

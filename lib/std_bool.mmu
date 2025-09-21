@@ -12,7 +12,7 @@ def if cond cons alt k :=
 -- imperative if - based on cond takes a continuation
 def branch cond then_k else_k :=
   cond . { False -> cond . else_k
-         | True -> cond . then_k }
+         | True -> cond . then_k };
 
 {-
 WIP exploration of cobools

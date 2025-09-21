@@ -67,7 +67,7 @@ self0 = { res0 -> res0 @ (|add 1 2|) Halt }
 self1 = { res1 -> (|add 3|) @ res1 Halt }
 (|add 3|)
 == { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } . self0
-== { b, k -> add . 3, b, k } .
+== { b, k -> add @ 3 b k } . self0
 (|add 1 2|)
 == { Ap k -> 1 . { Z -> 2 . k | S x' -> add x' 3 k } } . self1
 

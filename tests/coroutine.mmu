@@ -12,4 +12,4 @@ def coroutine co_v k := seq
     plus2 <- inc plus1
     then plus2 . k; -- yield control back to the main routine
 
-run main_routine @ 5 0 halt
+run main_routine @ 5 0 halt;

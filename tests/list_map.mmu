@@ -1,4 +1,4 @@
 import "std_list" (list_map)
 import "std_nat" (inc)
 
-run list_map @ inc (List:: 2 (List:: 1 (List:: Z Nil))) halt
+run list_map @ inc (List:: 2 (List:: 1 (List:: Z Nil))) halt;

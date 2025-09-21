@@ -1,4 +1,4 @@
 import "std_nat" (inc)
 
 run let double = { Ap x k -> inc @ x { x' -> inc @ x' k } }
-      in double @ (let x = 1 in x) halt
+      in double @ (let x = 1 in x) halt;

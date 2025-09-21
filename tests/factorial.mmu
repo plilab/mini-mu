@@ -4,4 +4,4 @@ def factorial n k :=
     n . { 0 -> 1 . k 
         | S n' -> seq f <- factorial n' then mul @ (S n') f k };
 
-run factorial @ 5 halt
+run factorial @ 5 halt;

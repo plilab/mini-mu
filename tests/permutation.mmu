@@ -30,4 +30,4 @@ def permutation n k :=
   seq xs <- format_input n
   then perm_aux @ xs Nil Nil n k;
 
-run permutation @ 4 halt
+run permutation @ 4 halt;

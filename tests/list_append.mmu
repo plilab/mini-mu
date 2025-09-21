@@ -3,5 +3,5 @@ import "std_list" (list_append)
 run list_append @ 
   (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) 
   (List:: (S (S Z)) (List:: (S Z) (List:: Z Nil))) 
-  halt
+  halt;
                                 
