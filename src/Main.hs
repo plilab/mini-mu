@@ -166,6 +166,8 @@ run opts = do
       standard = standardRun opts
   programAst <- parseMiniMu file
 
+  print programAst
+
   when standard $ do
     putStrLn $ "Recording this run as standard for " ++ file
     -- Save AST to ./tests/ast/*.mmu

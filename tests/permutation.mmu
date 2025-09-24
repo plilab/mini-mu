@@ -16,13 +16,16 @@ def perm_aux xs acc res n k :=
         Nil -> res . k
       | List:: x xs' -> 
           seq contains <- list_contains acc x
-          then contains . {
-              True -> perm_aux @ xs' acc res n k
-            | _ -> seq
-                      full_list <- format_input n,
-                      res' <- perm_aux full_list (List:: x acc) res n
-                   then perm_aux @ xs' acc res' n k
-          }
+          then let next_step = 
+              seq
+                full_list <- format_input n,
+                res' <- perm_aux full_list (List:: x acc) res n
+              then perm_aux @ xs' acc res' n k 
+            in
+            contains . {
+                True -> perm_aux @ xs' acc res n k
+              | _ -> next_step
+            }
       }
     };
   

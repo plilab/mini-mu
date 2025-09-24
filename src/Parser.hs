@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use second" #-}
+
 module Parser
   ( parseMiniMu,
     parseFile,
@@ -65,6 +68,10 @@ curly = between (symbol "{") (symbol "}")
 -- Parse something between angle brackets
 angles :: Parser a -> Parser a
 angles = between (symbol "<") (symbol ">")
+
+-- Parse something between square brackets
+squares :: Parser a -> Parser a
+squares = between (symbol "[") (symbol "]")
 
 -- Parse something between parentheses
 parens :: Parser a -> Parser a
@@ -205,6 +212,18 @@ pattern =
 patternCase :: Parser (Pattern, Command)
 patternCase = label "pattern case" $ (,) <$> pattern <* symbol "->" <*> command
 
+-- Parse idiom expressions *[expr] and [expr]
+idiomExprWithHere :: Parser Expr
+idiomExprWithHere = label "idiom expr with here" $ do
+  DerefIdiomExpr <$> (symbol "*" *> squares command) -- deal with inner command
+
+-- A idiom should be able to refer to the parent command
+-- For example, in [add @ 3] @ 1 halt, the idiom can refer to "this @ 1 halt"
+idiomExpr :: Parser Expr
+idiomExpr = label "idiom expr" $ do
+  IdiomExpr <$> squares command -- deal with inner command
+      
+
 -- atoms are naturally delimited expressions.
 atom :: Parser Expr
 atom =
@@ -213,6 +232,8 @@ atom =
       [ -- Sugar 7: Simplify mu[] as []
         try (Mu <$> curly (sepBy1 patternCase (symbol "|"))),
         try letExpr, -- TODO: move to atom so we allow: x @ X let y = ... in ...
+        try idiomExprWithHere, -- *[expr] - adds implicit continuation "here"
+        try idiomExpr, -- [expr] - basic idiom form
         try natExpr, -- Sugar 8: Expand numerical to S...Z
         try pairExpr, -- Sugar 9: Expand pairs
         try $ (`Cons` []) <$> consId, -- constructor with no arguments
@@ -337,7 +358,7 @@ commandSugar = label "Sugared Command" $ do
     -- Desugar @ operator, when function is placed as expression
     desugarAt :: Expr -> [Expr] -> Command
     desugarAt _ [] = error "@ requires at least one argument"
-    desugarAt fun args = Command (Cons "Ap" args) fun
+    desugarAt fun args = Command  fun (Cons "Ap" args)
     -- Desugar @ operator, when function is placed as co-expression
     coDesugarAt :: [Expr] -> Expr -> Command
     coDesugarAt [] _ = error "@ requires at least one argument"
@@ -440,6 +461,10 @@ findAndSubstExprInExpr (name, e) (Cons c args) =
   Cons c (map (findAndSubstExprInExpr (name, e)) args)
 findAndSubstExprInExpr (name, e) (IncompleteCons c args) =
   IncompleteCons c (map (either (Left . findAndSubstExprInExpr (name, e)) Right) args)
+findAndSubstExprInExpr (name, e) (IdiomExpr cmd) =
+  IdiomExpr (findAndSubstExprInCmd (name, e) cmd)
+findAndSubstExprInExpr (name, e) (DerefIdiomExpr cmd) =
+  DerefIdiomExpr (findAndSubstExprInCmd (name, e) cmd)
 findAndSubstExprInExpr (name, e) (Var v) =
   if v == name then e else Var v
 
@@ -456,6 +481,10 @@ findAndSubstCmdInExpr (name, cmd) (Cons c args) =
   Cons c (map (findAndSubstCmdInExpr (name, cmd)) args)
 findAndSubstCmdInExpr (name, cmd) (IncompleteCons c args) =
   IncompleteCons c (map (either (Left . findAndSubstCmdInExpr (name, cmd)) Right) args)
+findAndSubstCmdInExpr (name, cmd) (IdiomExpr c) =
+  IdiomExpr (findAndSubstCmdInCmd (name, cmd) c)
+findAndSubstCmdInExpr (name, cmd) (DerefIdiomExpr c) =
+  DerefIdiomExpr (findAndSubstCmdInCmd (name, cmd) c)
 findAndSubstCmdInExpr _ (Var v) =
   Var v
 
@@ -498,3 +527,133 @@ seqThenCommand = label "seq/then command" $ do
     desugarDoThen ((pat, fun, args) : rest) cmd =
       -- This creates nested applications with continuations
       Command fun (Cons "Ap" (args ++ [Mu [(pat, desugarDoThen rest cmd)]]))
+
+
+expandCommandTree :: Command -> Command
+expandCommandTree prt@(Command _ _) = expandCommandTreeAux prt 0
+  where
+    expandCommandTreeAux :: Command -> Int -> Command
+    expandCommandTreeAux (Command expr1 expr2) level =
+      case findFirstIdiom expr1 of
+        Just (DerefIdiomExpr cmd) ->
+          let thisVarName = "this" ++ show level
+              expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
+              hereSubstituted = substituteHereInCommand expandedInnerCmd (Var thisVarName)
+              thisDefinition = Mu [(VarPattern "res", Command expr2 (Var "res"))]
+              resultExpr = case hereSubstituted of
+                Command cmdExpr1 _ -> cmdExpr1
+                _ -> error "Expected Command after here substitution"
+              newExpr1 = replaceFirstIdiom expr1 resultExpr
+          in expandCommandTreeAux (Command newExpr1 thisDefinition) level
+        Just (IdiomExpr cmd) ->
+          let expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
+              newExpr1 = replaceFirstIdiom expr1 (IdiomExpr expandedInnerCmd)
+          in expandCommandTreeAux (Command newExpr1 expr2) level
+        Just _ -> error "Should not reach here"
+        Nothing ->
+          case findFirstIdiom expr2 of
+            Just (DerefIdiomExpr cmd) ->
+              let thisVarName = "this" ++ show level
+                  expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
+                  hereSubstituted = substituteHereInCommand expandedInnerCmd (Var thisVarName)
+                  thisDefinition = Mu [(VarPattern "res", Command expr1 (Var "res"))]
+                  resultExpr = case hereSubstituted of
+                    Command cmdExpr1 _ -> cmdExpr1
+                    _ -> error "Expected Command after here substitution"
+                  newExpr2 = replaceFirstIdiom expr2 resultExpr
+              in expandCommandTreeAux (Command thisDefinition newExpr2) level
+            Just (IdiomExpr cmd) ->
+              let expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
+                  newExpr2 = replaceFirstIdiom expr2 (IdiomExpr expandedInnerCmd)
+              in expandCommandTreeAux (Command expr1 newExpr2) level
+            Just _ -> error "Should not reach here"
+            Nothing -> Command expr1 expr2
+    expandCommandTreeAux (CommandVar cmdId) _ = CommandVar cmdId
+expandCommandTree var = var
+
+findFirstIdiom :: Expr -> Maybe Expr
+findFirstIdiom idm@(DerefIdiomExpr _) = Just idm
+findFirstIdiom idm@(IdiomExpr _) = Just idm
+findFirstIdiom (Cons _ exprs) = findFirstInArgs exprs
+findFirstIdiom (IncompleteCons _ args) = findFirstInIncompleteArgs args
+findFirstIdiom (Mu branches) = findFirstInBranches branches
+findFirstIdiom _ = Nothing
+
+findFirstInArgs :: [Expr] -> Maybe Expr
+findFirstInArgs [] = Nothing
+findFirstInArgs (e:es) = case findFirstIdiom e of
+  Just found -> Just found
+  Nothing -> findFirstInArgs es
+
+findFirstInIncompleteArgs :: [Either Expr HoleExpr] -> Maybe Expr
+findFirstInIncompleteArgs [] = Nothing
+findFirstInIncompleteArgs (Left e:es) = case findFirstIdiom e of
+  Just found -> Just found
+  Nothing -> findFirstInIncompleteArgs es
+findFirstInIncompleteArgs (Right _:es) = findFirstInIncompleteArgs es
+
+findFirstInBranches :: [(Pattern, Command)] -> Maybe Expr
+findFirstInBranches [] = Nothing
+findFirstInBranches ((_, Command e1 e2):rest) =
+  case findFirstIdiom e1 of
+    Just found -> Just found
+    Nothing -> case findFirstIdiom e2 of
+      Just found -> Just found
+      Nothing -> findFirstInBranches rest
+findFirstInBranches ((_, CommandVar _):rest) = findFirstInBranches rest
+
+replaceFirstIdiom :: Expr -> Expr -> Expr
+replaceFirstIdiom (DerefIdiomExpr _) replacement = replacement
+replaceFirstIdiom (IdiomExpr _) replacement = replacement
+replaceFirstIdiom (Cons cid exprs) replacement =
+  Cons cid (replaceFirstInList exprs replacement)
+replaceFirstIdiom (IncompleteCons cid args) replacement =
+  IncompleteCons cid (replaceFirstInEitherList args replacement)
+replaceFirstIdiom (Mu branches) replacement =
+  Mu (replaceFirstInBranches branches replacement)
+replaceFirstIdiom e _ = e
+
+replaceFirstInList :: [Expr] -> Expr -> [Expr]
+replaceFirstInList [] _ = []
+replaceFirstInList (e:es) replacement =
+  case findFirstIdiom e of
+    Just _ -> replaceFirstIdiom e replacement : es
+    Nothing -> e : replaceFirstInList es replacement
+
+replaceFirstInEitherList :: [Either Expr HoleExpr] -> Expr -> [Either Expr HoleExpr]
+replaceFirstInEitherList [] _ = []
+replaceFirstInEitherList (Left e:es) replacement =
+  case findFirstIdiom e of
+    Just _ -> Left (replaceFirstIdiom e replacement) : es
+    Nothing -> Left e : replaceFirstInEitherList es replacement
+replaceFirstInEitherList (Right h:es) replacement = Right h : replaceFirstInEitherList es replacement
+
+replaceFirstInBranches :: [(Pattern, Command)] -> Expr -> [(Pattern, Command)]
+replaceFirstInBranches [] _ = []
+replaceFirstInBranches ((pat, Command e1 e2):rest) replacement =
+  case findFirstIdiom e1 of
+    Just _ -> (pat, Command (replaceFirstIdiom e1 replacement) e2) : rest
+    Nothing -> case findFirstIdiom e2 of
+      Just _ -> (pat, Command e1 (replaceFirstIdiom e2 replacement)) : rest
+      Nothing -> (pat, Command e1 e2) : replaceFirstInBranches rest replacement
+replaceFirstInBranches ((pat, cmd@(CommandVar _)):rest) replacement =
+  (pat, cmd) : replaceFirstInBranches rest replacement
+
+substituteHereInCommand :: Command -> Expr -> Command
+substituteHereInCommand (Command expr1 expr2) hereExpr =
+  Command (substituteHereInExpr expr1 hereExpr) (substituteHereInExpr expr2 hereExpr)
+substituteHereInCommand cmd _ = cmd
+
+substituteHereInExpr :: Expr -> Expr -> Expr
+substituteHereInExpr (Var "here") hereExpr = hereExpr
+substituteHereInExpr (Var v) _ = Var v
+substituteHereInExpr (Cons cid exprs) hereExpr =
+  Cons cid (map (\e -> substituteHereInExpr e hereExpr) exprs)
+substituteHereInExpr (IncompleteCons cid args) hereExpr =
+  IncompleteCons cid (map (either (Left . substituteHereInExpr hereExpr) Right) args)
+substituteHereInExpr (IdiomExpr cmd) hereExpr =
+  IdiomExpr (substituteHereInCommand cmd hereExpr)
+substituteHereInExpr (DerefIdiomExpr cmd) hereExpr =
+  DerefIdiomExpr (substituteHereInCommand cmd hereExpr)
+substituteHereInExpr (Mu branches) hereExpr =
+  Mu (map (\(pat, cmd) -> (pat, substituteHereInCommand cmd hereExpr)) branches)

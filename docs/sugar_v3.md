@@ -50,52 +50,52 @@ we have to bind k^0, k^1 to some continuations automatically, which leds the par
 
 random question: what will be co-currying, i.e. currying a co-data?
 
-Definition： Command Tree
 ```()
-    (|(|add|) . 3|) @ (|add _ 2|) Halt     --- self0 @ self1 Halt
-        |
-    {Ap b k -> ..} @ 3 Halt
-    add 3 (| add 1 2 |)
-    = add 3 { k -> add 1 2 k }
+    *[add @ 3] @ *[add @ 1 2] Halt     --- this0 @ this1 Halt
 ```
-self0 @ (| add 1 2 |) halt
+When
+this0 @ *[ add @ 1 2 ] halt
 
-self0, self1 are auto-generated variables where
+this0, this1 are auto-generated variables where
 
-self0 = { res0 -> res0 @ (|add 1 2|) Halt }
+this0 = { this0 -> this0 @ *[ add @ 1 2 ] Halt }
 
-self1 = { res1 -> (|add 3|) @ res1 Halt }
-(|add 3|)
-== { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } . self0
-== { b, k -> add @ 3 b k } . self0
-(|add 1 2|)
-== { Ap k -> 1 . { Z -> 2 . k | S x' -> add x' 3 k } } . self1
+this1 = { res1 -> [ add @ 3 ] @ res1 Halt }
+[ add @ 3 ]
+== { Ap b k -> add @ 3 b k } . this0
 
-now an interesting thing is that we need to supply a implicit continuation to (| add 1 2 |),
-but which? maybe call it "here", and here refer to "self" of that place. in this case self1
+We also need the ability to apply the second argument solely. Like this:
+[ add @ _ 3]
+== { Ap a k -> add @ a 3 k } . this0
 
-now maybe lets change the notation when we need to add implicit to &(| |) ?
-or we simply put here explictly like (| add 1 2 here |) ?
+[ add @ 1 2]
+== { Ap k -> 1 . { Z -> 2 . k | S x' -> add x' 3 k } } . this1
 
-anyway now,
-&(| add 1 2 |) == (| add 1 2 here |)
-== { Ap here -> 1 . { Z -> 2 . here | S x' -> add x' 3 here } } . self1
+now an interesting thing is that we need to supply a implicit continuation to [ add 1 2 ],
+but which? maybe call it "here", and here refer to "this" of that place. in this case this1
+
+now lets make the flexibility for the notation for adding implicit continuation, to add *[  ].
+
+now, *[ add @ 1 2 ] === [ add @ 1 2 here ]
+=== { Ap here -> 1 . { Z -> 2 . here | S x' -> add x' 3 here } } . this1
 which reduce to 3 . here
-which is 3 . { res1 -> (|add 3|) @ res1 Halt }
-which is (| add 3 |) @ 3 Halt
+which is 3 . { res1 -> [ add @ 3 ] @ res1 Halt }
+which is [ add @ 3 ] @ 3 Halt
 
 now the whole thing will be (if deal from left to right)
 => { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } . self0
-=> { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } @ &(|add 1 2|) Halt
+=> { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } @ &[ add 1 2] Halt
 
 notice that now "here" for add 1 2 is not same as above but:
 { res -> { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } @ res Halt }
 
-now when we do &(| add 1 2 |):
+now when we do *[ add @ 1 2 ]:
 we have 3 . { res -> { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } @ res Halt }
 => { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } @ 3 Halt
 => 6 . Halt
 => 6
-ok done!
+ok perfectly done!
 
-It seems we dont have ???
+[add 3] @ 1 { res -> [add 3] @ res halt }
+
+{ b k -> 3 b k @ add } . { this0 -> this0 @ 1 { res -> { b k -> 3 b k @ add } . {this0 -> this0 @ res halt } } }

@@ -1,0 +1,7 @@
+import "std_nat" (add)
+
+def testBasicIdiom a k := [add @ 3] @ a k;
+
+def testIdiomWithHere a k := *[add @ 1 2] @ a k;
+
+run testBasicIdiom @ 2 halt;

@@ -70,6 +70,8 @@ data Expr -- e
   = Var VarId -- x
   | Cons ConsId [Expr] -- Foo e k
   | IncompleteCons ConsId [Either Expr HoleExpr] -- Foo e _ e
+  | IdiomExpr Command
+  | DerefIdiomExpr Command
   | Mu [(Pattern, Command)] -- mu [ Foo x y -> q | Bar x y -> q | k -> q ]
   deriving (Show, Eq, Ord)
 

@@ -15,18 +15,18 @@ import qualified Data.Map as Map
 import Pretty (prettyTopLevelValue, renderPretty)
 import Syntax
 
-evalExpr :: Env -> Store -> Expr -> (Value, Store)
-evalExpr env store (Var x) = (storeLookup store (envLookup env x), store)
-evalExpr env store (Mu clauses) = (MuValue env clauses, store)
-evalExpr env store (Cons ident args) = (ConsValue ident argValues, store')
+evalExpr :: Env -> Store -> Command -> Expr -> (Value, Store)
+evalExpr env store ctx (Var x) = (storeLookup store (envLookup env x), store)
+evalExpr env store ctx (Mu clauses) = (MuValue env clauses, store)
+evalExpr env store ctx (Cons ident args) = (ConsValue ident argValues, store')
   where
     (argValues, store') = foldl go ([], store) args
     go :: ([Value], Store) -> Expr -> ([Value], Store)
     go (argValuesAcc, storeAcc) arg =
       (argValuesAcc ++ [argValue], storeAcc')
       where
-        (argValue, storeAcc') = eval env storeAcc arg
-evalExpr env store (IncompleteCons ident args) = (IncompleteConsValue ident argValues, store')
+        (argValue, storeAcc') = eval env storeAcc ctx arg
+evalExpr env store ctx (IncompleteCons ident args) = (IncompleteConsValue ident argValues, store')
   where
     (argValues, store') = foldl goIncomplete ([], store) args
     goIncomplete :: ([Either Value HoleValue], Store) -> Either Expr HoleExpr -> ([Either Value HoleValue], Store)
@@ -35,37 +35,63 @@ evalExpr env store (IncompleteCons ident args) = (IncompleteConsValue ident argV
         Left expr ->
           (argValuesAcc ++ [Left argValue], storeAcc')
           where
-            (argValue, storeAcc') = eval env storeAcc expr
+            (argValue, storeAcc') = eval env storeAcc ctx expr
         Right HoleExpr ->
           (argValuesAcc ++ [Right HoleValue], storeAcc)
+evalExpr env store ctx (IdiomExpr cmd) =
+  error "unimpl"
+evalExpr env store ctx (DerefIdiomExpr cmd) =
+  error "unimpl"
 
--- evalCoExpr :: Env -> Store -> CoExpr -> (CoValue, Store)
--- evalCoExpr env store (CoVar x) = (storeCoLookup store (envCoLookup env x), store)
--- evalCoExpr env store (Mu clauses) = (MuValue env clauses, store)
--- evalCoExpr env store (CoCons ident args) = (CoConsValue ident argValues, store')
---   where
---     (argValues, store') = foldl go ([], store) args
---     go :: ([Either Value CoValue], Store) -> Either Expr CoExpr -> ([Either Value CoValue], Store)
---     go (argValuesAccum, storeAccum) arg =
---       (argValuesAccum ++ [argValue], storeAccum')
---       where
---         (argValue, storeAccum') = eval env storeAccum arg
 
-eval :: Env -> Store -> Expr -> (Value, Store)
-eval env store expr = (value, store')
+contextFreeEvalExpr :: Env -> Store -> Expr -> (Value, Store)
+contextFreeEvalExpr env store (Var x) = (storeLookup store (envLookup env x), store)
+contextFreeEvalExpr env store (Mu clauses) = (MuValue env clauses, store)
+contextFreeEvalExpr env store (Cons ident args) = (ConsValue ident argValues, store')
   where
-    (value, store') = evalExpr env store expr
+    (argValues, store') = foldl go ([], store) args
+    go :: ([Value], Store) -> Expr -> ([Value], Store)
+    go (argValuesAcc, storeAcc) arg =
+      (argValuesAcc ++ [argValue], storeAcc')
+      where
+        (argValue, storeAcc') = contextFreeEval env storeAcc arg
+contextFreeEvalExpr env store (IncompleteCons ident args) = (IncompleteConsValue ident argValues, store')
+  where
+    (argValues, store') = foldl goIncomplete ([], store) args
+    goIncomplete :: ([Either Value HoleValue], Store) -> Either Expr HoleExpr -> ([Either Value HoleValue], Store)
+    goIncomplete (argValuesAcc, storeAcc) arg =
+      case arg of
+        Left expr ->
+          (argValuesAcc ++ [Left argValue], storeAcc')
+          where
+            (argValue, storeAcc') = contextFreeEval env storeAcc expr
+        Right HoleExpr ->
+          (argValuesAcc ++ [Right HoleValue], storeAcc)
+contextFreeEvalExpr _ _ (IdiomExpr _) =
+  error "Illegal use of idiom outside of command context"
+contextFreeEvalExpr _ _ (DerefIdiomExpr _) =
+  error "Illegal use of idiom outside of command context"
+
+eval :: Env -> Store -> Command -> Expr -> (Value, Store)
+eval env store ctx expr = (value, store')
+  where
+    (value, store') = evalExpr env store ctx expr
+
+contextFreeEval :: Env -> Store -> Expr -> (Value, Store)
+contextFreeEval env store expr = (value, store')
+  where
+    (value, store') = contextFreeEvalExpr env store expr
 
 -- eval env store (Right coexpr) = (Right value, store')
 --   where
 --     (value, store') = evalCoExpr env store coexpr
 
 step :: Config -> [Config]
-step (CommandConfig env store (Command e ce)) =
+step (CommandConfig env store cmd@(Command e ce)) =
   [ValueConfig store'' value coValue]
   where
-    (value, store') = evalExpr env store e
-    (coValue, store'') = evalExpr env store' ce
+    (value, store') = evalExpr env store cmd e
+    (coValue, store'') = evalExpr env store' cmd ce
 step (CommandConfig env store (CommandVar cmdId)) =
   [ CommandConfig
       env
@@ -93,8 +119,7 @@ step (ValueConfig _ (ConsValue "Halt" []) cons@(ConsValue _ _)) =
 -- error cases
 --
 step (ErrorConfig {}) = []
-step _ =
-  [ErrorConfig "Bad type: cannot continue with 2 constructors"]
+step _ = [ErrorConfig "Bad type: cannot continue with 2 constructors"]
 
 match :: Env -> Store -> Value -> [(Pattern, Command)] -> [Config]
 match _ _ _ [] = []
