@@ -97,11 +97,16 @@ we have 3 . { res -> { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } @ 
 ok perfectly done!
 
 small-step semantics for idiom:
+
 ```
+evalExprWithCtx ctx (Idiom (e, ce)) =
+    CommandConfigWithCtx e ce ctx    
+
 step CommandConfigWithCtx p c ctx = 
     ValueConfigWithCtx (evalExprWithCtx c p) (evalWithCtx p c) ctx
 step ValueConfigWithCtx pv cv ctx = 
     matchWithCtx p c ctx
+
 matchWithCtx p c ctx = match p and c somehow and = CommandConfig matched_result ctx
 ```
 
