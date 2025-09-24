@@ -53,7 +53,7 @@ random question: what will be co-currying, i.e. currying a co-data?
 ```()
     *[add @ 3] @ *[add @ 1 2] Halt     --- this0 @ this1 Halt
 ```
-When
+
 this0 @ *[ add @ 1 2 ] halt
 
 this0, this1 are auto-generated variables where
@@ -96,6 +96,24 @@ we have 3 . { res -> { Ap b k -> 3 . { Z -> b . k | S x' -> add x' S(b) k } } @ 
 => 6
 ok perfectly done!
 
-[add 3] @ 1 { res -> [add 3] @ res halt }
+small-step semantics for idiom:
+```
+step CommandConfigWithCtx p c ctx = 
+    ValueConfigWithCtx (evalExprWithCtx c p) (evalWithCtx p c) ctx
+step ValueConfigWithCtx pv cv ctx = 
+    matchWithCtx p c ctx
+matchWithCtx p c ctx = match p and c somehow and = CommandConfig matched_result ctx
+```
 
-{ b k -> 3 b k @ add } . { this0 -> this0 @ 1 { res -> { b k -> 3 b k @ add } . {this0 -> this0 @ res halt } } }
+[add 3] @ 1 halt
+
+e = [add 3]
+ce = Ap 1 halt
+
+=> CommandConfigWithCtx e.fst e.snd ce
+=> ValueConfig add 3 (Ap 1 halt)
+
+v = { Ap b k -> 3 b k @ add }
+cv = 
+
+Guess: in this way we can do all syntatic sugars

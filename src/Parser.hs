@@ -529,131 +529,131 @@ seqThenCommand = label "seq/then command" $ do
       Command fun (Cons "Ap" (args ++ [Mu [(pat, desugarDoThen rest cmd)]]))
 
 
-expandCommandTree :: Command -> Command
-expandCommandTree prt@(Command _ _) = expandCommandTreeAux prt 0
-  where
-    expandCommandTreeAux :: Command -> Int -> Command
-    expandCommandTreeAux (Command expr1 expr2) level =
-      case findFirstIdiom expr1 of
-        Just (DerefIdiomExpr cmd) ->
-          let thisVarName = "this" ++ show level
-              expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
-              hereSubstituted = substituteHereInCommand expandedInnerCmd (Var thisVarName)
-              thisDefinition = Mu [(VarPattern "res", Command expr2 (Var "res"))]
-              resultExpr = case hereSubstituted of
-                Command cmdExpr1 _ -> cmdExpr1
-                _ -> error "Expected Command after here substitution"
-              newExpr1 = replaceFirstIdiom expr1 resultExpr
-          in expandCommandTreeAux (Command newExpr1 thisDefinition) level
-        Just (IdiomExpr cmd) ->
-          let expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
-              newExpr1 = replaceFirstIdiom expr1 (IdiomExpr expandedInnerCmd)
-          in expandCommandTreeAux (Command newExpr1 expr2) level
-        Just _ -> error "Should not reach here"
-        Nothing ->
-          case findFirstIdiom expr2 of
-            Just (DerefIdiomExpr cmd) ->
-              let thisVarName = "this" ++ show level
-                  expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
-                  hereSubstituted = substituteHereInCommand expandedInnerCmd (Var thisVarName)
-                  thisDefinition = Mu [(VarPattern "res", Command expr1 (Var "res"))]
-                  resultExpr = case hereSubstituted of
-                    Command cmdExpr1 _ -> cmdExpr1
-                    _ -> error "Expected Command after here substitution"
-                  newExpr2 = replaceFirstIdiom expr2 resultExpr
-              in expandCommandTreeAux (Command thisDefinition newExpr2) level
-            Just (IdiomExpr cmd) ->
-              let expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
-                  newExpr2 = replaceFirstIdiom expr2 (IdiomExpr expandedInnerCmd)
-              in expandCommandTreeAux (Command expr1 newExpr2) level
-            Just _ -> error "Should not reach here"
-            Nothing -> Command expr1 expr2
-    expandCommandTreeAux (CommandVar cmdId) _ = CommandVar cmdId
-expandCommandTree var = var
+-- expandCommandTree :: Command -> Command
+-- expandCommandTree prt@(Command _ _) = expandCommandTreeAux prt 0
+--   where
+--     expandCommandTreeAux :: Command -> Int -> Command
+--     expandCommandTreeAux (Command expr1 expr2) level =
+--       case findFirstIdiom expr1 of
+--         Just (DerefIdiomExpr cmd) ->
+--           let thisVarName = "this" ++ show level
+--               expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
+--               hereSubstituted = substituteHereInCommand expandedInnerCmd (Var thisVarName)
+--               thisDefinition = Mu [(VarPattern "res", Command expr2 (Var "res"))]
+--               resultExpr = case hereSubstituted of
+--                 Command cmdExpr1 _ -> cmdExpr1
+--                 _ -> error "Expected Command after here substitution"
+--               newExpr1 = replaceFirstIdiom expr1 resultExpr
+--           in expandCommandTreeAux (Command newExpr1 thisDefinition) level
+--         Just (IdiomExpr cmd) ->
+--           let expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
+--               newExpr1 = replaceFirstIdiom expr1 (IdiomExpr expandedInnerCmd)
+--           in expandCommandTreeAux (Command newExpr1 expr2) level
+--         Just _ -> error "Should not reach here"
+--         Nothing ->
+--           case findFirstIdiom expr2 of
+--             Just (DerefIdiomExpr cmd) ->
+--               let thisVarName = "this" ++ show level
+--                   expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
+--                   hereSubstituted = substituteHereInCommand expandedInnerCmd (Var thisVarName)
+--                   thisDefinition = Mu [(VarPattern "res", Command expr1 (Var "res"))]
+--                   resultExpr = case hereSubstituted of
+--                     Command cmdExpr1 _ -> cmdExpr1
+--                     _ -> error "Expected Command after here substitution"
+--                   newExpr2 = replaceFirstIdiom expr2 resultExpr
+--               in expandCommandTreeAux (Command thisDefinition newExpr2) level
+--             Just (IdiomExpr cmd) ->
+--               let expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
+--                   newExpr2 = replaceFirstIdiom expr2 (IdiomExpr expandedInnerCmd)
+--               in expandCommandTreeAux (Command expr1 newExpr2) level
+--             Just _ -> error "Should not reach here"
+--             Nothing -> Command expr1 expr2
+--     expandCommandTreeAux (CommandVar cmdId) _ = CommandVar cmdId
+-- expandCommandTree var = var
 
-findFirstIdiom :: Expr -> Maybe Expr
-findFirstIdiom idm@(DerefIdiomExpr _) = Just idm
-findFirstIdiom idm@(IdiomExpr _) = Just idm
-findFirstIdiom (Cons _ exprs) = findFirstInArgs exprs
-findFirstIdiom (IncompleteCons _ args) = findFirstInIncompleteArgs args
-findFirstIdiom (Mu branches) = findFirstInBranches branches
-findFirstIdiom _ = Nothing
+-- findFirstIdiom :: Expr -> Maybe Expr
+-- findFirstIdiom idm@(DerefIdiomExpr _) = Just idm
+-- findFirstIdiom idm@(IdiomExpr _) = Just idm
+-- findFirstIdiom (Cons _ exprs) = findFirstInArgs exprs
+-- findFirstIdiom (IncompleteCons _ args) = findFirstInIncompleteArgs args
+-- findFirstIdiom (Mu branches) = findFirstInBranches branches
+-- findFirstIdiom _ = Nothing
 
-findFirstInArgs :: [Expr] -> Maybe Expr
-findFirstInArgs [] = Nothing
-findFirstInArgs (e:es) = case findFirstIdiom e of
-  Just found -> Just found
-  Nothing -> findFirstInArgs es
+-- findFirstInArgs :: [Expr] -> Maybe Expr
+-- findFirstInArgs [] = Nothing
+-- findFirstInArgs (e:es) = case findFirstIdiom e of
+--   Just found -> Just found
+--   Nothing -> findFirstInArgs es
 
-findFirstInIncompleteArgs :: [Either Expr HoleExpr] -> Maybe Expr
-findFirstInIncompleteArgs [] = Nothing
-findFirstInIncompleteArgs (Left e:es) = case findFirstIdiom e of
-  Just found -> Just found
-  Nothing -> findFirstInIncompleteArgs es
-findFirstInIncompleteArgs (Right _:es) = findFirstInIncompleteArgs es
+-- findFirstInIncompleteArgs :: [Either Expr HoleExpr] -> Maybe Expr
+-- findFirstInIncompleteArgs [] = Nothing
+-- findFirstInIncompleteArgs (Left e:es) = case findFirstIdiom e of
+--   Just found -> Just found
+--   Nothing -> findFirstInIncompleteArgs es
+-- findFirstInIncompleteArgs (Right _:es) = findFirstInIncompleteArgs es
 
-findFirstInBranches :: [(Pattern, Command)] -> Maybe Expr
-findFirstInBranches [] = Nothing
-findFirstInBranches ((_, Command e1 e2):rest) =
-  case findFirstIdiom e1 of
-    Just found -> Just found
-    Nothing -> case findFirstIdiom e2 of
-      Just found -> Just found
-      Nothing -> findFirstInBranches rest
-findFirstInBranches ((_, CommandVar _):rest) = findFirstInBranches rest
+-- findFirstInBranches :: [(Pattern, Command)] -> Maybe Expr
+-- findFirstInBranches [] = Nothing
+-- findFirstInBranches ((_, Command e1 e2):rest) =
+--   case findFirstIdiom e1 of
+--     Just found -> Just found
+--     Nothing -> case findFirstIdiom e2 of
+--       Just found -> Just found
+--       Nothing -> findFirstInBranches rest
+-- findFirstInBranches ((_, CommandVar _):rest) = findFirstInBranches rest
 
-replaceFirstIdiom :: Expr -> Expr -> Expr
-replaceFirstIdiom (DerefIdiomExpr _) replacement = replacement
-replaceFirstIdiom (IdiomExpr _) replacement = replacement
-replaceFirstIdiom (Cons cid exprs) replacement =
-  Cons cid (replaceFirstInList exprs replacement)
-replaceFirstIdiom (IncompleteCons cid args) replacement =
-  IncompleteCons cid (replaceFirstInEitherList args replacement)
-replaceFirstIdiom (Mu branches) replacement =
-  Mu (replaceFirstInBranches branches replacement)
-replaceFirstIdiom e _ = e
+-- replaceFirstIdiom :: Expr -> Expr -> Expr
+-- replaceFirstIdiom (DerefIdiomExpr _) replacement = replacement
+-- replaceFirstIdiom (IdiomExpr _) replacement = replacement
+-- replaceFirstIdiom (Cons cid exprs) replacement =
+--   Cons cid (replaceFirstInList exprs replacement)
+-- replaceFirstIdiom (IncompleteCons cid args) replacement =
+--   IncompleteCons cid (replaceFirstInEitherList args replacement)
+-- replaceFirstIdiom (Mu branches) replacement =
+--   Mu (replaceFirstInBranches branches replacement)
+-- replaceFirstIdiom e _ = e
 
-replaceFirstInList :: [Expr] -> Expr -> [Expr]
-replaceFirstInList [] _ = []
-replaceFirstInList (e:es) replacement =
-  case findFirstIdiom e of
-    Just _ -> replaceFirstIdiom e replacement : es
-    Nothing -> e : replaceFirstInList es replacement
+-- replaceFirstInList :: [Expr] -> Expr -> [Expr]
+-- replaceFirstInList [] _ = []
+-- replaceFirstInList (e:es) replacement =
+--   case findFirstIdiom e of
+--     Just _ -> replaceFirstIdiom e replacement : es
+--     Nothing -> e : replaceFirstInList es replacement
 
-replaceFirstInEitherList :: [Either Expr HoleExpr] -> Expr -> [Either Expr HoleExpr]
-replaceFirstInEitherList [] _ = []
-replaceFirstInEitherList (Left e:es) replacement =
-  case findFirstIdiom e of
-    Just _ -> Left (replaceFirstIdiom e replacement) : es
-    Nothing -> Left e : replaceFirstInEitherList es replacement
-replaceFirstInEitherList (Right h:es) replacement = Right h : replaceFirstInEitherList es replacement
+-- replaceFirstInEitherList :: [Either Expr HoleExpr] -> Expr -> [Either Expr HoleExpr]
+-- replaceFirstInEitherList [] _ = []
+-- replaceFirstInEitherList (Left e:es) replacement =
+--   case findFirstIdiom e of
+--     Just _ -> Left (replaceFirstIdiom e replacement) : es
+--     Nothing -> Left e : replaceFirstInEitherList es replacement
+-- replaceFirstInEitherList (Right h:es) replacement = Right h : replaceFirstInEitherList es replacement
 
-replaceFirstInBranches :: [(Pattern, Command)] -> Expr -> [(Pattern, Command)]
-replaceFirstInBranches [] _ = []
-replaceFirstInBranches ((pat, Command e1 e2):rest) replacement =
-  case findFirstIdiom e1 of
-    Just _ -> (pat, Command (replaceFirstIdiom e1 replacement) e2) : rest
-    Nothing -> case findFirstIdiom e2 of
-      Just _ -> (pat, Command e1 (replaceFirstIdiom e2 replacement)) : rest
-      Nothing -> (pat, Command e1 e2) : replaceFirstInBranches rest replacement
-replaceFirstInBranches ((pat, cmd@(CommandVar _)):rest) replacement =
-  (pat, cmd) : replaceFirstInBranches rest replacement
+-- replaceFirstInBranches :: [(Pattern, Command)] -> Expr -> [(Pattern, Command)]
+-- replaceFirstInBranches [] _ = []
+-- replaceFirstInBranches ((pat, Command e1 e2):rest) replacement =
+--   case findFirstIdiom e1 of
+--     Just _ -> (pat, Command (replaceFirstIdiom e1 replacement) e2) : rest
+--     Nothing -> case findFirstIdiom e2 of
+--       Just _ -> (pat, Command e1 (replaceFirstIdiom e2 replacement)) : rest
+--       Nothing -> (pat, Command e1 e2) : replaceFirstInBranches rest replacement
+-- replaceFirstInBranches ((pat, cmd@(CommandVar _)):rest) replacement =
+--   (pat, cmd) : replaceFirstInBranches rest replacement
 
-substituteHereInCommand :: Command -> Expr -> Command
-substituteHereInCommand (Command expr1 expr2) hereExpr =
-  Command (substituteHereInExpr expr1 hereExpr) (substituteHereInExpr expr2 hereExpr)
-substituteHereInCommand cmd _ = cmd
+-- substituteHereInCommand :: Command -> Expr -> Command
+-- substituteHereInCommand (Command expr1 expr2) hereExpr =
+--   Command (substituteHereInExpr expr1 hereExpr) (substituteHereInExpr expr2 hereExpr)
+-- substituteHereInCommand cmd _ = cmd
 
-substituteHereInExpr :: Expr -> Expr -> Expr
-substituteHereInExpr (Var "here") hereExpr = hereExpr
-substituteHereInExpr (Var v) _ = Var v
-substituteHereInExpr (Cons cid exprs) hereExpr =
-  Cons cid (map (\e -> substituteHereInExpr e hereExpr) exprs)
-substituteHereInExpr (IncompleteCons cid args) hereExpr =
-  IncompleteCons cid (map (either (Left . substituteHereInExpr hereExpr) Right) args)
-substituteHereInExpr (IdiomExpr cmd) hereExpr =
-  IdiomExpr (substituteHereInCommand cmd hereExpr)
-substituteHereInExpr (DerefIdiomExpr cmd) hereExpr =
-  DerefIdiomExpr (substituteHereInCommand cmd hereExpr)
-substituteHereInExpr (Mu branches) hereExpr =
-  Mu (map (\(pat, cmd) -> (pat, substituteHereInCommand cmd hereExpr)) branches)
+-- substituteHereInExpr :: Expr -> Expr -> Expr
+-- substituteHereInExpr (Var "here") hereExpr = hereExpr
+-- substituteHereInExpr (Var v) _ = Var v
+-- substituteHereInExpr (Cons cid exprs) hereExpr =
+--   Cons cid (map (\e -> substituteHereInExpr e hereExpr) exprs)
+-- substituteHereInExpr (IncompleteCons cid args) hereExpr =
+--   IncompleteCons cid (map (either (Left . substituteHereInExpr hereExpr) Right) args)
+-- substituteHereInExpr (IdiomExpr cmd) hereExpr =
+--   IdiomExpr (substituteHereInCommand cmd hereExpr)
+-- substituteHereInExpr (DerefIdiomExpr cmd) hereExpr =
+--   DerefIdiomExpr (substituteHereInCommand cmd hereExpr)
+-- substituteHereInExpr (Mu branches) hereExpr =
+--   Mu (map (\(pat, cmd) -> (pat, substituteHereInCommand cmd hereExpr)) branches)
