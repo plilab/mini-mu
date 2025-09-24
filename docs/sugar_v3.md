@@ -111,7 +111,9 @@ e = [add 3]
 ce = Ap 1 halt
 
 => CommandConfigWithCtx e.fst e.snd ce
-=> ValueConfig add 3 (Ap 1 halt)
+=> ValueConfigWithCtx add 3 (Ap 1 halt)
+=> match result of add and 3 is { Ap b k -> add @ 3 b k }
+=> CommandConfig {Ap b k -> add @ 3 b k } . (Ap 1 halt)
 
 v = { Ap b k -> 3 b k @ add }
 cv = 
