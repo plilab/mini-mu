@@ -185,12 +185,12 @@ matchWithCtx env store ctx initPat v ((pat, cmd@(Command e ce)) : clauses) =
     -- could be very useful
     Just (env', store') -> [CommandConfig env' store' cmd]
     Nothing -> 
-      case tryMatchIncomp env store v pat of
+      case tryMatchIncomp v pat of
         -- reconstruct the original CommandConfig from the context
-        Just (cons, unmatchedPats, patAcc) ->
+        Just (cons, unmatchedPats, exprAcc) ->
           -- create a new Mu expresion that eliminates all the matched variables
           let oldMu = Mu initPat in
-          let newMu =  Mu [(ConsPattern cons vars, re)]  in
+          let newMu = Mu [(ConsPattern cons unmatchedPats, Command oldMu (Cons cons exprAcc))] in
           [CommandConfig env store (Command newMu ctx)]
         Nothing -> match env store v clauses
 matchWithCtx env store _ _ v ((pat, cmd@(CommandVar _)) : clauses) =
@@ -203,33 +203,71 @@ matchWithCtx env store _ _ v ((pat, cmd@(CommandVar _)) : clauses) =
 -- match all complete case
 tryMatchComp :: Env -> Store -> Value -> Pattern -> Maybe (Env, Store)
 tryMatchComp = tryMatch
-
+-- {Ap a b k -> ...} becomes { Ap b k -> 1 b k . {Ap a b k -> ...} }
 -- only matching incomplete cases
-tryMatchIncomp :: Env -> Store -> Value -> Pattern -> Maybe (ConsId, [Pattern], [Pattern])
--- Add support for complete cons inside incomplete cons
-tryMatchIncomp env store (ConsValue con args) (ConsPattern con' pats)
+tryMatchIncomp :: Value -> Pattern -> Maybe (ConsId, [Pattern], [Expr])
+-- add support for wildcards
+tryMatchIncomp (ConsValue con args) (WildcardPattern) =
+  error "todo"
+tryMatchIncomp (IncompleteConsValue con args) (WildcardPattern) =
+  error "todo"
+-- Add support for complete cons inside incomplete cons e.g. Ap _ (Ap 1 2) _
+tryMatchIncomp (ConsValue con args) (ConsPattern con' pats)
   | con == con' && length args == length pats = do
-tryMatchIncomp env store (IncompleteConsValue con args) (ConsPattern con' pats)
-  | con == con' && length args == length pats = do
-      (unmatched, acc) <- foldM matchIncompArg (env, store, []) (zip args pats)
+      (unmatched, acc) <- foldM matchArg ([], []) (zip (map Left args) pats)
       return (con, unmatched, acc)
   | otherwise = Nothing
   where
-    matchIncompArg :: ([Pattern], [Pattern]) -> (Either Value HoleValue, Pattern) -> Maybe ([Pattern], [Pattern])
-    matchIncompArg (unmatched, acc) (Left v, pat) = do
-      (innerCons, innerUnmatched, innerAcc) <- tryMatchIncomp env' store' v pat
+    matchArg :: ([Pattern], [Expr]) -> (Either Value HoleValue, Pattern) -> Maybe ([Pattern], [Expr])
+    matchArg (unmatched, acc) (Left v, pat) = do
+      (innerCons, innerUnmatched, innerAcc) <- tryMatchIncomp v pat
       -- construct new pattern for this inner pattern
       case innerUnmatched of
         [] -> do -- if inner is a complete match, then remove this pattern is matched, otherwise it is unmatched
-          let newInnerPat = pat
-          return (unmatched, acc ++ [pat]) -- unmatched unchanged
+          return (unmatched, acc ++ [Cons innerCons innerAcc]) -- unmatched unchanged
+          -- and new acc is appended with the inner value
+          -- e.g. Ap a (Ap b c) k matching with Ap _ (Ap 1 2) _, acc is: [a, (Ap 1 2), k]
         _ -> do
-          let newPat = ConsPattern innerCons innerAcc
-          return (unmatched, acc ++ [newPat])
+          let newPat = ConsPattern innerCons innerUnmatched -- keep the unmatched inner patterns
+          return (unmatched ++ [newPat], acc ++ [Cons innerCons innerAcc])
+          -- e.g. Ap a (Ap b c) k matching with Ap _ (Ap 1 _) _, acc is: [a, (Ap 1 c), k]
+    matchArg (unmatched, acc) (Right _, pat) =
+      case pat of
+        WildcardPattern -> Just (unmatched ++ [pat], acc ++ [Var "*"]) -- Holes meets wildcard
+        VarPattern v -> Just (unmatched ++ [pat], acc ++ [Var v]) -- Holes becomes variable
+        ConsPattern {} -> Just (unmatched ++ [pat], acc ++ [consPatternToExpr pat])
+      -- e.g. Ap a (Ap b c) k matching with Ap 1 _ _, acc is: [1, bc, k]
+tryMatchIncomp (IncompleteConsValue con args) (ConsPattern con' pats)
+  | con == con' && length args == length pats = do
+      (unmatched, acc) <- foldM matchIncompArg ([], []) (zip args pats)
+      return (con, unmatched, acc)
+  | otherwise = Nothing
+  where
+    matchIncompArg :: ([Pattern], [Expr]) -> (Either Value HoleValue, Pattern) -> Maybe ([Pattern], [Expr])
+    matchIncompArg (unmatched, acc) (Left v, pat) = do
+      (innerCons, innerUnmatched, innerAcc) <- tryMatchIncomp v pat
+      -- construct new pattern for this inner pattern
+      case innerUnmatched of
+        [] -> do -- if inner is a complete match, then remove this pattern is matched, otherwise it is unmatched
+          return (unmatched, acc ++ [Cons innerCons innerAcc]) -- unmatched unchanged
+          -- and new acc is appended with the inner value
+          -- e.g. Ap a (Ap b c) k matching with Ap _ (Ap 1 2) _, acc is: [a, (Ap 1 2), k]
+        _ -> do
+          let newPat = ConsPattern innerCons innerUnmatched -- keep the unmatched inner patterns
+          return (unmatched ++ [newPat], acc ++ [Cons innerCons innerAcc])
+          -- e.g. Ap a (Ap b c) k matching with Ap _ (Ap 1 _) _, acc is: [a, (Ap 1 c), k]
     matchIncompArg (unmatched, acc) (Right _, pat) =
-      Just (unmatched ++ [pat], acc ++ [pat]) -- Holes skip without creating bindings
-tryMatchIncomp _ _ _ _ = Nothing
+      case pat of
+        WildcardPattern -> Just (unmatched ++ [pat], acc ++ [Var "*"]) -- Holes meets wildcard
+        VarPattern v -> Just (unmatched ++ [pat], acc ++ [Var v]) -- Holes becomes variable
+        ConsPattern {} -> Just (unmatched ++ [pat], acc ++ [consPatternToExpr pat])
+      -- e.g. Ap a (Ap b c) k matching with Ap 1 _ _, acc is: [1, bc, k]
+tryMatchIncomp _ _ = Nothing
 
+consPatternToExpr :: Pattern -> Expr
+consPatternToExpr (ConsPattern cid pats) = Cons cid (map consPatternToExpr pats)
+consPatternToExpr (VarPattern v) = Var v
+consPatternToExpr WildcardPattern = Var "" -- represent wildcard as a variable with empty name
 
 foldM :: (Monad m) => (a -> b -> m a) -> a -> [b] -> m a
 foldM _ acc [] = return acc
