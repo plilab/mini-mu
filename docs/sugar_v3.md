@@ -69,7 +69,7 @@ We also need the ability to apply the second argument solely. Like this:
 == { Ap a k -> add @ a 3 k } . this0
 
 [ add @ 1 2]
-== { Ap k -> 1 . { Z -> 2 . k | S x' -> add x' 3 k } } . this1
+== { Ap k -> add @ 1 2 k } . this1
 
 now an interesting thing is that we need to supply a implicit continuation to [ add 1 2 ],
 but which? maybe call it "here", and here refer to "this" of that place. in this case this1
@@ -110,9 +110,9 @@ step ValueConfigWithCtx pv cv ctx =
 matchWithCtx p c ctx = match p and c somehow and = CommandConfig matched_result ctx
 ```
 
-[add 3] @ 1 halt
+[add @ 3 _ _] @ 1 halt
 
-e = [add 3]
+e = [add @ 3 _ _]
 ce = Ap 1 halt
 
 => CommandConfigWithCtx e.fst e.snd ce

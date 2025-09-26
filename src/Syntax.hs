@@ -107,9 +107,9 @@ data Value
 -- ErrorConfig represents an error message.
 data Config
   = CommandConfig Env Store Command -- ρ |- q
-  | CommandConfigWithCtx Env Store Command Expr
+  | CommandConfigWithCtx Env Store Expr Command
   | ValueConfig Store Value Value
-  | ValueConfigWithCtx Store Value Value Expr
+  | ValueConfigWithCtx Store Expr Value Value
   | ErrorConfig String
   deriving (Eq, Show, Ord)
 
