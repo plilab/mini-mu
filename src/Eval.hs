@@ -14,6 +14,7 @@ where
 import qualified Data.Map as Map
 import Pretty (prettyTopLevelValue, renderPretty)
 import Syntax
+import Debug.Trace (trace)
 
 evalExpr :: Env -> Store -> Expr -> (Value, Store)
 evalExpr env store (Var x) = (storeLookup store (envLookup env x), store)
@@ -131,15 +132,15 @@ step (CommandConfigWithCtx env store ctx (Command e ce)) =
         Right config -> [config]
     Right config -> [config]
 step (ValueConfigWithCtx store ctx cons@(ConsValue {}) (MuValue env clauses)) =
-  matchWithCtx env store ctx clauses cons clauses
+  matchWithCtx env store ctx cons clauses
 step (ValueConfigWithCtx store ctx (MuValue env clauses) cons@(ConsValue {})) =
-  matchWithCtx env store ctx clauses cons clauses
+  matchWithCtx env store ctx cons clauses
 step (ValueConfigWithCtx store ctx v@(MuValue env clauses) cv@(MuValue env' clauses')) =
-  matchWithCtx env' store ctx clauses v clauses' ++ matchWithCtx env store ctx clauses cv clauses
+  matchWithCtx env' store ctx v clauses' ++ matchWithCtx env store ctx cv clauses
 step (ValueConfigWithCtx store ctx iv@(IncompleteConsValue {}) (MuValue env clauses)) =
-  matchWithCtx env store ctx clauses iv clauses
+  matchWithCtx env store ctx iv clauses
 step (ValueConfigWithCtx store ctx (MuValue env clauses) iv@(IncompleteConsValue {})) =
-  matchWithCtx env store ctx clauses iv clauses
+  matchWithCtx env store ctx iv clauses
 
 -- temporary hack to deal with special constructor "Halt"
 step (ValueConfig _ cons@(ConsValue _ _) (ConsValue "Halt" [])) =
@@ -177,12 +178,12 @@ tryMatch _ _ (IncompleteConsValue {}) _ =
   Nothing -- Cannot match IncompleteConsValue without context
 
 
-matchWithCtx :: Env -> Store -> Expr -> [(Pattern, Command)] -> Value -> [(Pattern, Command)] -> [Config]
-matchWithCtx _ _ _ _ _ [] = [ErrorConfig "No pattern matched"]
-matchWithCtx env store ctx initPat v ((pat, cmd@(Command e ce)) : clauses) =
-  case tryMatchComp env store v pat of
+matchWithCtx :: Env -> Store -> Expr -> Value -> [(Pattern, Command)] -> [Config]
+matchWithCtx _ _ _ _ [] = [ErrorConfig "No pattern matched"]
+matchWithCtx env store ctx  v ((pat, cmd) : clauses) =
+  case tryMatch env store v pat of
     -- VERY IMPORTANT: if complete match, the program diverges from the original path
-    -- could be very useful
+    -- could be useful
     Just (env', store') -> [CommandConfig env' store' cmd]
     Nothing -> 
       case tryMatchIncomp v pat of
@@ -193,81 +194,8 @@ matchWithCtx env store ctx initPat v ((pat, cmd@(Command e ce)) : clauses) =
           let newMu = Mu [(ConsPattern cons unmatchedPats, Command oldMu (Cons cons exprAcc))] in
           [CommandConfig env store (Command newMu ctx)]
         Nothing -> match env store v clauses
-matchWithCtx env store _ _ v ((pat, cmd@(CommandVar _)) : clauses) =
-  case tryMatchComp env store v pat of
-    Just (env', store') -> [CommandConfig env' store' cmd]
-    Nothing -> match env store v clauses -- we dont support partial match for CommandVar
 
 -- Core pattern matching logic
-
--- match all complete case
-tryMatchComp :: Env -> Store -> Value -> Pattern -> Maybe (Env, Store)
-tryMatchComp = tryMatch
--- {Ap a b k -> ...} becomes { Ap b k -> 1 b k . {Ap a b k -> ...} }
--- only matching incomplete cases
-tryMatchIncomp :: Value -> Pattern -> Maybe (ConsId, [Pattern], [Expr])
--- add support for wildcards
-tryMatchIncomp (ConsValue con args) (WildcardPattern) =
-  error "todo"
-tryMatchIncomp (IncompleteConsValue con args) (WildcardPattern) =
-  error "todo"
--- Add support for complete cons inside incomplete cons e.g. Ap _ (Ap 1 2) _
-tryMatchIncomp (ConsValue con args) (ConsPattern con' pats)
-  | con == con' && length args == length pats = do
-      (unmatched, acc) <- foldM matchArg ([], []) (zip (map Left args) pats)
-      return (con, unmatched, acc)
-  | otherwise = Nothing
-  where
-    matchArg :: ([Pattern], [Expr]) -> (Either Value HoleValue, Pattern) -> Maybe ([Pattern], [Expr])
-    matchArg (unmatched, acc) (Left v, pat) = do
-      (innerCons, innerUnmatched, innerAcc) <- tryMatchIncomp v pat
-      -- construct new pattern for this inner pattern
-      case innerUnmatched of
-        [] -> do -- if inner is a complete match, then remove this pattern is matched, otherwise it is unmatched
-          return (unmatched, acc ++ [Cons innerCons innerAcc]) -- unmatched unchanged
-          -- and new acc is appended with the inner value
-          -- e.g. Ap a (Ap b c) k matching with Ap _ (Ap 1 2) _, acc is: [a, (Ap 1 2), k]
-        _ -> do
-          let newPat = ConsPattern innerCons innerUnmatched -- keep the unmatched inner patterns
-          return (unmatched ++ [newPat], acc ++ [Cons innerCons innerAcc])
-          -- e.g. Ap a (Ap b c) k matching with Ap _ (Ap 1 _) _, acc is: [a, (Ap 1 c), k]
-    matchArg (unmatched, acc) (Right _, pat) =
-      case pat of
-        WildcardPattern -> Just (unmatched ++ [pat], acc ++ [Var "*"]) -- Holes meets wildcard
-        VarPattern v -> Just (unmatched ++ [pat], acc ++ [Var v]) -- Holes becomes variable
-        ConsPattern {} -> Just (unmatched ++ [pat], acc ++ [consPatternToExpr pat])
-      -- e.g. Ap a (Ap b c) k matching with Ap 1 _ _, acc is: [1, bc, k]
-tryMatchIncomp (IncompleteConsValue con args) (ConsPattern con' pats)
-  | con == con' && length args == length pats = do
-      (unmatched, acc) <- foldM matchIncompArg ([], []) (zip args pats)
-      return (con, unmatched, acc)
-  | otherwise = Nothing
-  where
-    matchIncompArg :: ([Pattern], [Expr]) -> (Either Value HoleValue, Pattern) -> Maybe ([Pattern], [Expr])
-    matchIncompArg (unmatched, acc) (Left v, pat) = do
-      (innerCons, innerUnmatched, innerAcc) <- tryMatchIncomp v pat
-      -- construct new pattern for this inner pattern
-      case innerUnmatched of
-        [] -> do -- if inner is a complete match, then remove this pattern is matched, otherwise it is unmatched
-          return (unmatched, acc ++ [Cons innerCons innerAcc]) -- unmatched unchanged
-          -- and new acc is appended with the inner value
-          -- e.g. Ap a (Ap b c) k matching with Ap _ (Ap 1 2) _, acc is: [a, (Ap 1 2), k]
-        _ -> do
-          let newPat = ConsPattern innerCons innerUnmatched -- keep the unmatched inner patterns
-          return (unmatched ++ [newPat], acc ++ [Cons innerCons innerAcc])
-          -- e.g. Ap a (Ap b c) k matching with Ap _ (Ap 1 _) _, acc is: [a, (Ap 1 c), k]
-    matchIncompArg (unmatched, acc) (Right _, pat) =
-      case pat of
-        WildcardPattern -> Just (unmatched ++ [pat], acc ++ [Var "*"]) -- Holes meets wildcard
-        VarPattern v -> Just (unmatched ++ [pat], acc ++ [Var v]) -- Holes becomes variable
-        ConsPattern {} -> Just (unmatched ++ [pat], acc ++ [consPatternToExpr pat])
-      -- e.g. Ap a (Ap b c) k matching with Ap 1 _ _, acc is: [1, bc, k]
-tryMatchIncomp _ _ = Nothing
-
-consPatternToExpr :: Pattern -> Expr
-consPatternToExpr (ConsPattern cid pats) = Cons cid (map consPatternToExpr pats)
-consPatternToExpr (VarPattern v) = Var v
-consPatternToExpr WildcardPattern = Var "" -- represent wildcard as a variable with empty name
 
 foldM :: (Monad m) => (a -> b -> m a) -> a -> [b] -> m a
 foldM _ acc [] = return acc

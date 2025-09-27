@@ -247,7 +247,6 @@ expr =
     "expression"
     $ choice
       [ try completeCons,
-        -- notFollowedBy (symbol "_") will trigger backtracking
         try incompleteCons,
         atom
       ]
@@ -255,6 +254,7 @@ expr =
 completeCons :: Parser Expr
 completeCons =
   label "complete constructor" $
+    -- notFollowedBy (symbol "_") will trigger backtracking
     Cons <$> consId <*> many atom <* notFollowedBy (symbol "_")
 
 incompleteCons :: Parser Expr

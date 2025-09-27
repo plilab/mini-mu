@@ -1,6 +1,6 @@
 import "std_nat" (add)
 
-def testBasicIdiom a k := [add @ 3] @ a k;
+def testBasicIdiom a k := [< add |> Ap 3 _ _ >] @ a k;
 
 -- def testIdiomWithHere a k := *[add @ 1 2] @ a k;
 

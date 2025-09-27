@@ -37,6 +37,30 @@ prettyConfig (ValueConfig store value value') _show =
     <+> prettyTopLevelValue value _show
     <+> pretty ", co-value:"
     <+> prettyTopLevelValue value' _show
+prettyConfig (CommandConfigWithCtx env store expr command) _show =
+  pretty "<Command Config with Context>"
+    <> line
+    <> prettyEnv env _show
+    <> line
+    <> prettyStore store _show
+    <> line
+    <> pretty "expr context:"
+    <+> prettyTopLevelExpr expr
+    <> line
+    <> pretty "command:"
+    <+> prettyCommand command
+prettyConfig (ValueConfigWithCtx store expr value value') _show =
+  pretty "<Value Config with Context>"
+    <> line
+    <> prettyStore store _show
+    <> line
+    <> pretty "expr context:"
+    <+> prettyTopLevelExpr expr
+    <> line
+    <> pretty "value:"
+    <+> prettyTopLevelValue value _show
+    <+> pretty ", co-value:"
+    <+> prettyTopLevelValue value' _show
 prettyConfig (ErrorConfig string) _ =
   pretty "<Message> " <> pretty string
 
