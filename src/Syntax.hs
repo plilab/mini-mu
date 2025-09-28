@@ -69,7 +69,6 @@ data Expr -- e
   | Cons ConsId [Expr] -- Foo e k
   | Hole
   | IdiomExpr Command
-  | DerefIdiomExpr Command
   | Mu [(Pattern, Command)] -- mu [ Foo x y -> q | Bar x y -> q | k -> q ]
   deriving (Show, Eq, Ord)
 

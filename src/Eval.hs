@@ -49,8 +49,6 @@ evalExprWithCtx _ s _ Hole =
   Left (HoleValue, s)
 evalExprWithCtx e s ctx (IdiomExpr cmd@(Command _ _)) =
   Right $ CommandConfigWithCtx e s ctx cmd
-evalExprWithCtx _ _ _ (DerefIdiomExpr (Command p c)) =
-  error "TODO"
 evalExprWithCtx _ _ _ (IdiomExpr (CommandVar _)) =
   error "the command inside idiom should not be a CommandVar"
 evalExprWithCtx _ _ _ (DerefIdiomExpr (CommandVar _)) =

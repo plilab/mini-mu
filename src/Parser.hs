@@ -223,11 +223,6 @@ pattern =
 patternCase :: Parser (Pattern, Command)
 patternCase = label "pattern case" $ (,) <$> pattern <* symbol "->" <*> command
 
--- Parse idiom expressions *[expr] and [expr]
-idiomExprWithHere :: Parser Expr
-idiomExprWithHere = label "idiom expr with here" $ do
-  DerefIdiomExpr <$> (symbol "*" *> squares command) -- deal with inner command
-
 -- A idiom should be able to refer to the parent command
 -- For example, in [add @ 3] @ 1 halt, the idiom can refer to "this @ 1 halt"
 idiomExpr :: Parser Expr
@@ -244,7 +239,6 @@ atom =
         try (Mu <$> curly (sepBy1 patternCase (symbol "|"))),
         try letExpr, -- TODO: move to atom so we allow: x @ X let y = ... in ...
         try hole,
-        try idiomExprWithHere, -- *[expr] - adds implicit continuation "here"
         try idiomExpr, -- [expr] - basic idiom form
         try natExpr, -- Sugar 8: Expand numerical to S...Z
         try tupleExpr, -- Sugar 9: Expand pairs
@@ -465,8 +459,6 @@ findAndSubstExprInExpr _ Hole =
   Hole
 findAndSubstExprInExpr (name, e) (IdiomExpr cmd) =
   IdiomExpr (findAndSubstExprInCmd (name, e) cmd)
-findAndSubstExprInExpr (name, e) (DerefIdiomExpr cmd) =
-  DerefIdiomExpr (findAndSubstExprInCmd (name, e) cmd)
 findAndSubstExprInExpr (name, e) (Var v) =
   if v == name then e else Var v
 
@@ -485,8 +477,6 @@ findAndSubstCmdInExpr _ Hole =
   Hole
 findAndSubstCmdInExpr (name, cmd) (IdiomExpr c) =
   IdiomExpr (findAndSubstCmdInCmd (name, cmd) c)
-findAndSubstCmdInExpr (name, cmd) (DerefIdiomExpr c) =
-  DerefIdiomExpr (findAndSubstCmdInCmd (name, cmd) c)
 findAndSubstCmdInExpr _ (Var v) =
   Var v
 

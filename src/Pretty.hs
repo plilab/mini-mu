@@ -233,8 +233,6 @@ prettyTopLevelExpr (Cons con args) =
   pretty con <+> hsep (map prettyExpr args)
 prettyTopLevelExpr Hole =
   pretty "_"
-prettyTopLevelExpr idm@(DerefIdiomExpr _) =
-  prettyExpr idm
 prettyTopLevelExpr idm@(IdiomExpr _) =
   prettyExpr idm
 prettyTopLevelExpr mu@(Mu _) =
@@ -252,7 +250,6 @@ prettyExpr (Cons c args) =
     [] -> pretty c
     _ -> pretty "(" <> pretty c <+> hsep (map prettyExpr args) <> pretty ")"
 prettyExpr Hole = pretty "_"
-prettyExpr (DerefIdiomExpr cmd) = pretty "*[" <> prettyCommand cmd <> pretty "]"
 prettyExpr (IdiomExpr cmd) = pretty "[" <> prettyCommand cmd <> pretty "]"
 prettyExpr (Mu cases) = prettyMuExprAux (Mu cases)
 
