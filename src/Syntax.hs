@@ -191,10 +191,29 @@ envStoreInsert env store var value = (env', store')
     (addr, store') = storeInsert store value
 
 envStoreMerge :: Env -> Store -> Env -> Store -> (Env, Store)
-envStoreMerge (Env env1 cmdEnv1) (Store _ _ store1 cmdStore1) (Env env2 cmdEnv2) (Store _ _ store2 cmdStore2) =
-  ( Env (Map.union env1 env2) (Map.union cmdEnv1 cmdEnv2),
-    Store (Addr 0) (Addr 0) (Map.union store1 store2) (Map.union cmdStore1 cmdStore2)
-  )
+envStoreMerge env1 store1 (Env env2 cmdEnv2) (Store _ _ store2 cmdStore2) =
+  let -- First merge all regular values from store2 into env1/store1
+      mergeValues = Map.foldrWithKey (\addr value acc -> 
+        case acc of 
+          (env, store) -> 
+            -- Find the variable name that points to this address in env2
+            case Map.foldrWithKey (\var varAddr found -> 
+              if varAddr == addr then Just var else found) Nothing env2 of
+              Just varName -> envStoreInsert env store varName value
+              Nothing -> (env, store) -- Skip if no variable points to this address
+        ) (env1, store1) store2
+      
+      -- Then merge all commands from cmdStore2
+      mergeCommands = Map.foldrWithKey (\addr cmd acc ->
+        case acc of
+          (env, store) ->
+            -- Find the command name that points to this address in cmdEnv2
+            case Map.foldrWithKey (\cmdName cmdAddr found ->
+              if cmdAddr == addr then Just cmdName else found) Nothing cmdEnv2 of
+              Just cmdName -> envStoreInsertCommand env store cmdName cmd
+              Nothing -> (env, store) -- Skip if no command points to this address
+        ) mergeValues cmdStore2
+  in mergeCommands
 
 envStoreInsertCommand :: Env -> Store -> CommandId -> Command -> (Env, Store)
 envStoreInsertCommand env store cmdId cmd = (env', store')
