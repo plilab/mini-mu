@@ -30,8 +30,6 @@ evalExpr env store (Cons ident args) = (ConsValue ident argValues, store')
         (argValue, storeAcc') = eval env storeAcc arg
 evalExpr _ _ (IdiomExpr _) =
   error "Illegal use of idiom, it must in command context"
-evalExpr _ _ (DerefIdiomExpr _) =
-  error "Illegal use of idiom, it must in command context"
 
 
 evalExprWithCtx :: Env -> Store -> Context -> Expr -> Either (Value, Store) Config
@@ -51,8 +49,7 @@ evalExprWithCtx e s ctx (IdiomExpr cmd@(Command _ _)) =
   Right $ CommandConfigWithCtx e s ctx cmd
 evalExprWithCtx _ _ _ (IdiomExpr (CommandVar _)) =
   error "the command inside idiom should not be a CommandVar"
-evalExprWithCtx _ _ _ (DerefIdiomExpr (CommandVar _)) =
-  error "the command inside idiom should not be a CommandVar"
+
 
 eval :: Env -> Store -> Expr -> (Value, Store)
 eval env store expr = (value, store')
