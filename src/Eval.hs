@@ -14,7 +14,7 @@ where
 import qualified Data.Map as Map
 import Pretty (prettyTopLevelValue, renderPretty)
 import Syntax
-import Debug.Trace (trace)
+-- import Debug.Trace (trace)
 
 evalExpr :: Env -> Store -> Expr -> (Value, Store)
 evalExpr env store (Var x) = (storeLookup store (envLookup env x), store)
@@ -34,7 +34,7 @@ evalExpr _ _ (DerefIdiomExpr _) =
   error "Illegal use of idiom, it must in command context"
 
 
-evalExprWithCtx :: Env -> Store -> Expr -> Expr -> Either (Value, Store) Config
+evalExprWithCtx :: Env -> Store -> Context -> Expr -> Either (Value, Store) Config
 evalExprWithCtx env store _ (Var x) = Left (storeLookup store (envLookup env x), store)
 evalExprWithCtx env store _ (Mu clauses) = Left (MuValue env clauses, store)
 evalExprWithCtx env store ctx (Cons ident args) = Left (ConsValue ident argValues, store')
@@ -45,7 +45,7 @@ evalExprWithCtx env store ctx (Cons ident args) = Left (ConsValue ident argValue
       (argValuesAcc ++ [argValue], storeAcc')
       where
         (argValue, storeAcc') = evalWithCtx env storeAcc ctx arg
-evalExprWithCtx e s ctx Hole =
+evalExprWithCtx _ s _ Hole =
   Left (HoleValue, s)
 evalExprWithCtx e s ctx (IdiomExpr cmd@(Command _ _)) =
   Right $ CommandConfigWithCtx e s ctx cmd
@@ -61,7 +61,7 @@ eval env store expr = (value, store')
   where
     (value, store') = evalExpr env store expr
 
-evalWithCtx :: Env -> Store -> Expr -> Expr -> (Value, Store)
+evalWithCtx :: Env -> Store -> Context -> Expr -> (Value, Store)
 evalWithCtx env store ctx expr = case evalExprWithCtx env store ctx expr of
   Left (value, store') -> (value, store')
   Right config -> error $ "Cannot evaluate expression with context to a value directly, got config: " ++ show config 
@@ -72,11 +72,11 @@ evalWithCtx env store ctx expr = case evalExprWithCtx env store ctx expr of
 
 step :: Config -> [Config]
 step (CommandConfig env store (Command e ce)) =
-  let ctxE = Mu [(VarPattern "this", Command (Var "this") ce)] in
-  case evalExprWithCtx env store ctxE e of
+  let e' = Mu [(VarPattern "this", Command (Var "this") ce)] in
+  case evalExprWithCtx env store (env, store, e') e of
     Left (value, store') -> 
-      let ctxCE = Mu [(VarPattern "this", Command e (Var "this"))] in
-      case evalExprWithCtx env store' ctxCE ce of
+      let ce' = Mu [(VarPattern "this", Command e (Var "this"))] in
+      case evalExprWithCtx env store' (env, store', ce') ce of
         Left (coValue, store'') -> [ValueConfig store'' value coValue]
         Right config -> [config]
     Right config -> [config]
@@ -109,9 +109,9 @@ step (ValueConfig _ (ConsValue {}) (ConsValue {})) =
 
 -- match with context
 step (CommandConfigWithCtx env store ctx (Command e ce)) =
-  case evalExprWithCtx env store ce e of
+  case evalExprWithCtx env store (env, store, ce) e of
     Left (value, store') ->
-      case evalExprWithCtx env store' e ce of
+      case evalExprWithCtx env store' (env, store', e) ce of
         Left (coValue, store'') -> 
           [ValueConfigWithCtx store'' ctx value coValue]
         Right config -> [config]
@@ -149,7 +149,7 @@ match env store v ((pat, cmd) : clauses) =
     Just (env', store') -> [CommandConfig env' store' cmd]
     Nothing -> match env store v clauses
 
-matchWithCtx :: Env -> Store -> Expr -> Value -> [(Pattern, Command)] -> [Config]
+matchWithCtx :: Env -> Store -> Context -> Value -> [(Pattern, Command)] -> [Config]
 matchWithCtx _ _ _ _ [] = [ErrorConfig "No pattern matched"]
 matchWithCtx env store ctx v ((pat, cmd) : clauses) =
   case tryMatch env store v pat of
@@ -157,13 +157,17 @@ matchWithCtx env store ctx v ((pat, cmd) : clauses) =
     -- could be useful
     Just (env', store') -> [CommandConfig env' store' cmd]
     Nothing ->
-      case tryPartialMatch v pat of
+      case tryPartialMatch env store v pat of
         -- reconstruct the original CommandConfig from the context
-        Just (cons, unmatchedPats, exprAcc) ->
-          -- create a new Mu expresion that eliminates all the matched variables
-          let oldMu = Mu initPat
-           in let newMu = Mu [(ConsPattern cons unmatchedPats, Command oldMu (Cons cons exprAcc))]
-               in [CommandConfig env store (Command newMu ctx)]
+        Just (env'', store'') ->
+          let shrinkedPat = shrinkPattern v pat id in
+            case shrinkedPat of
+              Just spat ->
+                let newClause = Mu [(spat, cmd)] in
+                  let (ctxEnv, ctxStore, ctxExpr) = ctx in
+                  let (env''', store''') = envStoreInsert env'' store''  v in
+                  [CommandConfig env''' store''' $ Command newClause ctxExpr]
+              Nothing -> error "Impossible"
         Nothing -> match env store v clauses
 
 -- Core pattern matching logic
@@ -186,7 +190,7 @@ tryMatch _ _ (MuValue {}) (ConsPattern {}) =
   Nothing -- Cannot match MuValue with constructor pattern
 
 tryPartialMatch :: Env -> Store -> Value -> Pattern -> Maybe (Env, Store)
-tryPartialMatch env store HoleValue pat = 
+tryPartialMatch env store HoleValue _ = 
   Just (env, store) -- Hole always matches
 tryPartialMatch env store _ WildcardPattern = 
   Just (env, store) -- Wildcard always matches
@@ -206,26 +210,39 @@ tryPartialMatch _ _ (MuValue {}) (ConsPattern {}) = Nothing -- Cannot match MuVa
 -- shrinkPattern value pattern cont = Ap (Ap y) w
 type NullablePattern = Maybe Pattern
 
-shrinkPattern :: Env -> Store -> Value -> Pattern -> (NullablePattern -> NullablePattern) -> NullablePattern
-shrinkPattern _ _ HoleValue pat cont = 
+shrinkPattern :: Value -> Pattern -> (NullablePattern -> NullablePattern) -> NullablePattern
+shrinkPattern HoleValue pat cont = 
   cont (Just pat) -- base case: hole will through the hole pattern it matches into cont
 
-shrinkPattern _ _ _ WildcardPattern cont =  -- wildcard always matches
+shrinkPattern _ WildcardPattern cont =  -- wildcard always matches
   cont Nothing -- matched, skip
-shrinkPattern _ _ _ (VarPattern _) cont = -- var always matches
+shrinkPattern _ (VarPattern _) cont = -- var always matches
   cont Nothing -- matched, skip
 
-shrinkPattern env store (ConsValue con args) (ConsPattern con' pats) cont
+shrinkPattern (ConsValue con args) (ConsPattern con' pats) cont
   | con == con' && length args == length pats =
-      -- Process each (arg, pat) pair and compose the continuations
-      processPairs args pats Nothing  
+      processArgs
+        args
+        pats
+        []
+        ( \subpats ->
+            if null subpats
+              then cont Nothing -- if all subpatterns vanished
+              else cont (Just (ConsPattern con' subpats))
+        )
   | otherwise = error "Cannot shrink non-matching pattern"
-  where 
-    processPairs [] [] = cont
-    processPairs (arg : args') (pat : pats') = 
-      \k -> shrinkPattern env store arg pat (\_ -> processPairs args' pats' k)
-    processPairs _ _ = error "Impossible"
-shrinkPattern _ _ (MuValue {}) (ConsPattern {}) _ =
+  where
+    -- processArgs traverses args/pats left-to-right,
+    -- collecting surviving subpatterns
+    processArgs :: [Value] -> [Pattern] -> [Pattern] -> ([Pattern] -> NullablePattern) -> NullablePattern
+    processArgs [] [] acc k = k (reverse acc)
+    processArgs (arg : args') (pat : pats') acc k =
+      shrinkPattern arg pat $ \resPat ->
+        case resPat of
+          Nothing -> processArgs args' pats' acc k
+          Just pat' -> processArgs args' pats' (pat' : acc) k
+    processArgs _ _ _ _ = error "Impossible" -- should not happen due to length check above
+shrinkPattern (MuValue {}) (ConsPattern {}) _ =
   error "Cannot shrink non-matching pattern"
 
 -- Ap a (Ap b c) d ~ Ap 1 (Ap 2 _) _ 

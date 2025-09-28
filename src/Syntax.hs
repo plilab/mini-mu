@@ -10,6 +10,7 @@ module Syntax
     Expr (..),
     Value (..),
     Addr (..),
+    Context,
     Env (..),
     envEmpty,
     envLookup,
@@ -99,11 +100,14 @@ data Value
 -- CommandConfig represents a command to be executed with the current environment and store.
 -- ValueConfig represents a value and its continuation in the store.
 -- ErrorConfig represents an error message.
+
+type Context = (Env, Store, Expr) -- env, store, hole context
+
 data Config
   = CommandConfig Env Store Command -- ρ |- q
-  | CommandConfigWithCtx Env Store Expr Command
+  | CommandConfigWithCtx Env Store Context Command
   | ValueConfig Store Value Value
-  | ValueConfigWithCtx Store Expr Value Value
+  | ValueConfigWithCtx Store Context Value Value
   | ErrorConfig String
   deriving (Eq, Show, Ord)
 
@@ -131,6 +135,9 @@ envLookupCommand (Env _ cmdEnv) x = case Map.lookup x cmdEnv of
 
 envInsert :: Env -> VarId -> Addr -> Env
 envInsert (Env env cmdEnv) x addr = Env (Map.insert x addr env) cmdEnv
+
+envMerge :: Env -> Env -> Env
+envMerge (Env env1 cmdEnv1) (Env env2 cmdEnv2) = Env (Map.union env1 env2) (Map.union cmdEnv1 cmdEnv2)
 
 envInsertCommand :: Env -> CommandId -> Addr -> Env
 envInsertCommand (Env env cmdEnv) c addr = Env env (Map.insert c addr cmdEnv)

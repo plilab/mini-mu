@@ -1,3 +1,0 @@
--- add = { Ap x y k -> x . { Z -> y . k | S x' -> Ap x' _ k . add } };
-
-run { Ap a b k -> a . k} @ 2 3 halt;
