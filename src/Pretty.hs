@@ -19,15 +19,33 @@ import Prettyprinter.Render.String
 import Syntax
 
 prettyContext :: Context -> Bool -> Doc ann
-prettyContext (env, store, expr) _show =
+prettyContext (CommandContext upper env store expr) _show =
   pretty "Context"
     <+> braces
       ( line
+          <> indent 2 (prettyContext upper _show)
           <> indent 2 (prettyEnv env _show)
           <> line
           <> indent 2 (prettyStore store _show)
           <> line
-          <> indent 2 (prettyTopLevelExpr expr)
+          <> indent 2 (prettyExpr expr)
+          <> line
+      )
+prettyContext TopContext _ = pretty "<Top Context>"
+prettyContext (ConstructorContext upper env store expr exprs vals) _show =
+  pretty "Constructor Context"
+    <+> braces
+      ( line
+          <> indent 2 (prettyContext upper _show)
+          <> indent 2 (prettyEnv env _show)
+          <> line
+          <> indent 2 (prettyStore store _show)
+          <> line
+          <> indent 2 (prettyExpr expr)
+          <> line
+          <> indent 2 (pretty "Accumulated exprs:" <+> hsep (map prettyExpr exprs))
+          <> line
+          <> indent 2 (pretty "Accumulated values:" <+> hsep (map (`prettyValue` _show) vals))
           <> line
       )
 
@@ -74,6 +92,22 @@ prettyConfig (ValueConfigWithCtx store ctx value value') _show =
     <+> prettyTopLevelValue value _show
     <+> pretty ", co-value:"
     <+> prettyTopLevelValue value' _show
+prettyConfig (ConstructorConfig env store ctx con exprs vals) _show =
+  pretty "<Constructor Config with Context>"
+    <> line
+    <> prettyEnv env _show
+    <> line
+    <> prettyStore store _show
+    <> line
+    <> pretty "expr context:"
+    <+> prettyContext ctx _show
+    <> line
+    <> pretty "constructor:"
+    <+> pretty con
+    <+> pretty "with exprs:"
+    <+> hsep (map prettyExpr exprs)
+    <+> pretty "and evaluated values:"
+    <+> hsep (map (`prettyValue` _show) vals)
 prettyConfig (ErrorConfig string) _ =
   pretty "<Message> " <> pretty string
 

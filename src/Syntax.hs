@@ -10,7 +10,7 @@ module Syntax
     Expr (..),
     Value (..),
     Addr (..),
-    Context,
+    Context(..),
     Env (..),
     envEmpty,
     envLookup,
@@ -101,14 +101,21 @@ data Value
 -- ValueConfig represents a value and its continuation in the store.
 -- ErrorConfig represents an error message.
 
-type Context = (Env, Store, Expr) -- env, store, hole context
-
 data Config
   = CommandConfig Env Store Command -- ρ |- q
   | CommandConfigWithCtx Env Store Context Command
   | ValueConfig Store Value Value
   | ValueConfigWithCtx Store Context Value Value
+  | ConstructorConfig Env Store Context ConsId [Expr] [Value]
   | ErrorConfig String
+  deriving (Eq, Show, Ord)
+
+data Context 
+  = CommandContext Context Env Store Expr 
+  -- env, store, upper level context, hole context
+  | ConstructorContext Context Env Store Expr [Expr] [Value] 
+  -- env, store, upper level context, the constructor, the accumulator
+  | TopContext
   deriving (Eq, Show, Ord)
 
 newtype Addr = Addr Int deriving (Show, Eq, Ord)

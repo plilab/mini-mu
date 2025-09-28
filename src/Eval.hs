@@ -13,7 +13,26 @@ where
 
 import qualified Data.Map as Map
 import Pretty (prettyTopLevelValue, renderPretty)
-import Syntax
+import Syntax 
+  (
+    Env(..), 
+    Store(..),
+    Expr(..),
+    Value(..),
+    Pattern(..),
+    Program(..),
+    Decl(..),
+    Command(..),
+    Context(..),
+    Config(..),
+    VarId,
+    Addr(..),
+    envStoreInsert,
+    envStoreMerge,
+    envLookup,
+    storeLookup,
+    storeLookupCommand,
+  )
 -- import Debug.Trace (trace)
 
 evalExpr :: Env -> Store -> Expr -> (Value, Store)
@@ -66,12 +85,13 @@ evalWithCtx env store ctx expr = case evalExprWithCtx env store ctx expr of
 --     (value, store') = evalCoExpr env store coexpr
 
 step :: Config -> [Config]
+-- Command configs
 step (CommandConfig env store (Command e ce)) =
   let e' = Mu [(VarPattern "this", Command (Var "this") ce)] in
-  case evalExprWithCtx env store (env, store, e') e of
+  case evalExprWithCtx env store (CommandContext TopContext env store e') e of
     Left (value, store') -> 
       let ce' = Mu [(VarPattern "this", Command e (Var "this"))] in
-      case evalExprWithCtx env store' (env, store', ce') ce of
+      case evalExprWithCtx env store' (CommandContext TopContext env store' ce') ce of
         Left (coValue, store'') -> [ValueConfig store'' value coValue]
         Right config -> [config]
     Right config -> [config]
@@ -81,6 +101,8 @@ step (CommandConfig env store (CommandVar cmdId)) =
       store
       (storeLookupCommand store (envLookup env cmdId))
   ]
+
+-- Value configs
 step (ValueConfig store cons@(ConsValue {}) (MuValue env clauses)) =
   match env store cons clauses
 step (ValueConfig store (MuValue env clauses) cons@(ConsValue {})) =
@@ -102,11 +124,14 @@ step (ValueConfig _ (ConsValue "Halt" []) cons@(ConsValue _ _)) =
 step (ValueConfig _ (ConsValue {}) (ConsValue {})) = 
   [ErrorConfig "Bad type: cannot continue with 2 constructors"]
 
--- match with context
+-- Command with context
 step (CommandConfigWithCtx env store ctx (Command e ce)) =
-  case evalExprWithCtx env store (env, store, ce) e of
+  let e' = Mu [(VarPattern "this", Command (Var "this") ce)] in
+  -- difference is that we nesting the contexts here
+  case evalExprWithCtx env store (CommandContext ctx env store e') e of
     Left (value, store') ->
-      case evalExprWithCtx env store' (env, store', e) ce of
+      let ce' = Mu [(VarPattern "this", Command e (Var "this"))] in
+      case evalExprWithCtx env store' (CommandContext ctx env store' ce') ce of
         Left (coValue, store'') -> 
           [ValueConfigWithCtx store'' ctx value coValue]
         Right config -> [config]
@@ -120,6 +145,7 @@ step (CommandConfigWithCtx env store ctx (CommandVar cmdId)) =
       (storeLookupCommand store (envLookup env cmdId))
   ]
 
+-- Value with context
 step (ValueConfigWithCtx store ctx cons@(ConsValue {}) (MuValue env clauses)) =
   matchWithCtx env store ctx cons clauses
 step (ValueConfigWithCtx store ctx (MuValue env clauses) cons@(ConsValue {})) =
@@ -133,7 +159,11 @@ step (ValueConfigWithCtx _ _ _ HoleValue) =
 step (ValueConfigWithCtx _ _ (ConsValue {}) (ConsValue {})) = 
   [ErrorConfig "Bad type: cannot continue with 2 constructors"]
 
-
+-- Deal with constructors in small step semantics
+step (ConstructorConfig env store ctx id [] vals) =
+  error "todo"
+step (ConstructorConfig env store ctx _ (e : es) vals) =
+  error "td"
 -- stop when error
 step (ErrorConfig {}) = []
 
@@ -159,9 +189,21 @@ matchWithCtx env store ctx v ((pat, cmd) : clauses) =
             case shrinkedPat of
               Just spat ->
                 let newClause = Mu [(spat, cmd)] in
-                  let (ctxEnv, ctxStore, ctxExpr) = ctx in
-                  let (env''', store''') = envStoreMerge env'' store'' ctxEnv ctxStore in
-                  [CommandConfig env''' store''' $ Command newClause ctxExpr]
+                  case ctx of
+                    CommandContext upper ctxEnv ctxStore ctxExpr ->
+                      case upper of
+                        TopContext ->
+                          let (env''', store''') = envStoreMerge env'' store'' ctxEnv ctxStore in
+                          [CommandConfig env''' store''' $ Command newClause ctxExpr]
+                        CommandContext upper' _ _ _ ->
+                          let (env''', store''') = envStoreMerge env'' store'' ctxEnv ctxStore in
+                          [
+                            CommandConfigWithCtx
+                            env''' store''' upper'
+                            $ Command newClause ctxExpr
+                          ]
+                        _ -> error "todo"
+                    _ -> error "Impossible"
               Nothing -> error "Impossible"
         Nothing -> match env store v clauses
 

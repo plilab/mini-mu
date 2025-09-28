@@ -30,6 +30,7 @@ library
   exposed-modules:
       Eval
       EvalTree
+      Fresh
       Graph
       Lib
       Main
@@ -64,6 +65,7 @@ executable mini-mu
   other-modules:
       Eval
       EvalTree
+      Fresh
       Graph
       Lib
       Module
