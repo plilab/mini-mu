@@ -86,7 +86,7 @@ function tokenizeMiniMu(text, builder) {
   const keywords = new Set(['def', 'run', 'let', 'in', 'where', 'do', 'then', 'seq', 'import', 'export']);
 
   // Built-in types/constructors
-  const builtinTypes = new Set(['True', 'False', 'Nil', 'List::', 'Z', 'S', 'Pair', 'Ap']);
+  const builtinTypes = new Set(['True', 'False', 'Nil', 'List::', 'Z', 'S', 'Pair', 'Tuple']);
 
   lines.forEach((line, lineIndex) => {
     let charIndex = 0;

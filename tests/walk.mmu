@@ -12,11 +12,11 @@ def walk t k :=
   };
 
 def compose f g k :=
-  { Ap x k' -> seq gx <- g x then f @ gx k' } . k;
+  { (x, k') -> seq gx <- g x then f @ gx k' } . k;
 
 def walk_alt_aux t k :=
   t . {
-    Leaf x -> { Ap xs k' -> List:: x xs . k' } . k
+    Leaf x -> { (xs, k') -> List:: x xs . k' } . k
   | Node t1 t2 -> seq
       flat_t1 <- walk_alt_aux t1,
       flat_t2 <- walk_alt_aux t2

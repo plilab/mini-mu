@@ -2,5 +2,5 @@
 --    n . [ Z -> False . k | S _ -> True . k ];
 
 run let 
-      is_positive = { Ap n k ->  n . { Z -> False . k | S _ -> True . k } }
+      is_positive = { (n, k) ->  n . { Z -> False . k | S _ -> True . k } }
     in is_positive @ 1 halt;

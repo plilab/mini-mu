@@ -126,14 +126,25 @@ cmdIdentifier =
         then fail $ "keyword " ++ show word ++ " cannot be the name of a command"
         else return word
 
-pair :: String -> (a -> a -> a) -> Parser a -> Parser a
-pair name f p = label name $ f <$ symbol "(" <*> p <* symbol "," <*> p <* symbol ")"
+-- Parse tuple expressions with arbitrary length (minimum 2 elements)
+tupleExpr :: Parser Expr
+tupleExpr = label "tuple expression" $ do
+  _ <- symbol "("
+  first <- expr
+  _ <- symbol ","
+  rest <- sepBy1 expr (symbol ",")
+  _ <- symbol ")"
+  return $ Cons "Tuple" (first : rest)
 
-pairExpr :: Parser Expr
-pairExpr = pair "pair" (\x y -> Cons "Pair" [x, y]) expr
-
-pairPattern :: Parser Pattern
-pairPattern = pair "pair pattern" (\x y -> ConsPattern "Pair" [x, y]) pattern
+-- Parse tuple patterns with arbitrary length (minimum 2 elements)  
+tuplePattern :: Parser Pattern
+tuplePattern = label "tuple pattern" $ do
+  _ <- symbol "("
+  first <- pattern
+  _ <- symbol ","
+  rest <- sepBy1 pattern (symbol ",")
+  _ <- symbol ")"
+  return $ ConsPattern "Tuple" (first : rest)
 
 natExpr :: Parser Expr
 natExpr = label "natural number" $ intToPeano <$> lexeme L.decimal
@@ -202,7 +213,7 @@ pattern =
     choice
       [ try $ WildcardPattern <$ symbol "_", -- wild card pattern (e.g., "_")
         try natPattern, -- Sugar 6: Expand numerical patterns to S...Z
-        try pairPattern, -- Sugar 9: Expand pairs
+        try tuplePattern, -- Sugar 9: Expand pairs
         try $ ConsPattern <$> consId <*> many pattern, -- e.g., "C x _ z"
         try $ VarPattern <$> varId, -- variable patterns (e.g., "x")
         parens pattern -- Allow parentheses for grouping
@@ -236,7 +247,7 @@ atom =
         try idiomExprWithHere, -- *[expr] - adds implicit continuation "here"
         try idiomExpr, -- [expr] - basic idiom form
         try natExpr, -- Sugar 8: Expand numerical to S...Z
-        try pairExpr, -- Sugar 9: Expand pairs
+        try tupleExpr, -- Sugar 9: Expand pairs
         try $ (`Cons` []) <$> consId, -- constructor with no arguments
         try $ Var <$> varId,
         parens expr
@@ -333,7 +344,7 @@ commandSugar = label "Sugared Command" $ do
     [ try $ Command <$> expr <* symbol "." <*> expr,
       -- . operator sugar: x . y === < x |> y >
       do
-        -- @ operator sugar: x k @ fun === < Ap x k |> fun >
+        -- @ operator sugar: x k @ fun === < Tuple x k |> fun >
         -- X Y Z @ U V W
         -- x @ Y V W
         -- {} @ U V W
@@ -349,14 +360,14 @@ commandSugar = label "Sugared Command" $ do
     -- Desugar @ operator, when function is placed as expression
     desugarAt :: Expr -> [Expr] -> Command
     desugarAt _ [] = error "@ requires at least one argument"
-    desugarAt fun args = Command  fun (Cons "Ap" args)
+    desugarAt fun args = Command  fun (Cons "Tuple" args)
     -- Desugar @ operator, when function is placed as co-expression
     coDesugarAt :: [Expr] -> Expr -> Command
     coDesugarAt [] _ = error "@ requires at least one argument"
-    coDesugarAt args fun = Command (Cons "Ap" args) fun
+    coDesugarAt args fun = Command (Cons "Tuple" args) fun
 
 -- | Sugar for definitions: def/run
--- def NAME ARGS* := COMMAND === NAME = mu[ Ap ARGS... -> COMMAND ]
+-- def NAME ARGS* := COMMAND === NAME = mu[ Tuple ARGS... -> COMMAND ]
 defDecl :: Parser Decl
 defDecl =
   label "Sugared Declaration" $
@@ -368,7 +379,7 @@ defDecl =
   where
     desugarDef :: [Pattern] -> Command -> Expr
     desugarDef args cmd =
-      Mu [(ConsPattern "Ap" args, cmd)]
+      Mu [(ConsPattern "Tuple" args, cmd)]
 
 -- | run COMMAND === main = mu[ halt -> COMMAND ]
 runDecl :: Parser Decl
@@ -517,7 +528,7 @@ seqThenCommand = label "seq/then command" $ do
     desugarDoThen [] cmd = cmd
     desugarDoThen ((pat, fun, args) : rest) cmd =
       -- This creates nested applications with continuations
-      Command fun (Cons "Ap" (args ++ [Mu [(pat, desugarDoThen rest cmd)]]))
+      Command fun (Cons "Tuple" (args ++ [Mu [(pat, desugarDoThen rest cmd)]]))
 
 
 -- expandCommandTree :: Command -> Command
