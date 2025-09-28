@@ -8,9 +8,7 @@ module Syntax
     Command (..),
     Pattern (..),
     Expr (..),
-    HoleExpr (..),
     Value (..),
-    HoleValue (..),
     Addr (..),
     Env (..),
     envEmpty,
@@ -64,12 +62,10 @@ data Command
   | CommandVar CommandId
   deriving (Show, Eq, Ord)
 
-data HoleExpr = HoleExpr deriving (Show, Eq, Ord)
-
 data Expr -- e
   = Var VarId -- x
   | Cons ConsId [Expr] -- Foo e k
-  | IncompleteCons ConsId [Either Expr HoleExpr] -- Foo e _ e
+  | Hole
   | IdiomExpr Command
   | DerefIdiomExpr Command
   | Mu [(Pattern, Command)] -- mu [ Foo x y -> q | Bar x y -> q | k -> q ]
@@ -87,11 +83,9 @@ data AtomPattern
   | AtomWildcardPattern -- Wildcard: *
   deriving (Show, Eq, Ord)
 
-data HoleValue = HoleValue deriving (Show, Eq, Ord)
-
 data Value
   = ConsValue ConsId [Value]
-  | IncompleteConsValue ConsId [Either Value HoleValue]
+  | HoleValue
   | MuValue Env [(Pattern, Command)]
   deriving (Show, Eq, Ord)
 

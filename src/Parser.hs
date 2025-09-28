@@ -232,6 +232,7 @@ atom =
       [ -- Sugar 7: Simplify mu[] as []
         try (Mu <$> curly (sepBy1 patternCase (symbol "|"))),
         try letExpr, -- TODO: move to atom so we allow: x @ X let y = ... in ...
+        try hole,
         try idiomExprWithHere, -- *[expr] - adds implicit continuation "here"
         try idiomExpr, -- [expr] - basic idiom form
         try natExpr, -- Sugar 8: Expand numerical to S...Z
@@ -246,28 +247,18 @@ expr =
   label
     "expression"
     $ choice
-      [ try completeCons,
-        try incompleteCons,
+      [ try cons,
         atom
       ]
 
-completeCons :: Parser Expr
-completeCons =
+cons :: Parser Expr
+cons =
   label "complete constructor" $
     -- notFollowedBy (symbol "_") will trigger backtracking
     Cons <$> consId <*> many atom <* notFollowedBy (symbol "_")
 
-incompleteCons :: Parser Expr
-incompleteCons =
-  label "incomplete constructor" $
-    IncompleteCons
-      <$> consId
-      <*> many (try (Left <$> atom) <|> (Right <$> consHole))
-
-consHole :: Parser HoleExpr
-consHole =
-  label "constructor hole" $
-    HoleExpr <$ symbol "_"
+hole :: Parser Expr
+hole = label "hole" $ Hole <$ symbol "_"
 
 -- Parse a command
 command :: Parser Command
@@ -459,8 +450,8 @@ findAndSubstExprInExpr (name, e) (Mu branches) =
   Mu (map (\(p, c) -> (p, findAndSubstExprInCmd (name, e) c)) branches)
 findAndSubstExprInExpr (name, e) (Cons c args) =
   Cons c (map (findAndSubstExprInExpr (name, e)) args)
-findAndSubstExprInExpr (name, e) (IncompleteCons c args) =
-  IncompleteCons c (map (either (Left . findAndSubstExprInExpr (name, e)) Right) args)
+findAndSubstExprInExpr _ Hole =
+  Hole
 findAndSubstExprInExpr (name, e) (IdiomExpr cmd) =
   IdiomExpr (findAndSubstExprInCmd (name, e) cmd)
 findAndSubstExprInExpr (name, e) (DerefIdiomExpr cmd) =
@@ -479,8 +470,8 @@ findAndSubstCmdInExpr (name, cmd) (Mu branches) =
   Mu (map (\(p, c) -> (p, findAndSubstCmdInCmd (name, cmd) c)) branches)
 findAndSubstCmdInExpr (name, cmd) (Cons c args) =
   Cons c (map (findAndSubstCmdInExpr (name, cmd)) args)
-findAndSubstCmdInExpr (name, cmd) (IncompleteCons c args) =
-  IncompleteCons c (map (either (Left . findAndSubstCmdInExpr (name, cmd)) Right) args)
+findAndSubstCmdInExpr _ Hole =
+  Hole
 findAndSubstCmdInExpr (name, cmd) (IdiomExpr c) =
   IdiomExpr (findAndSubstCmdInCmd (name, cmd) c)
 findAndSubstCmdInExpr (name, cmd) (DerefIdiomExpr c) =

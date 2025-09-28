@@ -1,0 +1,8 @@
+cradle:
+  stack:
+    - path: ./src
+      component: mini-mu:lib
+    - path: ./tests
+      component: mini-mu:test:mini-mu-test
+    - path: ./
+      component: mini-mu:exe:mini-mu

@@ -19,6 +19,7 @@ import Debug.Trace (trace)
 evalExpr :: Env -> Store -> Expr -> (Value, Store)
 evalExpr env store (Var x) = (storeLookup store (envLookup env x), store)
 evalExpr env store (Mu clauses) = (MuValue env clauses, store)
+evalExpr _ store Hole = (HoleValue, store)
 evalExpr env store (Cons ident args) = (ConsValue ident argValues, store')
   where
     (argValues, store') = foldl go ([], store) args
@@ -27,18 +28,6 @@ evalExpr env store (Cons ident args) = (ConsValue ident argValues, store')
       (argValuesAcc ++ [argValue], storeAcc')
       where
         (argValue, storeAcc') = eval env storeAcc arg
-evalExpr env store (IncompleteCons ident args) = (IncompleteConsValue ident argValues, store')
-  where
-    (argValues, store') = foldl goIncomplete ([], store) args
-    goIncomplete :: ([Either Value HoleValue], Store) -> Either Expr HoleExpr -> ([Either Value HoleValue], Store)
-    goIncomplete (argValuesAcc, storeAcc) arg =
-      case arg of
-        Left expr ->
-          (argValuesAcc ++ [Left argValue], storeAcc')
-          where
-            (argValue, storeAcc') = eval env storeAcc expr
-        Right HoleExpr ->
-          (argValuesAcc ++ [Right HoleValue], storeAcc)
 evalExpr _ _ (IdiomExpr _) =
   error "Illegal use of idiom, it must in command context"
 evalExpr _ _ (DerefIdiomExpr _) =
@@ -56,18 +45,8 @@ evalExprWithCtx env store ctx (Cons ident args) = Left (ConsValue ident argValue
       (argValuesAcc ++ [argValue], storeAcc')
       where
         (argValue, storeAcc') = evalWithCtx env storeAcc ctx arg
-evalExprWithCtx env store ctx (IncompleteCons ident args) = Left (IncompleteConsValue ident argValues, store')
-  where
-    (argValues, store') = foldl goIncomplete ([], store) args
-    goIncomplete :: ([Either Value HoleValue], Store) -> Either Expr HoleExpr -> ([Either Value HoleValue], Store)
-    goIncomplete (argValuesAcc, storeAcc) arg =
-      case arg of
-        Left expr ->
-          (argValuesAcc ++ [Left argValue], storeAcc')
-          where
-            (argValue, storeAcc') = evalWithCtx env storeAcc ctx expr
-        Right HoleExpr ->
-          (argValuesAcc ++ [Right HoleValue], storeAcc)
+evalExprWithCtx e s ctx Hole =
+  Left (HoleValue, s)
 evalExprWithCtx e s ctx (IdiomExpr cmd@(Command _ _)) =
   Right $ CommandConfigWithCtx e s ctx cmd
 evalExprWithCtx _ _ _ (DerefIdiomExpr (Command p c)) =
@@ -85,9 +64,7 @@ eval env store expr = (value, store')
 evalWithCtx :: Env -> Store -> Expr -> Expr -> (Value, Store)
 evalWithCtx env store ctx expr = case evalExprWithCtx env store ctx expr of
   Left (value, store') -> (value, store')
-  Right config -> error $ "Cannot evaluate expression with context to a value directly, got config: " ++ show config
-  
-      
+  Right config -> error $ "Cannot evaluate expression with context to a value directly, got config: " ++ show config 
 
 -- eval env store (Right coexpr) = (Right value, store')
 --   where
@@ -115,12 +92,20 @@ step (ValueConfig store (MuValue env clauses) cons@(ConsValue {})) =
   match env store cons clauses
 step (ValueConfig store v@(MuValue env clauses) cv@(MuValue env' clauses')) =
   match env' store v clauses' ++ match env store cv clauses
+step (ValueConfig _ HoleValue _) =
+  [ErrorConfig "Hole cannot be used as standalone value, it must be wrapped within a constructor"]
+step (ValueConfig _ _ HoleValue) =
+  [ErrorConfig "Hole cannot be used as standalone value, it must be wrapped within a constructor"]
 
--- cases for partial applications
-step (ValueConfig store iv@(IncompleteConsValue {}) (MuValue env clauses)) =
-  match env store iv clauses
-step (ValueConfig store (MuValue env clauses) iv@(IncompleteConsValue {})) =
-  match env store iv clauses
+-- temporary hack to deal with special constructor "Halt"
+step (ValueConfig _ cons@(ConsValue _ _) (ConsValue "Halt" [])) =
+  [ErrorConfig ("Halt with result: " ++ renderPretty (prettyTopLevelValue cons False))]
+step (ValueConfig _ (ConsValue "Halt" []) cons@(ConsValue _ _)) =
+  [ErrorConfig ("Halt with result: " ++ renderPretty (prettyTopLevelValue cons False))]
+
+-- 2 constructors cannot continue
+step (ValueConfig _ (ConsValue {}) (ConsValue {})) = 
+  [ErrorConfig "Bad type: cannot continue with 2 constructors"]
 
 -- match with context
 step (CommandConfigWithCtx env store ctx (Command e ce)) =
@@ -131,26 +116,31 @@ step (CommandConfigWithCtx env store ctx (Command e ce)) =
           [ValueConfigWithCtx store'' ctx value coValue]
         Right config -> [config]
     Right config -> [config]
+
+step (CommandConfigWithCtx env store ctx (CommandVar cmdId)) =
+  [ CommandConfigWithCtx
+      env
+      store
+      ctx
+      (storeLookupCommand store (envLookup env cmdId))
+  ]
+
 step (ValueConfigWithCtx store ctx cons@(ConsValue {}) (MuValue env clauses)) =
   matchWithCtx env store ctx cons clauses
 step (ValueConfigWithCtx store ctx (MuValue env clauses) cons@(ConsValue {})) =
   matchWithCtx env store ctx cons clauses
 step (ValueConfigWithCtx store ctx v@(MuValue env clauses) cv@(MuValue env' clauses')) =
   matchWithCtx env' store ctx v clauses' ++ matchWithCtx env store ctx cv clauses
-step (ValueConfigWithCtx store ctx iv@(IncompleteConsValue {}) (MuValue env clauses)) =
-  matchWithCtx env store ctx iv clauses
-step (ValueConfigWithCtx store ctx (MuValue env clauses) iv@(IncompleteConsValue {})) =
-  matchWithCtx env store ctx iv clauses
+step (ValueConfigWithCtx _ _ HoleValue _) =
+  [ErrorConfig "Hole cannot be used as standalone value, it must be wrapped within a constructor"]
+step (ValueConfigWithCtx _ _ _ HoleValue) =
+  [ErrorConfig "Hole cannot be used as standalone value, it must be wrapped within a constructor"]
+step (ValueConfigWithCtx _ _ (ConsValue {}) (ConsValue {})) = 
+  [ErrorConfig "Bad type: cannot continue with 2 constructors"]
 
--- temporary hack to deal with special constructor "Halt"
-step (ValueConfig _ cons@(ConsValue _ _) (ConsValue "Halt" [])) =
-  [ErrorConfig ("Halt with result: " ++ renderPretty (prettyTopLevelValue cons False))]
-step (ValueConfig _ (ConsValue "Halt" []) cons@(ConsValue _ _)) =
-  [ErrorConfig ("Halt with result: " ++ renderPretty (prettyTopLevelValue cons False))]
 
--- error cases
+-- stop when error
 step (ErrorConfig {}) = []
-step _ = [ErrorConfig "Bad type: cannot continue with 2 constructors"]
 
 match :: Env -> Store -> Value -> [(Pattern, Command)] -> [Config]
 match _ _ _ [] = [ErrorConfig "No pattern matched"]
@@ -159,8 +149,28 @@ match env store v ((pat, cmd) : clauses) =
     Just (env', store') -> [CommandConfig env' store' cmd]
     Nothing -> match env store v clauses
 
+matchWithCtx :: Env -> Store -> Expr -> Value -> [(Pattern, Command)] -> [Config]
+matchWithCtx _ _ _ _ [] = [ErrorConfig "No pattern matched"]
+matchWithCtx env store ctx v ((pat, cmd) : clauses) =
+  case tryMatch env store v pat of
+    -- VERY IMPORTANT: if complete match, the program diverges from the original path
+    -- could be useful
+    Just (env', store') -> [CommandConfig env' store' cmd]
+    Nothing ->
+      case tryPartialMatch v pat of
+        -- reconstruct the original CommandConfig from the context
+        Just (cons, unmatchedPats, exprAcc) ->
+          -- create a new Mu expresion that eliminates all the matched variables
+          let oldMu = Mu initPat
+           in let newMu = Mu [(ConsPattern cons unmatchedPats, Command oldMu (Cons cons exprAcc))]
+               in [CommandConfig env store (Command newMu ctx)]
+        Nothing -> match env store v clauses
+
 -- Core pattern matching logic
 tryMatch :: Env -> Store -> Value -> Pattern -> Maybe (Env, Store)
+tryMatch _ _ HoleValue _ =
+  Nothing -- deal with hole in the tryPartialMatch
+-- otherwise
 tryMatch env store _ WildcardPattern =
   Just (env, store) -- Wildcard always matches
 tryMatch env store v (VarPattern x) =
@@ -174,28 +184,54 @@ tryMatch env store (ConsValue con args) (ConsPattern con' pats)
       tryMatch env' store' arg pat
 tryMatch _ _ (MuValue {}) (ConsPattern {}) =
   Nothing -- Cannot match MuValue with constructor pattern
-tryMatch _ _ (IncompleteConsValue {}) _ =
-  Nothing -- Cannot match IncompleteConsValue without context
+
+tryPartialMatch :: Env -> Store -> Value -> Pattern -> Maybe (Env, Store)
+tryPartialMatch env store HoleValue pat = 
+  Just (env, store) -- Hole always matches
+tryPartialMatch env store _ WildcardPattern = 
+  Just (env, store) -- Wildcard always matches
+tryPartialMatch env store v (VarPattern x) =
+  Just (envStoreInsert env store x v) -- Bind variable
+tryPartialMatch env store (ConsValue con args) (ConsPattern con' pats)
+  | con == con' && length args == length pats =
+      foldM matchArg (env, store) (zip args pats)
+  | otherwise = Nothing
+  where
+    matchArg (env', store') (arg, pat) =
+      tryPartialMatch env' store' arg pat
+tryPartialMatch _ _ (MuValue {}) (ConsPattern {}) = Nothing -- Cannot match MuValue with constructor pattern
+
+-- cps shrinking pattern
+-- value = Ap 1 (Ap _ 2) _, pattern = Ap x (Ap y z) w
+-- shrinkPattern value pattern cont = Ap (Ap y) w
+type NullablePattern = Maybe Pattern
+
+shrinkPattern :: Env -> Store -> Value -> Pattern -> (NullablePattern -> NullablePattern) -> NullablePattern
+shrinkPattern _ _ HoleValue pat cont = 
+  cont (Just pat) -- base case: hole will through the hole pattern it matches into cont
+
+shrinkPattern _ _ _ WildcardPattern cont =  -- wildcard always matches
+  cont Nothing -- matched, skip
+shrinkPattern _ _ _ (VarPattern _) cont = -- var always matches
+  cont Nothing -- matched, skip
+
+shrinkPattern env store (ConsValue con args) (ConsPattern con' pats) cont
+  | con == con' && length args == length pats =
+      -- Process each (arg, pat) pair and compose the continuations
+      processPairs args pats Nothing  
+  | otherwise = error "Cannot shrink non-matching pattern"
+  where 
+    processPairs [] [] = cont
+    processPairs (arg : args') (pat : pats') = 
+      \k -> shrinkPattern env store arg pat (\_ -> processPairs args' pats' k)
+    processPairs _ _ = error "Impossible"
+shrinkPattern _ _ (MuValue {}) (ConsPattern {}) _ =
+  error "Cannot shrink non-matching pattern"
+
+-- Ap a (Ap b c) d ~ Ap 1 (Ap 2 _) _ 
+-- { Ap a (Ap b c) d -> ... } => { Ap (Ap c) d -> ... }. We will return a shrinked pattern as additional
 
 
-matchWithCtx :: Env -> Store -> Expr -> Value -> [(Pattern, Command)] -> [Config]
-matchWithCtx _ _ _ _ [] = [ErrorConfig "No pattern matched"]
-matchWithCtx env store ctx  v ((pat, cmd) : clauses) =
-  case tryMatch env store v pat of
-    -- VERY IMPORTANT: if complete match, the program diverges from the original path
-    -- could be useful
-    Just (env', store') -> [CommandConfig env' store' cmd]
-    Nothing -> 
-      case tryMatchIncomp v pat of
-        -- reconstruct the original CommandConfig from the context
-        Just (cons, unmatchedPats, exprAcc) ->
-          -- create a new Mu expresion that eliminates all the matched variables
-          let oldMu = Mu initPat in
-          let newMu = Mu [(ConsPattern cons unmatchedPats, Command oldMu (Cons cons exprAcc))] in
-          [CommandConfig env store (Command newMu ctx)]
-        Nothing -> match env store v clauses
-
--- Core pattern matching logic
 
 foldM :: (Monad m) => (a -> b -> m a) -> a -> [b] -> m a
 foldM _ acc [] = return acc
