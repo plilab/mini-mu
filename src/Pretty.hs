@@ -18,6 +18,19 @@ import Prettyprinter
 import Prettyprinter.Render.String
 import Syntax
 
+prettyContext :: Context -> Bool -> Doc ann
+prettyContext (env, store, expr) _show =
+  pretty "Context"
+    <+> braces
+      ( line
+          <> indent 2 (prettyEnv env _show)
+          <> line
+          <> indent 2 (prettyStore store _show)
+          <> line
+          <> indent 2 (prettyTopLevelExpr expr)
+          <> line
+      )
+
 -- | Pretty print a configuration.
 prettyConfig :: Config -> Bool -> Doc ann
 prettyConfig (CommandConfig env store command) _show =
@@ -37,7 +50,7 @@ prettyConfig (ValueConfig store value value') _show =
     <+> prettyTopLevelValue value _show
     <+> pretty ", co-value:"
     <+> prettyTopLevelValue value' _show
-prettyConfig (CommandConfigWithCtx env store expr command) _show =
+prettyConfig (CommandConfigWithCtx env store ctx command) _show =
   pretty "<Command Config with Context>"
     <> line
     <> prettyEnv env _show
@@ -45,17 +58,17 @@ prettyConfig (CommandConfigWithCtx env store expr command) _show =
     <> prettyStore store _show
     <> line
     <> pretty "expr context:"
-    <+> prettyTopLevelExpr expr
+    <+> prettyContext ctx _show
     <> line
     <> pretty "command:"
     <+> prettyCommand command
-prettyConfig (ValueConfigWithCtx store expr value value') _show =
+prettyConfig (ValueConfigWithCtx store ctx value value') _show =
   pretty "<Value Config with Context>"
     <> line
     <> prettyStore store _show
     <> line
     <> pretty "expr context:"
-    <+> prettyTopLevelExpr expr
+    <+> prettyContext ctx _show
     <> line
     <> pretty "value:"
     <+> prettyTopLevelValue value _show

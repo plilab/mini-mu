@@ -165,7 +165,7 @@ matchWithCtx env store ctx v ((pat, cmd) : clauses) =
               Just spat ->
                 let newClause = Mu [(spat, cmd)] in
                   let (ctxEnv, ctxStore, ctxExpr) = ctx in
-                  let (env''', store''') = envStoreInsert env'' store''  v in
+                  let (env''', store''') = envStoreMerge env'' store'' ctxEnv ctxStore in
                   [CommandConfig env''' store''' $ Command newClause ctxExpr]
               Nothing -> error "Impossible"
         Nothing -> match env store v clauses

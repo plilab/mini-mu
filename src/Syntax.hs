@@ -29,6 +29,7 @@ module Syntax
     storeInsertCommand,
     envStoreInsert,
     envStoreInsertCommand,
+    envStoreMerge,
     Config (..),
   )
 where
@@ -136,9 +137,6 @@ envLookupCommand (Env _ cmdEnv) x = case Map.lookup x cmdEnv of
 envInsert :: Env -> VarId -> Addr -> Env
 envInsert (Env env cmdEnv) x addr = Env (Map.insert x addr env) cmdEnv
 
-envMerge :: Env -> Env -> Env
-envMerge (Env env1 cmdEnv1) (Env env2 cmdEnv2) = Env (Map.union env1 env2) (Map.union cmdEnv1 cmdEnv2)
-
 envInsertCommand :: Env -> CommandId -> Addr -> Env
 envInsertCommand (Env env cmdEnv) c addr = Env env (Map.insert c addr cmdEnv)
 
@@ -191,6 +189,12 @@ envStoreInsert env store var value = (env', store')
   where
     env' = envInsert env var addr
     (addr, store') = storeInsert store value
+
+envStoreMerge :: Env -> Store -> Env -> Store -> (Env, Store)
+envStoreMerge (Env env1 cmdEnv1) (Store _ _ store1 cmdStore1) (Env env2 cmdEnv2) (Store _ _ store2 cmdStore2) =
+  ( Env (Map.union env1 env2) (Map.union cmdEnv1 cmdEnv2),
+    Store (Addr 0) (Addr 0) (Map.union store1 store2) (Map.union cmdStore1 cmdStore2)
+  )
 
 envStoreInsertCommand :: Env -> Store -> CommandId -> Command -> (Env, Store)
 envStoreInsertCommand env store cmdId cmd = (env', store')
