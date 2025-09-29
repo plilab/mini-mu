@@ -1,7 +1,9 @@
 import "std_nat" (add)
 
-def testBasicIdiom a k := [ add @ _ 3 _ ] @ a k;
+def testBasicIdiom1 a := [ add @ _ 3 { v -> [ add @ 1 _ _ ] @ v Halt } ] @ a;
 
--- def testIdiomWithHere a k := *[add @ 1 2] @ a k;
+def testBasicIdiom2 a k := [ add @ _ 3 _ ] @ a k;
 
-run testBasicIdiom @ 2 { v -> [ add @ 1 _ _ ] @ v halt };
+-- run testBasicIdiom1 @ 2;
+
+run testBasicIdiom2 @ 2 { v -> [ add @ 1 _ _ ] @ v halt }; 
