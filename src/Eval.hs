@@ -12,7 +12,7 @@ module Eval
 where
 
 import qualified Data.Map as Map
-import Pretty (prettyTopLevelValue, renderPretty)
+import Pretty (prettyTopLevelValue, renderPretty, prettyConfig)
 import Syntax 
   (
     Env(..), 
@@ -59,9 +59,10 @@ evalExprWithCtx env store ctx (Cons ident args) = Left (ConsValue ident argValue
     (argValues, store') = foldl go ([], store) args
     go :: ([Value], Store) -> Expr -> ([Value], Store)
     go (argValuesAcc, storeAcc) arg =
-      (argValuesAcc ++ [argValue], storeAcc')
-      where
-        (argValue, storeAcc') = evalWithCtx env storeAcc ctx arg
+      case evalWithCtx env storeAcc ctx arg of
+        Left (argValue, storeAcc') -> (argValuesAcc ++ [argValue], storeAcc')
+        Right config -> let (argValue, storeAcc') = evalConfig config in (argValuesAcc ++ [argValue], storeAcc')
+
 evalExprWithCtx _ s _ Hole =
   Left (HoleValue, s)
 evalExprWithCtx e s ctx (IdiomExpr cmd@(Command _ _)) =
@@ -69,16 +70,27 @@ evalExprWithCtx e s ctx (IdiomExpr cmd@(Command _ _)) =
 evalExprWithCtx _ _ _ (IdiomExpr (CommandVar _)) =
   error "the command inside idiom should not be a CommandVar"
 
+evalConfig :: Config -> (Value, Store)
+evalConfig cfg@(CommandConfigWithCtx {}) =
+  case stepUntil cfg of  -- TODO: this is temporarys
+    CommandConfig env store (Command e _) -> evalExpr env store e
+    _ -> error $ show cfg
+    where stepUntil c@(CommandConfig {}) = c
+          stepUntil c = case step c of
+                          [c'] -> stepUntil c'
+                          [] -> error "stuck"
+                          _ -> error "nondeterministic step"
+evalConfig _ = error "TODO"
 
 eval :: Env -> Store -> Expr -> (Value, Store)
 eval env store expr = (value, store')
   where
     (value, store') = evalExpr env store expr
 
-evalWithCtx :: Env -> Store -> Context -> Expr -> (Value, Store)
+evalWithCtx :: Env -> Store -> Context -> Expr -> Either (Value, Store) Config
 evalWithCtx env store ctx expr = case evalExprWithCtx env store ctx expr of
-  Left (value, store') -> (value, store')
-  Right config -> error $ "Cannot evaluate expression with context to a value directly, got config: " ++ show config 
+  Left (value, store') -> Left (value, store')
+  Right config -> Right config
 
 -- eval env store (Right coexpr) = (Right value, store')
 --   where
