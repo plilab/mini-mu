@@ -39,6 +39,6 @@ def mul a b k :=
 def dec x k :=
   x . { Z -> x . k | S x' -> x' . k };
 
-def inc x k := Tuple (S x) . k;
+def inc x k := S x . k;
 
 export lt, geq, add, leq, eq, dec, inc, mul, sub
