@@ -1,9 +1,8 @@
 # Ideas
 
-- Background Markdown
-- Create folder of example .mmu
-- Move files into docs folder
-- Allow functions to return commands?
+This is a documentation file that contains the ideas for the projects, including
+those have been implemented and those still haven't been implemented.
+Some of the ideas are still at very early stage and might be wrong.
 
 ## Goals
 
