@@ -6,8 +6,8 @@ It features continuation-based evaluation, pattern matching, and a unique approa
 ## Overview
 
 MiniMu implements a variant of the μμ̃-calculus, where:
-- $\mu$ binds terms to variables
-- $\tilde{\mu}$ binds continuations to co-variables
+- $\tilde{\mu}$ binds terms to variables
+- $\mu$ binds continuations to co-variables
 
 This duality provides a powerful foundation for extracting and expressing control-flow in a elegant and useful way.
 
