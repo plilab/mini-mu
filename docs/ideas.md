@@ -94,7 +94,20 @@ General Goals: Fewer brackets, Fewer nestings
 
 ## Delimited Continuations
 
-We use a special kind of command 
+We use a special kind of command as delimiter, and I am quite sure this can give us delimited control. Interestingly, this kind command can be implemented as a dynamic time generated value, or a mu-abstraction.
+Here is the thing:
+```ocaml
+add @ 1 [add @ 1 2 here] halt
+=> { there -> add @ 1 2 there } . { non_tail_call -> add @ 1 non_tail_call halt }
+```
+conceptually, in the delimited scope, all "here" are changed to "there", and we eta-expand the command with this introduced variable, namely:
+```ocaml
+{ there -> add @ 1 2 there }
+```
+Out of the delimited scope, we introduce a one-hole-context, namely:
+```ocaml
+{ non_tail_call -> add @ 1 non_tail_call halt }
+```
 
 ## Other  
 - Letrec
