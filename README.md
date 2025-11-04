@@ -1,4 +1,5 @@
 # MiniMu (MuLe)
+<img src="./docs/icon.png" width="300"/>
 
 MiniMu is an experimental programming language designed to explore the dual $\mu\tilde{\mu}$-calculus.
 It features continuation-based evaluation, pattern matching, and a unique approach to control flow that makes explicit the duality between terms and continuations.
