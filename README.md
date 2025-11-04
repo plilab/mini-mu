@@ -1,7 +1,7 @@
 <div align="center">
 <img src="./docs/icon.png" width=50%/>
 
-# Mini-Mu (MiniMu)
+# Mini-Mu (MuLe)
 ### An Experimental Programming Language Based on the Dual Calculus
 </div>
 
