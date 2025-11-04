@@ -1,4 +1,4 @@
-import "std_nat" (mul)
+import "std_nat" (mul, add)
 
 def factorial n k :=
     let rec = seq f <- factorial n' then mul @ (S n') f k in

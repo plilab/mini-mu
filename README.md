@@ -1,13 +1,17 @@
-# MiniMu (MULE)
+<div align="center">
+<img src="./docs/icon.png" width=50%/>
 
-MiniMu is an experimental programming language designed to explore the dual $\mu\tilde{\mu}$-calculus.
+# Mini-Mu (MuLe) 
+</div>
+
+Mini-Mu is an experimental programming language designed to explore the dual $\mu\tilde{\mu}$-calculus.
 It features continuation-based evaluation, pattern matching, and a unique approach to control flow that makes explicit the duality between terms and continuations.
 
 ## Overview
 
-MiniMu implements a variant of the μμ̃-calculus, where:
-- $\mu$ binds terms to variables
-- $\tilde{\mu}$ binds continuations to co-variables
+Mini-Mu implements a variant of the μμ̃-calculus, where:
+- $\tilde{\mu}$ binds terms to variables
+- $\mu$ binds continuations to co-variables
 
 This duality provides a powerful foundation for extracting and expressing control-flow in a elegant and useful way.
 
@@ -46,14 +50,14 @@ npm install
 
 vsce build
 
-code --install-extension minimu-language-support-0.0.1.vsix
+code --install-extension mini-mu-language-support-0.0.1.vsix
 
 ```
 
 ### Running Programs
 
 ```bash
-# Run a MiniMu program
+# Run a Mini-Mu program
 ./src/Main run ./tests/add.mmu
 
 # Run with step-by-step evaluation
@@ -103,7 +107,7 @@ The standard library provides essential functions:
 ## Command Reference
 
 ### Main Commands
-- `run [OPTIONS] PROGRAM_FILE` - Execute a MiniMu program
+- `run [OPTIONS] PROGRAM_FILE` - Execute a Mini-Mu program
 - `viz [OPTIONS] PROGRAM_FILE` - Visualize program AST
 - `tree [OPTIONS] PROGRAM_FILE` - Generate evaluation tree
 - `test-all [OPTIONS]` - Run all test cases
@@ -122,7 +126,7 @@ The standard library provides essential functions:
 ## Development
 
 ### Architecture
-- **Parser.hs**: Parses MiniMu source code into AST
+- **Parser.hs**: Parses Mini-Mu source code into AST
 - **Syntax.hs**: Defines the core language AST
 - **Eval.hs**: Implements the evaluation semantics
 - **EvalTree.hs**: Constructs evaluation trees for analysis
@@ -132,7 +136,7 @@ The standard library provides essential functions:
 
 ## Research Context
 
-MiniMu serves as a testbed for exploring:
+Mini-Mu serves as a testbed for exploring:
 - Duality between terms and continuations
 - Explict control-flow representations in functional languages
 - Applications of sequent calculus in practical programming
