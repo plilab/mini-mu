@@ -1,28 +1,50 @@
 <div align="center">
 <img src="./docs/icon.png" width=50%/>
 
-# Mini-Mu (MuLe) 
+# Mini-Mu (MiniMu)
+### An Experimental Programming Language Based on the Dual Calculus
 </div>
 
-Mini-Mu is an experimental programming language designed to explore the dual $\mu\tilde{\mu}$-calculus.
-It features continuation-based evaluation, pattern matching, and a unique approach to control flow that makes explicit the duality between terms and continuations.
+Mini-Mu is an experimental programming language that explores the dual $\mu\tilde{\mu}$-calculus. It demonstrates the duality between terms and continuations, making continuations first-class CITIZEN in the language.
 
 ## Overview
 
-Mini-Mu implements a variant of the μμ̃-calculus, where:
-- $\tilde{\mu}$ binds terms to variables
-- $\mu$ binds continuations to co-variables
+Mini-Mu implements a variant of the $\mu\tilde{\mu}$-calculus (dual calculus), inspired by classical sequent calculus:
+- **$\tilde{\mu}$ (mu-tilde)** - binds terms to variables, representing values and data flow
+- **$\mu$ (mu)** - binds continuations to co-variables, representing control flow and contexts
 
-This duality provides a powerful foundation for extracting and expressing control-flow in a elegant and useful way.
+This duality provides an elegant and powerful foundation for expressing complex control flow patterns like early returns, and imperative-style programming within a functional framework.
+
+### Key Concepts
+
+The language is based on the **dual calculus**, which extends the lambda calculus with first-class continuations:
+- **Commands** (written `e . k`) represent computation steps pairing an expression `e` with a continuation `k`
+- **Pattern matching** on algebraic data types (naturals, lists, booleans, pairs)
+- **Explicit continuation passing** enables sophisticated control flow patterns
+- **Dual syntax** that treats terms and continuations symmetrically
 
 ## Features
 
-- **Continuation-based evaluation** with explicit control flow
-- **Pattern matching** on algebraic data types (Nat, List, Bool, etc.)
-- **Module system** with imports and exports
-- **AST visualization** and evaluation tree generation
-- **Control-flow graph output** for program analysis
-- **Comprehensive test suite** with standard library
+### Language Features
+- **First-class continuations** via $\mu$ and $\tilde{\mu}$ abstractions
+- **Pattern matching** on algebraic data types (Nat, List, Bool, Pair)
+- **Nested and wildcard patterns** for flexible data deconstruction
+- **Module system** with imports and exports for code organization
+- **Standard library** with functional primitives (map, filter, fold, etc.)
+
+### Development Tools
+- **Interpreter** with step-by-step evaluation mode
+- **AST visualization** to understand program structure
+- **Evaluation tree generation** (text and SVG) for debugging
+- **VS Code extension** with syntax highlighting
+- **Comprehensive test suite** with 20+ example programs
+
+### Example Programs
+The `tests/` directory includes implementations of:
+- Factorial, insertion sort, quicksort
+- List operations (map, filter, reverse, append)
+- Control flow patterns (early return, loops with break, coroutines)
+- Imperative-style programming using continuations
 
 ## Installation & Setup
 
@@ -96,13 +118,27 @@ code --install-extension mini-mu-language-support-0.0.1.vsix
 ./src/Main test-all --standard
 ```
 
+## Language Syntax
+
+Mini-Mu uses a unique syntax reflecting its dual calculus foundation:
+
+TODO
+
 ## Standard Library
 
-The standard library provides essential functions:
+Located in `lib/`, the standard library provides essential functions:
 
-- **std_nat.mmu**: Natural number operations (add, lt, eq, inc, etc.)
-- **std_list.mmu**: List operations (append, map, filter, length, etc.)  
-- **std_bool.mmu**: Boolean operations and utilities
+- **std_nat.mmu**: Natural number operations (add, sub, mul, lt, eq, etc.)
+- **std_list.mmu**: List operations (append, map, filter, length, reverse, etc.)  
+- **std_bool.mmu**: Boolean operations and conditional utilities
+
+Import them in your programs:
+```haskell
+import "std_nat"
+import "std_list"
+
+run add @ 2 1 halt
+```
 
 ## Command Reference
 
@@ -134,12 +170,37 @@ The standard library provides essential functions:
 - **Pretty.hs**: Pretty-printing for ASTs and configurations
 - **Module.hs**: Module system and import resolution
 
+## Example: Factorial
+
+Here's a simple factorial implementation demonstrating continuation patterns:
+
+```haskell
+import "std_nat" (mul, add)
+
+def factorial n k :=
+    let rec = seq f <- factorial n' then mul @ (S n') f k in
+    n . { 0 -> 1 . k 
+        | S n' -> rec };
+
+run factorial @ 5 halt;
+```
+
 ## Research Context
 
-Mini-Mu serves as a testbed for exploring:
-- Duality between terms and continuations
-- Explict control-flow representations in functional languages
-- Applications of sequent calculus in practical programming
+Mini-Mu serves as a research platform for exploring:
+- **Duality between terms and continuations** based on classical sequent calculus
+- **Applications of the dual calculus** to practical programming patterns
+
+This work demonstrates how theoretical concepts from logic and type theory can inform practical programming language design.
+
+## Contributing
+
+Contributions are welcome! Areas of interest include:
+- Language features and syntactic improvements
+- Additional standard library functions
+- Better error messages and debugging tools
+- Performance optimizations, including compiler
+- Documentation and examples
 
 ## License
 
@@ -147,6 +208,16 @@ This project is licensed under the BSD-2-Clause License - see the [LICENSE](LICE
 
 ## Authors
 
-- Ding Feng
-- Kyriel Abad  
-- Michael D. Adams
+- Ding Feng, National University of Singapore
+- Kyriel Abad, National University of Singapore  
+- Michael D. Adams, National University of Singapore
+
+## References
+
+For more information on the dual calculus and $\mu\tilde{\mu}$-calculus:
+- Curien, P.-L., & Herbelin, H. (2000). *The duality of computation*. ICFP.
+- Wadler, P. (2003). *Call-by-value is dual to call-by-name*. ICFP.
+
+---
+
+**Note**: This is an experimental research language. It is not intended for production use but as a platform for exploring programming language theory and continuation-based control flow.
