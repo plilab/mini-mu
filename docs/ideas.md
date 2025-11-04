@@ -56,9 +56,40 @@ General Goals: Fewer brackets, Fewer nestings
     COFUN{K1, K2}(E1, K1, E2, K2)
     => { (K1, K2) -> {_f -> (E1, K1, E2, K2) } . COFUN }
     ```
-- Seq/then ver2.0
+- Do/then ver2.0
     ```ocaml
-    proposing...
+      do
+        PAT1 = FUN1(ARGS...),
+        PAT2 = FUN2(ARGS...),
+        ...
+        PATn-1 = FUNn-1(ARGS...),
+        PATn = FUNn(ARGS...)
+      then CMDf
+      =>
+      FUN1(ARGS...) . {
+        PAT1 -> FUN2(ARGS...) .
+        {
+          PAT2 -> ...
+          {
+            PATn-1 -> FUNn(ARGS...) .
+            {
+              PATn -> CMDf
+            } 
+          }
+        }
+      }
+    ```
+    ```ocaml
+    def quick_sort xs :=
+      match xs with
+      | Nil -> Nil . k
+      | Cons x xs' ->
+        do
+          (s, g) = split(xs),
+          sorted_s = sort(s),
+          sorted_g = sort(g)
+        then let arg = (sorted_s, pvt::sorted_g) in
+          append(arg) . k
     ```
 
 ## Delimited Continuations
