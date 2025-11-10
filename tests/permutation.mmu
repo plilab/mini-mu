@@ -4,7 +4,7 @@ import "std_nat" (eq)
 fn format_input_aux n acc k :=
   match n with
     Z -> acc . k
-  | S n' -> format_input_aux @ n' (List:: (S n') acc) k;
+  | S n' -> format_input_aux @ n' (List:: n acc) k;
 
 fn format_input n k :=
   format_input_aux @ n Nil k;
@@ -33,4 +33,4 @@ fn permutation n k :=
   let xs = format_input(n)
   in perm_aux @ xs Nil Nil n k;
 
-run format_input(1, Nil) . halt;
+run permutation(1) . halt;

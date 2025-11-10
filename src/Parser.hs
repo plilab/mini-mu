@@ -24,7 +24,7 @@ keywords =
     "letc",
     "in",
     "where",
-    "do",
+    "seq",
     "then",
     "match",
     "patch",
@@ -233,9 +233,9 @@ atom :: Parser Expr
 atom =
   label "atom expr" $
     choice
-      [ -- Sugar 7: Simplify mu[] as []
+      [ -- Sugar 7: Simplify mu{} as {}
         try (Mu <$> curly (sepBy1 patternCase (symbol "|"))),
-        try haveExpr, -- 
+        try haveExpr,
         try natExpr, -- Sugar 8: Expand numerical to S...Z
         try tupleExpr, -- Sugar 9: Expand pairs
         try $ (`Cons` []) <$> consId, -- constructor with no arguments
@@ -292,17 +292,17 @@ expr =
   label
     "expression"
     $ choice
-      [ try funApplication,
-        try cofunApplication,
+      [ 
         try cons,
+        try funApplication,
+        try cofunApplication,
         atom
       ]
 
 cons :: Parser Expr
 cons =
-  label "complete constructor" $
-    -- notFollowedBy (symbol "_") will trigger backtracking
-    Cons <$> consId <*> many atom <* notFollowedBy (symbol "_")
+  label "constructor" $
+    Cons <$> consId <*> many atom
 
 -- Parse a command
 command :: Parser Command

@@ -164,6 +164,7 @@ run opts = do
       view = viewEvalProcess opts
       viewEnv = viewFullEnvRun opts
       standard = standardRun opts
+
   programAst <- parseMiniMu file
 
   when standard $ do

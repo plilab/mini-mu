@@ -9,7 +9,7 @@ fn list_split pred xs cpr k :=
       match rest with 
         (smaller, greater) ->
           letc final = { True -> ((List:: x smaller), greater) . k
-                      | False -> (smaller, (List:: x greater)) . k }
+                       | False -> (smaller, (List:: x greater)) . k }
           in pred(x, cpr) . final;
 
 fn quick_sort xs k :=
