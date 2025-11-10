@@ -64,9 +64,10 @@ step (ValueConfig store cons@(ConsValue {}) (MuValue env clauses)) =
   match env store cons clauses
 step (ValueConfig store (MuValue env clauses) cons@(ConsValue {})) =
   match env store cons clauses
+step (ValueConfig store v@(MuValue env muClaus@[(VarPattern _, _)]) cv@(MuValue env' comuClaus@[(VarPattern _, _)])) =
+  match env store cv muClaus -- match env store cv muClaus
 step (ValueConfig store v@(MuValue env clauses) cv@(MuValue env' clauses')) =
-  match env' store v clauses' ++
-  match env store cv clauses
+  match env' store v clauses' ++ match env store cv clauses
 -- temporary hack to deal with "Halt"
 step (ValueConfig _ cons@(ConsValue _ _) (ConsValue "Halt" [])) =
   [ErrorConfig ("Halt with result: " ++ renderPretty (prettyTopLevelValue cons False))]

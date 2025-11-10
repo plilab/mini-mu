@@ -95,10 +95,7 @@ data Value
 
 data Config
   = CommandConfig Env Store Command -- ρ |- q
-  | CommandConfigWithCtx Env Store Context Command
   | ValueConfig Store Value Value
-  | ValueConfigWithCtx Store Context Value Value
-  | ConstructorConfig Env Store Context ConsId [Expr] [Value]
   | ErrorConfig String
   deriving (Eq, Show, Ord)
 
