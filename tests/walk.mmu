@@ -2,30 +2,29 @@
 
 import "std_list" (list_append)
 
+-- walk takes quadratic time
 fn walk t k :=
-  t . {
+  match t with
     Leaf x -> List:: x Nil . k
   | Node t1 t2 -> do
-      flat_t1 <- walk t1,
-      flat_t2 <- walk t2
-      then list_append @ flat_t1 flat_t2 k
-  };
+      flat_t1 <- walk(t1),
+      flat_t2 <- walk(t2)
+      then list_append(flat_t1, flat_t2) . k;
 
 fn compose f g k :=
-  { (x, k') -> do gx <- g x then f @ gx k' } . k;
+  { (x, k') -> let gx = g(x) in f(gx) . k' } . k;
 
 fn walk_alt_aux t k :=
-  t . {
+  match t with
     Leaf x -> { (xs, k') -> List:: x xs . k' } . k
   | Node t1 t2 -> do
-      flat_t1 <- walk_alt_aux t1,
-      flat_t2 <- walk_alt_aux t2
-      then compose @ flat_t1 flat_t2 k
-  };
+      flat_t1 <- walk_alt_aux(t1),
+      flat_t2 <- walk_alt_aux(t2)
+      then compose(flat_t1, flat_t2) . k;
 
--- walt_alt takes linear time
+-- walk_alt takes linear time
 fn walk_alt t k := 
-  walk_alt_aux @ t { acc -> acc @ Nil k };
+  walk_alt_aux(t) . { acc -> acc(Nil) . k };
 
 some_tree = Node (Node (Leaf 1) (Leaf 2)) (Node (Leaf 3) (Leaf 4));
 

@@ -243,7 +243,7 @@ atom =
         parens expr
       ]
 
--- Function application sugar: FUN(E1, E2, E3) => { _k -> FUN . { _f -> (E1, E2, E3, _k) } }
+-- Function application sugar: FUN(E1, E2, E3) => { _k -> { _args -> FUN . _args } . { _f -> f . (E1, E2, E3, _k) } }
 -- FUN{K1, K2}(E1, K1, E2, K2) => { (K1, K2) -> FUN . {_f -> (E1, K1, E2, K2) } }
 funApplication :: Parser Expr
 funApplication = label "function application" $ do
@@ -256,13 +256,19 @@ funApplication = label "function application" $ do
 
   if null explicitConts
     then do
-      -- Simple case: FUN(E1, E2, E3) => { _k -> FUN . { _f -> (E1, E2, E3, _k) } }
-      return $ Mu [(VarPattern "_k", Command fun (Mu [(VarPattern "_f", Command (Cons "Tuple" (args ++ [Var "_k"])) (Var "_f"))]))]
+      -- Simple case: FUN(E1, E2, E3) => { _k -> {_args -> FUN . _args } . { _f -> _f . (E1, E2, E3, _k) } }
+      let innerCmdL = Command fun (Var "_args")
+      let innerCmdR = Command (Var "_f") (Cons "Tuple" (args ++ [Var "_k"]))
+      return $ Mu [(VarPattern "_k", 
+        Command 
+          (Mu[(VarPattern "_args", innerCmdL)]) 
+          (Mu [(VarPattern "_f", innerCmdR)]))]
     else do
       -- With explicit conts: FUN{K1, K2}(E1, K1, E2, K2) => { (K1, K2) -> FUN . {_f -> (E1, K1, E2, K2) } }
       let contsPat = ConsPattern "Tuple" (map VarPattern explicitConts)
-      let innerCmd = Command (Cons "Tuple" args) (Var "_f")
-      return $ Mu [(contsPat, Command fun (Mu [(VarPattern "_f", innerCmd)]))]
+      let innerCmdL = Command fun (Var "_args")
+      let innerCmdR = Command (Var "_f") (Cons "Tuple" args)
+      return $ Mu [(contsPat, Command (Mu [(VarPattern "_args", innerCmdL)]) (Mu [(VarPattern "_f", innerCmdR)]))]
 
 -- Cofun application sugar: COFUN(E1, E2, E3) => { _k -> { _f -> (E1, E2, E3, _k) } . COFUN }
 -- COFUN{K1, K2}(E1, K1, E2, K2) => { (K1, K2) -> {_f -> (E1, K1, E2, K2) } . COFUN }
@@ -278,14 +284,15 @@ cofunApplication = label "cofunction application" $ do
   if null explicitConts
     then do
       -- simple case: `COFUN(E1, E2, E3) => { _k -> { _f -> (E1, E2, E3, _k) } . COFUN }
-      let k = Var "_k"
-      let innerMu = Mu [(VarPattern "_f", Command (Cons "Tuple" (args ++ [k])) (Var "_f"))]
-      return $ Mu [(VarPattern "_k", Command innerMu cofun)]
+      let innerMuL = Mu [(VarPattern "_f", Command (Cons "Tuple" (args ++ [Var "_k"])) (Var "_f"))]
+      let innerMuR = Mu [(VarPattern "_args", Command (Var "_args") cofun)]
+      return $ Mu [(VarPattern "_k", Command innerMuL innerMuR)]
     else do
       -- with explicit conts: `COFUN{K1, K2}(E1, K1, E2, K2) => { (K1, K2) -> {_f -> (E1, K1, E2, K2) } . COFUN }
       let contsPat = ConsPattern "Tuple" (map VarPattern explicitConts)
-      let innerMu = Mu [(VarPattern "_f", Command (Cons "Tuple" args) (Var "_f"))]
-      return $ Mu [(contsPat, Command innerMu cofun)]
+      let innerMuL = Mu [(VarPattern "_f", Command (Cons "Tuple" args) (Var "_f"))]
+      let innerMuR = Mu [(VarPattern "_args", Command (Var "_args") cofun)]
+      return $ Mu [(contsPat, Command innerMuL innerMuR)]
 
 expr :: Parser Expr
 expr =
@@ -388,8 +395,8 @@ commandSugar = label "Sugared Command" $ do
         -- ... @ let x = .. in ...
         -- x y z @ y
         choice
-          [ try $ desugarAt <$> atom <* symbol "@" <*> many atom, -- fun @ a b c
-            coDesugarAt <$> many atom <* symbol "@" <*> atom -- a b c @ fun
+          [ try $ desugarAt <$> expr <* symbol "@" <*> many atom, -- fun @ a b c
+            coDesugarAt <$> many atom <* symbol "@" <*> expr -- a b c @ fun
           ]
     ]
   where
