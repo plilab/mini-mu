@@ -39,6 +39,6 @@ fn mul a b k :=
 fn dec x k :=
   x . { Z -> x . k | S x' -> x' . k };
 
-fn inc x k := Tuple (S x) . k;
+fn inc x k := S x . k;
 
 export lt, geq, add, leq, eq, dec, inc, mul, sub

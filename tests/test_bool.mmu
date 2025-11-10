@@ -2,8 +2,7 @@ import "std_bool" (if, branch, not)
 import "std_nat" (inc)
 
 fn inc1 x cond k :=
-   branch @ cond
-     { True -> inc @ x k }
-     { False -> x . k };
+   branch{t,f}(cond, t, f) . 
+   ({ True -> inc @ x k }, { False -> x . k });
 
-run inc1 @ 1 True halt;
+run inc1(1, True) . halt;

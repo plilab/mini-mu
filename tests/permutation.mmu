@@ -4,7 +4,7 @@ import "std_nat" (eq)
 fn format_input_aux n acc k :=
   match n with
     Z -> acc . k
-  | S n' -> format_input_aux @ n' (List:: n acc) k;
+  | S n' -> format_input_aux @ n' (List:: (S n') acc) k;
 
 fn format_input n k :=
   format_input_aux @ n Nil k;
@@ -14,23 +14,21 @@ fn perm_aux xs acc res n k :=
     len <- list_length(acc),
     is_full <- eq(len, n)
   then 
-  match is_full with 
-    True -> List:: acc res . k
-  | _ -> 
-    match xs with 
-      Nil -> res . k
-    | List:: x xs' -> 
-        let contains = list_contains(acc, x) in
-        match contains with
-          True -> perm_aux @ xs' acc res n k
-        | _ ->
-            do
-              full_list <- format_input(n),
-              res' <- perm_aux(full_list, (List:: x acc), res, n)
-            then perm_aux @ xs' acc res' n k;
-  
+  match (is_full, xs) with 
+    (True, _) -> List:: acc res . k
+  | (_, Nil) -> res . k
+  | (_, List:: x xs') -> 
+    let contains = list_contains(acc, x) in
+    match contains with
+      True -> perm_aux(xs', acc, res, n) . k
+    | _ ->
+      do
+        full_list <- format_input(n),
+        res' <- perm_aux(full_list, (List:: x acc), res, n)
+      then perm_aux(xs', acc, res', n) . k;
+
 fn permutation n k :=
   let xs = format_input(n)
-  in perm_aux @ xs Nil Nil n k;
+  in perm_aux(xs, Nil, Nil, n) . k;
 
-run permutation(1) . halt;
+run permutation(2) . halt;
