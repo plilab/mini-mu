@@ -80,7 +80,7 @@ General Goals: Fewer brackets, Fewer nestings
       }
     ```
     ```ocaml
-    def quick_sort xs :=
+    fn quick_sort xs :=
       match xs with
       | Nil -> Nil . k
       | Cons x xs' ->

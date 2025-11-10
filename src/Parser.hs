@@ -18,13 +18,18 @@ type Parser = Parsec Void String
 -- Keywords for our language
 keywords :: [String]
 keywords =
-  [ "def",
+  [ "fn",
     "run",
     "let",
+    "letc",
     "in",
     "where",
-    "seq",
-    "then"
+    "do",
+    "then",
+    "match",
+    "patch",
+    "with",
+    "here"
   ]
 
 -- Parse a MiniMu program from a file, handing errors
@@ -223,13 +228,6 @@ pattern =
 patternCase :: Parser (Pattern, Command)
 patternCase = label "pattern case" $ (,) <$> pattern <* symbol "->" <*> command
 
--- A idiom should be able to refer to the parent command
--- For example, in [add @ 3] @ 1 halt, the idiom can refer to "this @ 1 halt"
-idiomExpr :: Parser Expr
-idiomExpr = label "idiom expr" $ do
-  IdiomExpr <$> squares command -- deal with inner command
-      
-
 -- atoms are naturally delimited expressions.
 atom :: Parser Expr
 atom =
@@ -237,9 +235,7 @@ atom =
     choice
       [ -- Sugar 7: Simplify mu[] as []
         try (Mu <$> curly (sepBy1 patternCase (symbol "|"))),
-        try letExpr, -- TODO: move to atom so we allow: x @ X let y = ... in ...
-        try hole,
-        try idiomExpr, -- [expr] - basic idiom form
+        try haveExpr, -- 
         try natExpr, -- Sugar 8: Expand numerical to S...Z
         try tupleExpr, -- Sugar 9: Expand pairs
         try $ (`Cons` []) <$> consId, -- constructor with no arguments
@@ -247,12 +243,58 @@ atom =
         parens expr
       ]
 
+-- Function application sugar: FUN(E1, E2, E3) => { _k -> FUN . { _f -> (E1, E2, E3, _k) } }
+-- FUN{K1, K2}(E1, K1, E2, K2) => { (K1, K2) -> FUN . {_f -> (E1, K1, E2, K2) } }
+funApplication :: Parser Expr
+funApplication = label "function application" $ do
+  fun <- atom
+  -- Check for explicit continuations {K1, K2, ...}
+  explicitConts <- option [] (curly (sepBy1 varId (symbol ",")))
+  _ <- symbol "("
+  args <- sepBy expr (symbol ",")
+  _ <- symbol ")"
+
+  if null explicitConts
+    then do
+      -- Simple case: FUN(E1, E2, E3) => { _k -> FUN . { _f -> (E1, E2, E3, _k) } }
+      return $ Mu [(VarPattern "_k", Command fun (Mu [(VarPattern "_f", Command (Cons "Tuple" (args ++ [Var "_k"])) (Var "_f"))]))]
+    else do
+      -- With explicit conts: FUN{K1, K2}(E1, K1, E2, K2) => { (K1, K2) -> FUN . {_f -> (E1, K1, E2, K2) } }
+      let contsPat = ConsPattern "Tuple" (map VarPattern explicitConts)
+      let innerCmd = Command (Cons "Tuple" args) (Var "_f")
+      return $ Mu [(contsPat, Command fun (Mu [(VarPattern "_f", innerCmd)]))]
+
+-- Cofun application sugar: COFUN(E1, E2, E3) => { _k -> { _f -> (E1, E2, E3, _k) } . COFUN }
+-- COFUN{K1, K2}(E1, K1, E2, K2) => { (K1, K2) -> {_f -> (E1, K1, E2, K2) } . COFUN }
+cofunApplication :: Parser Expr
+cofunApplication = label "cofunction application" $ do
+  _ <- symbol "`"
+  cofun <- atom
+  explicitConts <- option [] (curly (sepBy1 varId (symbol ",")))
+  _ <- symbol "("
+  args <- sepBy expr (symbol ",")
+  _ <- symbol ")"
+
+  if null explicitConts
+    then do
+      -- simple case: `COFUN(E1, E2, E3) => { _k -> { _f -> (E1, E2, E3, _k) } . COFUN }
+      let k = Var "_k"
+      let innerMu = Mu [(VarPattern "_f", Command (Cons "Tuple" (args ++ [k])) (Var "_f"))]
+      return $ Mu [(VarPattern "_k", Command innerMu cofun)]
+    else do
+      -- with explicit conts: `COFUN{K1, K2}(E1, K1, E2, K2) => { (K1, K2) -> {_f -> (E1, K1, E2, K2) } . COFUN }
+      let contsPat = ConsPattern "Tuple" (map VarPattern explicitConts)
+      let innerMu = Mu [(VarPattern "_f", Command (Cons "Tuple" args) (Var "_f"))]
+      return $ Mu [(contsPat, Command innerMu cofun)]
+
 expr :: Parser Expr
 expr =
   label
     "expression"
     $ choice
-      [ try cons,
+      [ try funApplication,
+        try cofunApplication,
+        try cons,
         atom
       ]
 
@@ -262,9 +304,6 @@ cons =
     -- notFollowedBy (symbol "_") will trigger backtracking
     Cons <$> consId <*> many atom <* notFollowedBy (symbol "_")
 
-hole :: Parser Expr
-hole = label "hole" $ Hole <$ symbol "_"
-
 -- Parse a command
 command :: Parser Command
 command =
@@ -272,8 +311,11 @@ command =
     "command"
     $ choice
       [ try letCommand,
+        try letcCommand,
+        try matchCommand,
+        try patchCommand,
         try commandSugar,
-        try seqThenCommand,
+        try doThenCommand,
         try $ angles $ do
           e <- expr
           _ <- symbol "|>"
@@ -303,7 +345,7 @@ decl =
   label
     "Declaration"
     $ choice
-      [ try defDecl,
+      [ try fnDecl,
         try runDecl,
         Decl <$> varId <* symbol "=" <*> expr
       ]
@@ -360,19 +402,19 @@ commandSugar = label "Sugared Command" $ do
     coDesugarAt [] _ = error "@ requires at least one argument"
     coDesugarAt args fun = Command (Cons "Tuple" args) fun
 
--- | Sugar for definitions: def/run
--- def NAME ARGS* := COMMAND === NAME = mu[ Tuple ARGS... -> COMMAND ]
-defDecl :: Parser Decl
-defDecl =
+-- | Sugar for function definitions: fn/run
+-- fn NAME ARGS* := COMMAND === NAME = mu[ Tuple ARGS... -> COMMAND ]
+fnDecl :: Parser Decl
+fnDecl =
   label "Sugared Declaration" $
-    (\n args cmd -> Decl n (desugarDef args cmd))
-      <$> (symbol "def" *> varId)
+    (\n args cmd -> Decl n (desugarFn args cmd))
+      <$> (symbol "fn" *> varId)
       <*> many pattern
       <* symbol ":="
       <*> command
   where
-    desugarDef :: [Pattern] -> Command -> Expr
-    desugarDef args cmd =
+    desugarFn :: [Pattern] -> Command -> Expr
+    desugarFn args cmd =
       Mu [(ConsPattern "Tuple" args, cmd)]
 
 -- | run COMMAND === main = mu[ halt -> COMMAND ]
@@ -383,17 +425,17 @@ runDecl = do
     desugarRun :: Command -> Expr
     desugarRun cmd = Mu [(VarPattern "halt", cmd)]
 
--- Sugar 4: let grammar
-letExpr :: Parser Expr
-letExpr = label "let expression" $ do
-  _ <- symbol "let"
+-- Sugar 4: have grammar
+haveExpr :: Parser Expr
+haveExpr = label "have expression" $ do
+  _ <- symbol "have"
   bindings <- sepBy1 binding (symbol ",")
   _ <- symbol "in"
-  desugarLet bindings <$> expr
+  desugarHave bindings <$> expr
   where
-    desugarLet :: [(Either VarId CommandId, Either Expr Command)] -> Expr -> Expr
-    desugarLet [] body = body
-    desugarLet bindings body =
+    desugarHave :: [(Either VarId CommandId, Either Expr Command)] -> Expr -> Expr
+    desugarHave [] body = body
+    desugarHave bindings body =
       foldr
         ( \(name, value) acc -> case name of
             Left varid -> case value of
@@ -406,27 +448,47 @@ letExpr = label "let expression" $ do
         body
         bindings
 
+-- Cut-as-let: let VAR = EXPR in CMD => EXPR . { VAR -> CMD }
 letCommand :: Parser Command
 letCommand = label "let command" $ do
   _ <- symbol "let"
-  bindings <- sepBy1 binding (symbol ",")
+  pat <- pattern
+  _ <- symbol "="
+  e <- expr
   _ <- symbol "in"
-  desugarLetCommand bindings <$> command
-  where
-    desugarLetCommand :: [(Either VarId CommandId, Either Expr Command)] -> Command -> Command
-    desugarLetCommand [] cmd = cmd
-    desugarLetCommand bindings cmd =
-      foldr
-        ( \(name, value) acc -> case name of
-            Left varid -> case value of
-              Left e -> findAndSubstExprInCmd (varid, e) acc
-              Right _ -> error "varId cannot be bound to a command"
-            Right cmdid -> case value of
-              Left _ -> error "commandId cannot be bound to an expression"
-              Right c -> findAndSubstCmdInCmd (cmdid, c) acc
-        )
-        cmd
-        bindings
+  cmd <- command
+  return $ Command e (Mu [(pat, cmd)])
+
+-- letc: letc COVAR = COEXPR in CMD => { COVAR -> CMD } . COEXPR
+letcCommand :: Parser Command
+letcCommand = label "letc command" $ do
+  _ <- symbol "letc"
+  pat <- pattern
+  _ <- symbol "="
+  ce <- expr
+  _ <- symbol "in"
+  cmd <- command
+  return $ Command (Mu [(pat, cmd)]) ce
+
+-- match: match EXPR with | PAT1 -> CMD1 | PAT2 -> CMD2 ... => EXPR . { PAT1 -> CMD1 | PAT2 -> CMD2 ... }
+matchCommand :: Parser Command
+matchCommand = label "match command" $ do
+  _ <- symbol "match"
+  e <- expr
+  _ <- symbol "with"
+  _ <- optional (symbol "|")
+  cases <- sepBy1 patternCase (symbol "|")
+  return $ Command e (Mu cases)
+
+-- patch: patch COEXPR with | PAT1 -> CMD1 | PAT2 -> CMD2 ... => { PAT1 -> CMD1 | PAT2 -> CMD2 ... } . COEXPR
+patchCommand :: Parser Command
+patchCommand = label "patch command" $ do
+  _ <- symbol "patch"
+  ce <- expr
+  _ <- symbol "with"
+  _ <- optional (symbol "|")
+  cases <- sepBy1 patternCase (symbol "|")
+  return $ Command (Mu cases) ce
 
 binding :: Parser (Either VarId CommandId, Either Expr Command)
 binding = label "Parsing binding in let/where" $ do
@@ -455,10 +517,6 @@ findAndSubstExprInExpr (name, e) (Mu branches) =
   Mu (map (\(p, c) -> (p, findAndSubstExprInCmd (name, e) c)) branches)
 findAndSubstExprInExpr (name, e) (Cons c args) =
   Cons c (map (findAndSubstExprInExpr (name, e)) args)
-findAndSubstExprInExpr _ Hole =
-  Hole
-findAndSubstExprInExpr (name, e) (IdiomExpr cmd) =
-  IdiomExpr (findAndSubstExprInCmd (name, e) cmd)
 findAndSubstExprInExpr (name, e) (Var v) =
   if v == name then e else Var v
 
@@ -473,10 +531,6 @@ findAndSubstCmdInExpr (name, cmd) (Mu branches) =
   Mu (map (\(p, c) -> (p, findAndSubstCmdInCmd (name, cmd) c)) branches)
 findAndSubstCmdInExpr (name, cmd) (Cons c args) =
   Cons c (map (findAndSubstCmdInExpr (name, cmd)) args)
-findAndSubstCmdInExpr _ Hole =
-  Hole
-findAndSubstCmdInExpr (name, cmd) (IdiomExpr c) =
-  IdiomExpr (findAndSubstCmdInCmd (name, cmd) c)
 findAndSubstCmdInExpr _ (Var v) =
   Var v
 
@@ -486,166 +540,24 @@ findAndSubstCmdInCmd (name, cmd) (Command expr1 expr2) =
 findAndSubstCmdInCmd (name, cmd) (CommandVar cmdId) =
   if cmdId == name then cmd else CommandVar cmdId
 
--- whereClause :: Parser [(VarId, Either Expr Command)]
--- whereClause = do
---   _ <- symbol "where"
---   sepBy1 binding (symbol ".")
---   where
---     binding = do
---       name <- varId
---       _ <- symbol "="
---       choice
---         [ do e <- expr; return (name, Left e),
---           do c <- command; return (name, Right c)
---         ]
 
 -- Sugar: do...then grammar
-seqThenCommand :: Parser Command
-seqThenCommand = label "seq/then command" $ do
-  _ <- symbol "seq"
+doThenCommand :: Parser Command
+doThenCommand = label "do/then command" $ do
+  _ <- symbol "do"
   bindings <- sepBy (notFollowedBy (symbol "then") *> doBinding) (symbol ",")
   _ <- symbol "then"
   desugarDoThen bindings <$> command
   where
+    doBinding :: Parser (Pattern, Expr)
     doBinding = do
       pat <- pattern
       _ <- symbol "<-"
-      fun <- expr
-      args <- many expr
-      return (pat, fun, args)
+      funCall <- expr
+      return (pat, funCall)
 
-    desugarDoThen :: [(Pattern, Expr, [Expr])] -> Command -> Command
+    desugarDoThen :: [(Pattern, Expr)] -> Command -> Command
     desugarDoThen [] cmd = cmd
-    desugarDoThen ((pat, fun, args) : rest) cmd =
-      -- This creates nested applications with continuations
-      Command fun (Cons "Tuple" (args ++ [Mu [(pat, desugarDoThen rest cmd)]]))
-
-
--- expandCommandTree :: Command -> Command
--- expandCommandTree prt@(Command _ _) = expandCommandTreeAux prt 0
---   where
---     expandCommandTreeAux :: Command -> Int -> Command
---     expandCommandTreeAux (Command expr1 expr2) level =
---       case findFirstIdiom expr1 of
---         Just (DerefIdiomExpr cmd) ->
---           let thisVarName = "this" ++ show level
---               expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
---               hereSubstituted = substituteHereInCommand expandedInnerCmd (Var thisVarName)
---               thisDefinition = Mu [(VarPattern "res", Command expr2 (Var "res"))]
---               resultExpr = case hereSubstituted of
---                 Command cmdExpr1 _ -> cmdExpr1
---                 _ -> error "Expected Command after here substitution"
---               newExpr1 = replaceFirstIdiom expr1 resultExpr
---           in expandCommandTreeAux (Command newExpr1 thisDefinition) level
---         Just (IdiomExpr cmd) ->
---           let expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
---               newExpr1 = replaceFirstIdiom expr1 (IdiomExpr expandedInnerCmd)
---           in expandCommandTreeAux (Command newExpr1 expr2) level
---         Just _ -> error "Should not reach here"
---         Nothing ->
---           case findFirstIdiom expr2 of
---             Just (DerefIdiomExpr cmd) ->
---               let thisVarName = "this" ++ show level
---                   expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
---                   hereSubstituted = substituteHereInCommand expandedInnerCmd (Var thisVarName)
---                   thisDefinition = Mu [(VarPattern "res", Command expr1 (Var "res"))]
---                   resultExpr = case hereSubstituted of
---                     Command cmdExpr1 _ -> cmdExpr1
---                     _ -> error "Expected Command after here substitution"
---                   newExpr2 = replaceFirstIdiom expr2 resultExpr
---               in expandCommandTreeAux (Command thisDefinition newExpr2) level
---             Just (IdiomExpr cmd) ->
---               let expandedInnerCmd = expandCommandTreeAux cmd (level + 1)
---                   newExpr2 = replaceFirstIdiom expr2 (IdiomExpr expandedInnerCmd)
---               in expandCommandTreeAux (Command expr1 newExpr2) level
---             Just _ -> error "Should not reach here"
---             Nothing -> Command expr1 expr2
---     expandCommandTreeAux (CommandVar cmdId) _ = CommandVar cmdId
--- expandCommandTree var = var
-
--- findFirstIdiom :: Expr -> Maybe Expr
--- findFirstIdiom idm@(DerefIdiomExpr _) = Just idm
--- findFirstIdiom idm@(IdiomExpr _) = Just idm
--- findFirstIdiom (Cons _ exprs) = findFirstInArgs exprs
--- findFirstIdiom (IncompleteCons _ args) = findFirstInIncompleteArgs args
--- findFirstIdiom (Mu branches) = findFirstInBranches branches
--- findFirstIdiom _ = Nothing
-
--- findFirstInArgs :: [Expr] -> Maybe Expr
--- findFirstInArgs [] = Nothing
--- findFirstInArgs (e:es) = case findFirstIdiom e of
---   Just found -> Just found
---   Nothing -> findFirstInArgs es
-
--- findFirstInIncompleteArgs :: [Either Expr HoleExpr] -> Maybe Expr
--- findFirstInIncompleteArgs [] = Nothing
--- findFirstInIncompleteArgs (Left e:es) = case findFirstIdiom e of
---   Just found -> Just found
---   Nothing -> findFirstInIncompleteArgs es
--- findFirstInIncompleteArgs (Right _:es) = findFirstInIncompleteArgs es
-
--- findFirstInBranches :: [(Pattern, Command)] -> Maybe Expr
--- findFirstInBranches [] = Nothing
--- findFirstInBranches ((_, Command e1 e2):rest) =
---   case findFirstIdiom e1 of
---     Just found -> Just found
---     Nothing -> case findFirstIdiom e2 of
---       Just found -> Just found
---       Nothing -> findFirstInBranches rest
--- findFirstInBranches ((_, CommandVar _):rest) = findFirstInBranches rest
-
--- replaceFirstIdiom :: Expr -> Expr -> Expr
--- replaceFirstIdiom (DerefIdiomExpr _) replacement = replacement
--- replaceFirstIdiom (IdiomExpr _) replacement = replacement
--- replaceFirstIdiom (Cons cid exprs) replacement =
---   Cons cid (replaceFirstInList exprs replacement)
--- replaceFirstIdiom (IncompleteCons cid args) replacement =
---   IncompleteCons cid (replaceFirstInEitherList args replacement)
--- replaceFirstIdiom (Mu branches) replacement =
---   Mu (replaceFirstInBranches branches replacement)
--- replaceFirstIdiom e _ = e
-
--- replaceFirstInList :: [Expr] -> Expr -> [Expr]
--- replaceFirstInList [] _ = []
--- replaceFirstInList (e:es) replacement =
---   case findFirstIdiom e of
---     Just _ -> replaceFirstIdiom e replacement : es
---     Nothing -> e : replaceFirstInList es replacement
-
--- replaceFirstInEitherList :: [Either Expr HoleExpr] -> Expr -> [Either Expr HoleExpr]
--- replaceFirstInEitherList [] _ = []
--- replaceFirstInEitherList (Left e:es) replacement =
---   case findFirstIdiom e of
---     Just _ -> Left (replaceFirstIdiom e replacement) : es
---     Nothing -> Left e : replaceFirstInEitherList es replacement
--- replaceFirstInEitherList (Right h:es) replacement = Right h : replaceFirstInEitherList es replacement
-
--- replaceFirstInBranches :: [(Pattern, Command)] -> Expr -> [(Pattern, Command)]
--- replaceFirstInBranches [] _ = []
--- replaceFirstInBranches ((pat, Command e1 e2):rest) replacement =
---   case findFirstIdiom e1 of
---     Just _ -> (pat, Command (replaceFirstIdiom e1 replacement) e2) : rest
---     Nothing -> case findFirstIdiom e2 of
---       Just _ -> (pat, Command e1 (replaceFirstIdiom e2 replacement)) : rest
---       Nothing -> (pat, Command e1 e2) : replaceFirstInBranches rest replacement
--- replaceFirstInBranches ((pat, cmd@(CommandVar _)):rest) replacement =
---   (pat, cmd) : replaceFirstInBranches rest replacement
-
--- substituteHereInCommand :: Command -> Expr -> Command
--- substituteHereInCommand (Command expr1 expr2) hereExpr =
---   Command (substituteHereInExpr expr1 hereExpr) (substituteHereInExpr expr2 hereExpr)
--- substituteHereInCommand cmd _ = cmd
-
--- substituteHereInExpr :: Expr -> Expr -> Expr
--- substituteHereInExpr (Var "here") hereExpr = hereExpr
--- substituteHereInExpr (Var v) _ = Var v
--- substituteHereInExpr (Cons cid exprs) hereExpr =
---   Cons cid (map (\e -> substituteHereInExpr e hereExpr) exprs)
--- substituteHereInExpr (IncompleteCons cid args) hereExpr =
---   IncompleteCons cid (map (either (Left . substituteHereInExpr hereExpr) Right) args)
--- substituteHereInExpr (IdiomExpr cmd) hereExpr =
---   IdiomExpr (substituteHereInCommand cmd hereExpr)
--- substituteHereInExpr (DerefIdiomExpr cmd) hereExpr =
---   DerefIdiomExpr (substituteHereInCommand cmd hereExpr)
--- substituteHereInExpr (Mu branches) hereExpr =
---   Mu (map (\(pat, cmd) -> (pat, substituteHereInCommand cmd hereExpr)) branches)
+    desugarDoThen ((pat, funCall) : rest) cmd =
+      -- FUN(ARGS...) . { PAT -> (rest) }
+      Command funCall (Mu [(pat, desugarDoThen rest cmd)])

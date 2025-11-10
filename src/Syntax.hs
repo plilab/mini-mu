@@ -67,8 +67,6 @@ data Command
 data Expr -- e
   = Var VarId -- x
   | Cons ConsId [Expr] -- Foo e k
-  | Hole
-  | IdiomExpr Command
   | Mu [(Pattern, Command)] -- mu [ Foo x y -> q | Bar x y -> q | k -> q ]
   deriving (Show, Eq, Ord)
 
@@ -78,15 +76,9 @@ data Pattern
   | WildcardPattern -- Wildcard: *
   deriving (Show, Eq, Ord)
 
-data AtomPattern
-  = AtomConsPattern ConsId AtomPattern -- Cons without exactly 1 argument
-  | AtomVarPattern VarId -- Variable binding: x
-  | AtomWildcardPattern -- Wildcard: *
-  deriving (Show, Eq, Ord)
 
 data Value
   = ConsValue ConsId [Value]
-  | HoleValue
   | MuValue Env [(Pattern, Command)]
   deriving (Show, Eq, Ord)
 

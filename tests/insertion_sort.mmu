@@ -1,17 +1,17 @@
 import "std_nat" (lt)
 
-def insert xs n k :=
+fn insert xs n k :=
   xs . { Nil -> List:: n Nil . k
        | List:: x xs' ->
             lt @ n x { True -> List:: n (List:: x xs') . k
                      | False ->
-                         seq rest <- insert xs' n
+                         do rest <- insert xs' n
                          then List:: x rest . k } };
 
-def insertion_sort xs k :=
+fn insertion_sort xs k :=
   xs . { Nil -> Nil . k
        | List:: x xs' ->
-            seq sorted_tail <- insertion_sort xs'
+            do sorted_tail <- insertion_sort xs'
             then insert @ sorted_tail x k };
 
 run insertion_sort @ (List:: 3 (List:: 1 (List:: 2 (List:: 0 (List:: 3 (List:: 1 (List:: 2 (List:: 0 Nil)))))))) halt;

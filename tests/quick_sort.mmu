@@ -1,21 +1,25 @@
 import "std_nat" (lt, geq)
 import "std_list" (list_append)
 
-def list_split pred xs cpr k :=
-  xs . { Nil -> (Nil, Nil) . k
-       | List:: x xs' ->
-            seq rest <- list_split pred xs' cpr
-            then rest . { (smaller, greater) ->
-              pred @ x cpr { True -> ((List:: x smaller), greater) . k
-                           | False -> (smaller, (List:: x greater)) . k } } };
+fn list_split pred xs cpr k :=
+  match xs with 
+    Nil -> (Nil, Nil) . k
+  | List:: x xs' ->
+      let rest = list_split(pred, xs', cpr) in 
+      match rest with 
+        (smaller, greater) ->
+          letc final = { True -> ((List:: x smaller), greater) . k
+                      | False -> (smaller, (List:: x greater)) . k }
+          in pred(x, cpr) . final;
 
-def quick_sort xs k :=
-  xs . { Nil -> Nil . k
-       | List:: pivot xs' ->
-            seq
-              (smaller, greater) <- list_split lt xs' pivot,
-              sorted_s <- quick_sort smaller,
-              sorted_g <- quick_sort greater
-            then list_append @ sorted_s (List:: pivot sorted_g) k };
+fn quick_sort xs k :=
+  match xs with
+    Nil -> Nil . k
+  | List:: pivot xs' ->
+      do
+        (smaller, greater) <- list_split(lt, xs', pivot),
+        sorted_s <- quick_sort(smaller),
+        sorted_g <- quick_sort(greater)
+      then list_append @ sorted_s (List:: pivot sorted_g) k ;
 
-run quick_sort @ (List:: 3 (List:: 1 (List:: 2 (List:: 0 (List:: 3 (List:: 1 (List:: 2 (List:: 0 Nil)))))))) halt;
+run quick_sort @ (List:: 3 (List:: 1 (List:: 2 Nil))) halt;

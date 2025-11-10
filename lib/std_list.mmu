@@ -1,30 +1,26 @@
 import "std_nat" (eq)
 
-def list_append as bs k :=
+fn list_append as bs k :=
   as . { Nil -> bs . k
        | List:: a as' -> list_append @ as' bs { rest -> List:: a rest . k } };
 
-def list_map f xs k :=
+fn list_map f xs k :=
   xs . { Nil -> Nil . k
        | List:: x xs' ->
-            seq y <- f x,
-               ys' <- list_map f xs'
+            do y <- f(x),
+               ys' <- list_map(f, xs')
             then List:: y ys' . k };
 
-def list_reverse xs acc k :=
+fn list_reverse xs acc k :=
     xs . { Nil -> acc . k
          | List:: x xs' -> 
             xs' (List:: x acc) k @ list_reverse };
 
-def list_length xs k := 
-  let 
-     nil_case = Z . k,
-     cons_case = xs' { rest -> S rest . k } @ list_length
-  in
-  xs . { Nil -> nil_case
-       | List:: x xs' -> cons_case };
+fn list_length xs k :=
+  xs . { Nil -> Z . k
+       | List:: x xs' -> xs' { rest -> S rest . k } @ list_length };
 
-def list_contains xs y k :=
+fn list_contains xs y k :=
    xs . { Nil -> False . k
         | List:: x xs' -> 
             eq @ x y { True -> True . k 

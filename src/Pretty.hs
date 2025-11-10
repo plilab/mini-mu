@@ -149,8 +149,6 @@ prettyTopLevelValue (ConsValue "S" [v]) _ =
   pretty (peanoValueToInt (ConsValue "S" [v]))
 prettyTopLevelValue (ConsValue con args) showEnv =
   pretty con <+> hsep (map (`prettyValue` showEnv) args)
-prettyTopLevelValue HoleValue _ =
-  pretty "_"
 prettyTopLevelValue mu@(MuValue _ _) showEnv =
   prettyMuValueAux mu showEnv
 
@@ -172,8 +170,6 @@ prettyValue (ConsValue con args) showEnv =
   case args of
     [] -> pretty con
     _ -> pretty "(" <> pretty con <+> hsep (map (`prettyValue` showEnv) args) <> pretty ")"
-prettyValue HoleValue _ =
-  pretty "_"
 prettyValue mu@(MuValue _ _) showEnv =
   prettyMuValueAux mu showEnv
 
@@ -265,10 +261,6 @@ prettyTopLevelExpr add1@(Cons "S" _) =
   maybe (prettyTopLevelPeanoExprFallback add1) pretty (peanoExprToInt add1)
 prettyTopLevelExpr (Cons con args) =
   pretty con <+> hsep (map prettyExpr args)
-prettyTopLevelExpr Hole =
-  pretty "_"
-prettyTopLevelExpr idm@(IdiomExpr _) =
-  prettyExpr idm
 prettyTopLevelExpr mu@(Mu _) =
   prettyMuExprAux mu
 
@@ -283,8 +275,6 @@ prettyExpr (Cons c args) =
   case args of
     [] -> pretty c
     _ -> pretty "(" <> pretty c <+> hsep (map prettyExpr args) <> pretty ")"
-prettyExpr Hole = pretty "_"
-prettyExpr (IdiomExpr cmd) = pretty "[" <> prettyCommand cmd <> pretty "]"
 prettyExpr (Mu cases) = prettyMuExprAux (Mu cases)
 
 prettyMuExprAux :: Expr -> Doc ann

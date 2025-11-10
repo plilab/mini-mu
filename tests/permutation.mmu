@@ -1,36 +1,36 @@
 import "std_list" (list_length, list_contains)
 import "std_nat" (eq)
 
-def format_input_aux n acc k :=
-  n . { Z -> acc . k
-      | S n' -> format_input_aux @ n' (List:: (S n') acc) k };
+fn format_input_aux n acc k :=
+  match n with
+    Z -> acc . k
+  | S n' -> format_input_aux @ n' (List:: (S n') acc) k;
 
-def format_input n k :=
+fn format_input n k :=
   format_input_aux @ n Nil k;
 
-def perm_aux xs acc res n k :=
-  seq len <- list_length acc
-  then eq @ len n {
-      True -> List:: acc res . k
-    | _ -> xs . {
-        Nil -> res . k
-      | List:: x xs' -> 
-          seq contains <- list_contains acc x
-          then let next_step = 
-              seq
-                full_list <- format_input n,
-                res' <- perm_aux full_list (List:: x acc) res n
-              then perm_aux @ xs' acc res' n k 
-            in
-            contains . {
-                True -> perm_aux @ xs' acc res n k
-              | _ -> next_step
-            }
-      }
-    };
+fn perm_aux xs acc res n k :=
+  do 
+    len <- list_length(acc),
+    is_full <- eq(len, n)
+  then 
+  match is_full with 
+    True -> List:: acc res . k
+  | _ -> 
+    match xs with 
+      Nil -> res . k
+    | List:: x xs' -> 
+        let contains = list_contains(acc, x) in
+        match contains with
+          True -> perm_aux @ xs' acc res n k
+        | _ ->
+            do
+              full_list <- format_input(n),
+              res' <- perm_aux(full_list, (List:: x acc), res, n)
+            then perm_aux @ xs' acc res' n k;
   
-def permutation n k :=
-  seq xs <- format_input n
-  then perm_aux @ xs Nil Nil n k;
+fn permutation n k :=
+  let xs = format_input(n)
+  in perm_aux @ xs Nil Nil n k;
 
-run permutation @ 4 halt;
+run format_input(1, Nil) . halt;

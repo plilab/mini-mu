@@ -1,21 +1,21 @@
 import "std_list" (list_map)
 import "std_nat" (inc, lt, eq)
 
-def for_loop i end xs body k :=
+fn for_loop i end xs body k :=
   lt @ i end { is_less ->
     is_less . { True ->
-                  seq xs' <- body xs
+                  do xs' <- body xs
                   then S i . { i_next -> for_loop @ i_next end xs' body k }
               | False -> xs . k } };
 
-def if pred body alt xs k :=
+fn if pred body alt xs k :=
   pred . { True -> body @ xs k | False -> alt @ xs k };
 
-def map_once xs k :=
+fn map_once xs k :=
   list_map @ inc xs k ;
 
-def map_twice xs k :=
+fn map_twice xs k :=
   for_loop @ 0 3 xs map_once k ;
 
-run seq is_eq <- eq 1 0
+run do is_eq <- eq 1 0
     then if @ is_eq map_once map_twice (List:: 2 (List:: 1 (List:: 3 Nil))) halt;

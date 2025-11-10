@@ -1,13 +1,13 @@
 import "std_nat" (inc)
 
-def main_routine main_v co_v k := -- A problem is that bindings in coroutine must live in the main, as we dont have seperate env
+fn main_routine main_v co_v k := -- A problem is that bindings in coroutine must live in the main, as we dont have seperate env
     main_v . {
           Z -> (main_v, co_v) . k -- when main_v is zero, return the current values
         | S n -> -- otherwise give control to coroutine
             co_v { co_v_plus_one -> main_routine @ n co_v_plus_one k } @ coroutine
     };
 
-def coroutine co_v k := seq
+fn coroutine co_v k := do
     plus1 <- inc co_v,
     plus2 <- inc plus1
     then plus2 . k; -- yield control back to the main routine

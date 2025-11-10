@@ -83,7 +83,7 @@ function tokenizeMiniMu(text, builder) {
   const lines = text.split('\n');
 
   // MiniMu keywords
-  const keywords = new Set(['def', 'run', 'let', 'in', 'where', 'do', 'then', 'seq', 'import', 'export']);
+  const keywords = new Set(['fn', 'run', 'let', 'have', 'letc', 'in', 'where', 'do', 'then', 'match', 'patch', 'with', 'import', 'export']);
 
   // Built-in types/constructors
   const builtinTypes = new Set(['True', 'False', 'Nil', 'List::', 'Z', 'S', 'Pair', 'Tuple']);
@@ -218,7 +218,7 @@ function tokenizeMiniMu(text, builder) {
           // Check if it's a function definition
           const remainingLine = line.slice(charIndex).trim();
           if (remainingLine.startsWith(':=') ||
-              (lineIndex > 0 && lines[lineIndex - 1].trim().startsWith('def'))) {
+              (lineIndex > 0 && lines[lineIndex - 1].trim().startsWith('fn'))) {
             tokenType = 'function';
             modifier = 1 << tokenModifiers.indexOf('definition');
           }

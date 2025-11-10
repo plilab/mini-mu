@@ -1,10 +1,10 @@
 import "std_nat" (mul)
 
-def list_mult xs k := 
+fn list_mult xs k := 
     xs . { Nil -> 1 . k
          | List:: 0 xs' -> 0 . k
          | List:: x xs' ->
-            seq rest <- list_mult xs',
+            do rest <- list_mult xs',
                 acc <- mul x rest
             then acc . k }; -- how partial application/currying works in minimu?
 

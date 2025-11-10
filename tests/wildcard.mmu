@@ -1,4 +1,4 @@
--- def is_positive n k := 
+-- fn is_positive n k := 
 --    n . [ Z -> False . k | S _ -> True . k ];
 
 run let 

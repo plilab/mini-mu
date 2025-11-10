@@ -1,7 +1,7 @@
 import "std_bool" (if, branch, not)
 import "std_nat" (inc)
 
-def inc1 x cond k :=
+fn inc1 x cond k :=
    branch @ cond
      { True -> inc @ x k }
      { False -> x . k };

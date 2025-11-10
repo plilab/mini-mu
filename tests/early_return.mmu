@@ -1,6 +1,6 @@
 import "std_nat" (add, eq)
 
-def find_pair_sum xs ys target k :=
+fn find_pair_sum xs ys target k :=
   xs . {
     Nil -> NO_RESULT . k
   | List:: x xs' -> 
@@ -8,7 +8,7 @@ def find_pair_sum xs ys target k :=
       (x, y) -> (x, y) . k -- found a pair, early return, hard to do in fp
     | _ -> find_pair_sum @ xs' ys target k } };
 
-def find_pair_sum_aux x ys target k :=
+fn find_pair_sum_aux x ys target k :=
   ys . {
     Nil -> NO_RESULT . k
   | List:: y ys' -> add @ x y {

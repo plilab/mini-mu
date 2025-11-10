@@ -46,7 +46,7 @@
       "patterns": [
         {
           "name": "keyword.control.minimu",
-          "match": "\\b(def|run|import|export|seq|then|halt|let|in)\\b"
+          "match": "\\b(fn|run|import|export|do|then|halt|let|have|letc|in|match|patch|with)\\b"
         }
       ]
     },
@@ -97,7 +97,7 @@
       "patterns": [
         {
           "name": "entity.name.function.definition.minimu",
-          "match": "(?<=def\\s+)[a-z_][a-zA-Z0-9_]*"
+          "match": "(?<=fn\\s+)[a-z_][a-zA-Z0-9_]*"
         },
         {
           "name": "entity.name.function.call.minimu",

@@ -33,7 +33,7 @@ handlePacket packet = do
     Invalid err -> sendError err
 ```
 ```(mmu)
-def handle_packet packet k := do
+fn handle_packet packet k := do
   parsed <- parse_headers packet,
   validated <- validate parsed
   then validated . 

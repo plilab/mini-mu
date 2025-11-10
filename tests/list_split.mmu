@@ -1,9 +1,9 @@
 import "std_nat" (lt)
 
-def list_split pred xs cpr k :=
+fn list_split pred xs cpr k :=
   xs . { Nil -> (Nil, Nil) . k
        | List:: x xs' ->
-            seq rest <- list_split pred xs' cpr
+            do rest <- list_split pred xs' cpr
             then rest . { Pair smaller greater ->
               pred @ x cpr { True -> Pair (List:: x smaller) greater . k
                            | False -> Pair smaller (List:: x greater) . k } } };
