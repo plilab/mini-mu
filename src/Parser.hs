@@ -3,11 +3,15 @@
 
 module Parser
   ( parseMiniMu,
-    parseFile )
+    parseFile,
+    sugarExpr,
+    sugarCommand,
+    sugarDecl )
 where
 
 import Data.Void
 import Syntax
+import Sugar (desugarProgram)
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -43,14 +47,14 @@ parseMiniMu file = do
         putStrLn $ errorBundlePretty err
         error "Failed to parse MiniMu program"
     )
-    return
+    (return . desugarProgram)
     ast
 
 -- Parse a file into a Program, consuming leading whitespace
-parseFile :: String -> IO (Either (ParseErrorBundle String Void) Program)
+parseFile :: String -> IO (Either (ParseErrorBundle String Void) SugarProgram)
 parseFile file = do
   contents <- readFile file
-  return $ parse (sc *> program <* eof) file contents
+  return $ parse (sc *> sugarProgram <* eof) file contents
 
 -- Space consumer
 sc :: Parser ()
@@ -132,41 +136,7 @@ cmdIdentifier =
         then fail $ "keyword " ++ show word ++ " cannot be the name of a command"
         else return word
 
--- Parse tuple expressions with arbitrary length (minimum 2 elements)
-tupleExpr :: Parser Expr
-tupleExpr = label "tuple expression" $ do
-  _ <- symbol "("
-  first <- expr
-  _ <- symbol ","
-  rest <- sepBy1 expr (symbol ",")
-  _ <- symbol ")"
-  return $ Cons "Tuple" (first : rest)
-
--- Parse tuple patterns with arbitrary length (minimum 2 elements)  
-tuplePattern :: Parser Pattern
-tuplePattern = label "tuple pattern" $ do
-  _ <- symbol "("
-  first <- pattern
-  _ <- symbol ","
-  rest <- sepBy1 pattern (symbol ",")
-  _ <- symbol ")"
-  return $ ConsPattern "Tuple" (first : rest)
-
-natExpr :: Parser Expr
-natExpr = label "natural number" $ intToPeano <$> lexeme L.decimal
-
-natPattern :: Parser Pattern
-natPattern = label "natural number pattern" $ intToPeanoPattern <$> lexeme L.decimal
-
-intToPeano :: Integer -> Expr
-intToPeano 0 = Cons "Z" []
-intToPeano n = Cons "S" [intToPeano (n - 1)]
-
-intToPeanoPattern :: Integer -> Pattern
-intToPeanoPattern 0 = ConsPattern "Z" []
-intToPeanoPattern n = ConsPattern "S" [intToPeanoPattern (n - 1)]
-
--- varID cannot start with ~
+-- | Parse variable ids, command ids, and constructor ids | --
 varId :: Parser VarId
 varId =
   label "variable id" $ lexeme varIdentifier
@@ -180,16 +150,298 @@ consId :: Parser ConsId
 consId =
   label "constructor id" $ lexeme consIdentifier
 
--- coConsId :: Parser CoConsId
--- coConsId =
---   label
---     "co-constructor id"
---     ( lexeme $ do
---         void (char '~') *> consIdentifier
---     )
+-- | Parse a full MiniMu sugar program | --
+sugarProgram :: Parser SugarProgram
+sugarProgram = label "sugar program" $ do
+  imports <- many importDecl
+  decls <- sugarDecls
+  SugarProgram imports decls <$> option [] exportList
+
+-- | Parse import declarations | --
+importDecl :: Parser ImportDecl
+importDecl = do
+  _ <- symbol "import"
+  moduleName <- fileIdentifier -- import "module" a b c
+  vars <- parens $ sepBy1 varId (symbol ",")
+  return $ ImportDecl moduleName vars
+
+-- | Parse export list | --
+exportList :: Parser [VarId]
+exportList = do
+  _ <- symbol "export"
+  sepBy1 varId (symbol ",")
+
+-- | Sugared Syntax Parsers | --
+
+-- | Utility Parsers | --
+
+-- Parse pattern case for sugared commands
+sugarPatternCase :: Parser (Pattern, SugarCommand)
+sugarPatternCase = label "sugar pattern case" $ (,) <$> pattern <* symbol "->" <*> sugarCommand
+
+-- Parse natural number as SugarExpr
+sugarNatLit :: Parser SugarExpr
+sugarNatLit = label "natural number literal" $ NatLit <$> lexeme L.decimal
+
+-- Parse sugared tuple literals
+sugarTupleLit :: Parser SugarExpr
+sugarTupleLit = label "tuple literal" $ do
+  _ <- symbol "("
+  first <- sugarExpr
+  _ <- symbol ","
+  rest <- sepBy1 sugarExpr (symbol ",")
+  _ <- symbol ")"
+  return $ TupLit (first : rest)
+
+
+-- | Parse SugarDecl | --
+
+-- Parse sugared function declaration
+sugarFuncDecl :: Parser SugarDecl
+sugarFuncDecl = label "sugar func decl" $ do
+  _ <- symbol "fn"
+  f <- varId
+  args <- many varId
+  _ <- symbol ":="
+  FuncDecl f args <$> sugarCommand
+
+-- Parse sugared default declaration
+sugarDefaultDecl :: Parser SugarDecl
+sugarDefaultDecl = label "sugar default decl" $ do
+  name <- varId
+  _ <- symbol ":="
+  DefaultDecl name <$> sugarExpr
+
+-- Parse run declaration (run q => main = { halt -> q })
+sugarRunDecl :: Parser SugarDecl
+sugarRunDecl = label "run declaration" $ do
+  _ <- symbol "run"
+  RunDecl <$> sugarCommand
+
+-- Main sugared declaration parser
+sugarDecl :: Parser SugarDecl
+sugarDecl =
+  label "sugar declaration" $
+    choice
+      [ try sugarRunDecl,
+        try sugarFuncDecl,
+        sugarDefaultDecl
+      ]
+
+sugarDecls :: Parser [SugarDecl]
+sugarDecls = many $ notFollowedBy (symbol "export") *> sugarDecl <* symbol ";"
+-- | Parse SugarCommand | --
+
+-- Parse sugared let command
+sugarLetCommand :: Parser SugarCommand
+sugarLetCommand = label "sugar let command" $ do
+  _ <- symbol "let"
+  var <- varId
+  _ <- symbol "="
+  e <- sugarExpr
+  _ <- symbol "in"
+  LetCommand var e <$> sugarCommand
+
+-- Parse sugared letc command
+sugarLetcCommand :: Parser SugarCommand
+sugarLetcCommand = label "sugar letc command" $ do
+  _ <- symbol "letc"
+  var <- varId
+  _ <- symbol "="
+  e <- sugarExpr
+  _ <- symbol "in"
+  LetcCommand var e <$> sugarCommand
+
+-- Parse sugared match command
+sugarMatchCommand :: Parser SugarCommand
+sugarMatchCommand = label "sugar match command" $ do
+  _ <- symbol "match"
+  e <- sugarExpr
+  _ <- symbol "with"
+  _ <- optional (symbol "|")
+  cases <- sepBy1 sugarPatternCase (symbol "|")
+  return $ MatchCommand e cases
+
+-- Parse sugared patch command
+sugarPatchCommand :: Parser SugarCommand
+sugarPatchCommand = label "sugar patch command" $ do
+  _ <- symbol "patch"
+  e <- sugarExpr
+  _ <- symbol "with"
+  _ <- optional (symbol "|")
+  cases <- sepBy1 sugarPatternCase (symbol "|")
+  return $ PatchCommand e cases
+
+-- Parse do/then binding
+doThenBinding :: Parser DoThenBinding
+doThenBinding = label "do/then binding" $ do
+  pat <- pattern
+  _ <- symbol "<-"
+  Binding pat <$> sugarExpr
+
+-- Parse sugared do/then command
+sugarDoThenCommand :: Parser SugarCommand
+sugarDoThenCommand = label "sugar do/then command" $ do
+  _ <- symbol "do"
+  bindings <- sepBy (notFollowedBy (symbol "then") *> doThenBinding) (symbol ",")
+  _ <- symbol "then"
+  DoThenCommand bindings <$> sugarCommand
+
+-- Parse sugared @ command
+sugarAtCommand :: Parser SugarCommand
+sugarAtCommand = label "sugar @ command" $ do
+  choice
+    [ try $ do
+        -- f @ a b c => f . (a, b, c)
+        fun <- sugarAtom
+        _ <- symbol "@"
+        args <- many sugarAtom
+        return $ AtCommand fun args,
+      do
+        -- a b c @ f => (a, b, c) . f
+        args <- many sugarAtom
+        _ <- symbol "@"
+        CoAtCommand args <$> sugarExpr
+    ]
+
+-- Parse sugared . command
+sugarDotCommand :: Parser SugarCommand
+sugarDotCommand = label "sugar . command" $ do
+  e1 <- sugarExpr
+  _ <- symbol "."
+  DotCommand e1 <$> sugarExpr
+
+-- Main sugared command parser
+sugarCommand :: Parser SugarCommand
+sugarCommand =
+  label "sugar command" $
+    choice
+      [ try sugarLetCommand,
+        try sugarLetcCommand,
+        try sugarMatchCommand,
+        try sugarPatchCommand,
+        try sugarDoThenCommand,
+        try sugarAtCommand,
+        try sugarDotCommand,
+        SugarCommandVar <$> commandId
+      ]
+
+
+-- | Parse SugarExpr | --
+
+-- Parse delimited expression < ... >
+-- delimExpr :: Parser SugarExpr
+-- delimExpr = label "delimited expression" $ do
+--   _ <- symbol "<"
+--   cmd <- sugarCommand
+--   _ <- symbol ">"
+--   return $ DelimExpr cmd
+
+-- Parse have bindings
+sugarHaveBinding :: Parser HaveBinding
+sugarHaveBinding = label "have binding" $ do
+  choice
+    [ try $ do
+        _ <- symbol "'"
+        cmdId <- commandId
+        _ <- symbol "="
+        HaveCommandBinding cmdId <$> sugarCommand,
+      do
+        var <- varId
+        _ <- symbol "="
+        HaveExprBinding var <$> sugarExpr
+    ]
+
+-- Parse have expression
+sugarHaveExpr :: Parser SugarExpr
+sugarHaveExpr = label "have expression" $ do
+  _ <- symbol "have"
+  bindings <- sepBy1 sugarHaveBinding (symbol ",")
+  _ <- symbol "in"
+  HaveExpr bindings <$> sugarExpr
+
+-- Parse sugared constructor application
+sugarCons :: Parser SugarExpr
+sugarCons =
+  label "sugar constructor" $
+    SugarCons <$> consId <*> many sugarAtom
+
+-- Parse sugared mu expression
+sugarMu :: Parser SugarExpr
+sugarMu = label "sugar mu" $ do
+  _ <- symbol "{"
+  cases <- sepBy1 sugarPatternCase (symbol "|")
+  _ <- symbol "}"
+  return $ SugarMu cases
+
+-- Parse sugared atoms
+sugarAtom :: Parser SugarExpr
+sugarAtom =
+  label "sugar atom" $
+    choice
+      [ try sugarMu,
+        try sugarHaveExpr,
+        try sugarNatLit,
+        try sugarTupleLit,
+        -- try delimExpr,
+        try $ SugarCons <$> consId <*> pure [],
+        try $ SugarVar <$> varId,
+        parens sugarExpr
+      ]
+
+-- Parse sugared function application: f{k1, k2}(x1, x2, k1, k2)
+sugarAppExpr :: Parser SugarExpr
+sugarAppExpr = label "sugar app expression" $ do
+  fun <- sugarAtom
+  explicitConts <- option [] (curly (sepBy1 sugarExpr (symbol ",")))
+  _ <- symbol "("
+  args <- sepBy sugarExpr (symbol ",")
+  _ <- symbol ")"
+  return $ AppExpr fun explicitConts args
+
+-- Parse sugared cofunction application: 'f{k1, k2}(x1, x2, k1, k2)
+sugarCoAppExpr :: Parser SugarExpr
+sugarCoAppExpr = label "sugar coapp expression" $ do
+  _ <- symbol "'"
+  cmdId <- commandId
+  explicitConts <- option [] (curly (sepBy1 sugarExpr (symbol ",")))
+  _ <- symbol "("
+  args <- sepBy sugarExpr (symbol ",")
+  _ <- symbol ")"
+  return $ CoAppExpr cmdId explicitConts args
+
+-- Main sugared expression parser
+sugarExpr :: Parser SugarExpr
+sugarExpr =
+  label "sugar expression" $
+    choice
+      [ try sugarCons,
+        try sugarAppExpr,
+        try sugarCoAppExpr,
+        sugarAtom
+      ]
+
+-- | Parse Patterns | --
+
+-- Parse tuple patterns with arbitrary length (minimum 2 elements)  
+tuplePattern :: Parser Pattern
+tuplePattern = label "tuple pattern" $ do
+  _ <- symbol "("
+  first <- pattern
+  _ <- symbol ","
+  rest <- sepBy1 pattern (symbol ",")
+  _ <- symbol ")"
+  return $ ConsPattern "Tuple" (first : rest)
+
+natPattern :: Parser Pattern
+natPattern = label "natural number pattern" $ intToPeanoPattern <$> lexeme L.decimal
+
+intToPeanoPattern :: Integer -> Pattern
+intToPeanoPattern 0 = ConsPattern "Z" []
+intToPeanoPattern n = ConsPattern "S" [intToPeanoPattern (n - 1)]
 
 -- Parse a pattern
-pattern :: Parser Pattern -- TODO: rename to pattern
+pattern :: Parser Pattern
 pattern =
   label "pattern" $
     choice
@@ -200,343 +452,3 @@ pattern =
         try $ VarPattern <$> varId, -- variable patterns (e.g., "x")
         parens pattern -- Allow parentheses for grouping
       ]
-
--- Parse a case pattern -> command in a Mu
-patternCase :: Parser (Pattern, Command)
-patternCase = label "pattern case" $ (,) <$> pattern <* symbol "->" <*> command
-
--- atoms are naturally delimited expressions.
-atom :: Parser Expr
-atom =
-  label "atom expr" $
-    choice
-      [ -- Sugar 7: Simplify mu{} as {}
-        try (Mu <$> curly (sepBy1 patternCase (symbol "|"))),
-        try haveExpr,
-        try natExpr, -- Sugar 8: Expand numerical to S...Z
-        try tupleExpr, -- Sugar 9: Expand pairs
-        try $ (`Cons` []) <$> consId, -- constructor with no arguments
-        try $ Var <$> varId,
-        parens expr
-      ]
-
--- Function application sugar: FUN(E1, E2, E3) => { _k -> { _args -> FUN . _args } . { _f -> f . (E1, E2, E3, _k) } }
--- FUN{K1, K2}(E1, K1, E2, K2) => { (K1, K2) -> FUN . {_f -> (E1, K1, E2, K2) } }
-funApplication :: Parser Expr
-funApplication = label "function application" $ do
-  fun <- atom
-  -- Check for explicit continuations {K1, K2, ...}
-  explicitConts <- option [] (curly (sepBy1 varId (symbol ",")))
-  _ <- symbol "("
-  args <- sepBy expr (symbol ",")
-  _ <- symbol ")"
-
-  if null explicitConts
-    then do
-      -- Simple case: FUN(E1, E2, E3) => { _k -> {_args -> FUN . _args } . { _f -> _f . (E1, E2, E3, _k) } }
-      let innerCmdL = Command fun (Var "_args")
-      let innerCmdR = Command (Var "_f") (Cons "Tuple" (args ++ [Var "_k"]))
-      return $ Mu [(VarPattern "_k", 
-        Command 
-          (Mu[(VarPattern "_args", innerCmdL)]) 
-          (Mu [(VarPattern "_f", innerCmdR)]))]
-    else do
-      -- With explicit conts: FUN{K1, K2}(E1, K1, E2, K2) => { (K1, K2) -> FUN . {_f -> (E1, K1, E2, K2) } }
-      let contsPat = ConsPattern "Tuple" (map VarPattern explicitConts)
-      let innerCmdL = Command fun (Var "_args")
-      let innerCmdR = Command (Var "_f") (Cons "Tuple" args)
-      return $ Mu [(contsPat, Command (Mu [(VarPattern "_args", innerCmdL)]) (Mu [(VarPattern "_f", innerCmdR)]))]
-
--- Cofun application sugar: COFUN(E1, E2, E3) => { _k -> { _f -> (E1, E2, E3, _k) } . COFUN }
--- COFUN{K1, K2}(E1, K1, E2, K2) => { (K1, K2) -> {_f -> (E1, K1, E2, K2) } . COFUN }
-cofunApplication :: Parser Expr
-cofunApplication = label "cofunction application" $ do
-  _ <- symbol "`"
-  cofun <- atom
-  explicitConts <- option [] (curly (sepBy1 varId (symbol ",")))
-  _ <- symbol "("
-  args <- sepBy expr (symbol ",")
-  _ <- symbol ")"
-
-  if null explicitConts
-    then do
-      -- simple case: `COFUN(E1, E2, E3) => { _k -> { _f -> (E1, E2, E3, _k) } . COFUN }
-      let innerMuL = Mu [(VarPattern "_f", Command (Cons "Tuple" (args ++ [Var "_k"])) (Var "_f"))]
-      let innerMuR = Mu [(VarPattern "_args", Command (Var "_args") cofun)]
-      return $ Mu [(VarPattern "_k", Command innerMuL innerMuR)]
-    else do
-      -- with explicit conts: `COFUN{K1, K2}(E1, K1, E2, K2) => { (K1, K2) -> {_f -> (E1, K1, E2, K2) } . COFUN }
-      let contsPat = ConsPattern "Tuple" (map VarPattern explicitConts)
-      let innerMuL = Mu [(VarPattern "_f", Command (Cons "Tuple" args) (Var "_f"))]
-      let innerMuR = Mu [(VarPattern "_args", Command (Var "_args") cofun)]
-      return $ Mu [(contsPat, Command innerMuL innerMuR)]
-
-expr :: Parser Expr
-expr =
-  label
-    "expression"
-    $ choice
-      [ 
-        try cons,
-        try funApplication,
-        try cofunApplication,
-        atom
-      ]
-
-cons :: Parser Expr
-cons =
-  label "constructor" $
-    Cons <$> consId <*> many atom
-
--- Parse a command
-command :: Parser Command
-command =
-  label
-    "command"
-    $ choice
-      [ try letCommand,
-        try letcCommand,
-        try matchCommand,
-        try patchCommand,
-        try commandSugar,
-        try doThenCommand,
-        CommandVar <$> commandId
-      ]
-
--- z = e;
--- x = e
--- ~y = co
--- Parse export declaration
-importDecl :: Parser ImportDecl
-importDecl = do
-  _ <- symbol "import"
-  moduleName <- fileIdentifier -- import "module" a b c
-  vars <- parens $ sepBy1 varId (symbol ",")
-  return $ ImportDecl moduleName vars
-
--- Parse export list
-exportList :: Parser [VarId]
-exportList = do
-  _ <- symbol "export"
-  sepBy1 varId (symbol ",")
-
-decl :: Parser Decl
-decl =
-  label
-    "Declaration"
-    $ choice
-      [ try fnDecl,
-        try runDecl,
-        Decl <$> varId <* symbol "=" <*> expr
-      ]
-
-decls :: Parser [Decl]
-decls = many $ notFollowedBy (symbol "export") *> decl <* symbol ";"
-
--- (do
--- d <- decl
--- semi
--- ds <- decls
--- return (d : ds))
--- <|> (return [])
-
-program :: Parser Program
-program = do
-  sc
-  imports <- many importDecl -- imports at beginning
-  _decls <- decls -- declarations in middle
-  exports <- option [] exportList -- optional exports at end
-  eof
-  return $ Program imports _decls exports
-
--- Utility function to run the parser
-
----- -- Sugar functions for parsing commands and declarations
-
--- | . and @ operator for generating commands
-commandSugar :: Parser Command
-commandSugar = label "Sugared Command" $ do
-  choice
-    [ try $ Command <$> expr <* symbol "." <*> expr,
-      -- . operator sugar: x . y === < x |> y >
-      do
-        -- @ operator sugar: x k @ fun === < Tuple x k |> fun >
-        -- X Y Z @ U V W
-        -- x @ Y V W
-        -- {} @ U V W
-        -- let x = .. in (... @ ...)
-        -- ... @ let x = .. in ...
-        -- x y z @ y
-        choice
-          [ try $ desugarAt <$> expr <* symbol "@" <*> many atom, -- fun @ a b c
-            coDesugarAt <$> many atom <* symbol "@" <*> expr -- a b c @ fun
-          ]
-    ]
-  where
-    -- Desugar @ operator, when function is placed as expression
-    desugarAt :: Expr -> [Expr] -> Command
-    desugarAt _ [] = error "@ requires at least one argument"
-    desugarAt fun args = Command  fun (Cons "Tuple" args)
-    -- Desugar @ operator, when function is placed as co-expression
-    coDesugarAt :: [Expr] -> Expr -> Command
-    coDesugarAt [] _ = error "@ requires at least one argument"
-    coDesugarAt args fun = Command (Cons "Tuple" args) fun
-
--- | Sugar for function definitions: fn/run
--- fn NAME ARGS* := COMMAND === NAME = mu[ Tuple ARGS... -> COMMAND ]
-fnDecl :: Parser Decl
-fnDecl =
-  label "Sugared Declaration" $
-    (\n args cmd -> Decl n (desugarFn args cmd))
-      <$> (symbol "fn" *> varId)
-      <*> many pattern
-      <* symbol ":="
-      <*> command
-  where
-    desugarFn :: [Pattern] -> Command -> Expr
-    desugarFn args cmd =
-      Mu [(ConsPattern "Tuple" args, cmd)]
-
--- | run COMMAND === main = mu[ halt -> COMMAND ]
-runDecl :: Parser Decl
-runDecl = do
-  Decl "main" . desugarRun <$> (symbol "run" *> command)
-  where
-    desugarRun :: Command -> Expr
-    desugarRun cmd = Mu [(VarPattern "halt", cmd)]
-
--- Sugar 4: have grammar
-haveExpr :: Parser Expr
-haveExpr = label "have expression" $ do
-  _ <- symbol "have"
-  bindings <- sepBy1 binding (symbol ",")
-  _ <- symbol "in"
-  desugarHave bindings <$> expr
-  where
-    desugarHave :: [(Either VarId CommandId, Either Expr Command)] -> Expr -> Expr
-    desugarHave [] body = body
-    desugarHave bindings body =
-      foldr
-        ( \(name, value) acc -> case name of
-            Left varid -> case value of
-              Left e -> findAndSubstExprInExpr (varid, e) acc
-              Right _ -> error "varId cannot be bound to a command"
-            Right cmdid -> case value of
-              Left _ -> error "commandId cannot be bound to an expression"
-              Right c -> findAndSubstCmdInExpr (cmdid, c) acc
-        )
-        body
-        bindings
-
--- Helper functions for substitution in let/where desugaring
-type ExprBinding = (VarId, Expr)
-
-type CommandBinding = (CommandId, Command)
-
--- Structural recursions on Expr and Command for substitution
-
-findAndSubstExprInExpr :: ExprBinding -> Expr -> Expr
-findAndSubstExprInExpr (name, e) (Mu branches) =
-  Mu (map (\(p, c) -> (p, findAndSubstExprInCmd (name, e) c)) branches)
-findAndSubstExprInExpr (name, e) (Cons c args) =
-  Cons c (map (findAndSubstExprInExpr (name, e)) args)
-findAndSubstExprInExpr (name, e) (Var v) =
-  if v == name then e else Var v
-
-findAndSubstExprInCmd :: ExprBinding -> Command -> Command
-findAndSubstExprInCmd (name, e) (Command expr1 expr2) =
-  Command (findAndSubstExprInExpr (name, e) expr1) (findAndSubstExprInExpr (name, e) expr2)
-findAndSubstExprInCmd _ (CommandVar cmdId) =
-  CommandVar cmdId -- No substitution for command variables
-
-findAndSubstCmdInExpr :: CommandBinding -> Expr -> Expr
-findAndSubstCmdInExpr (name, cmd) (Mu branches) =
-  Mu (map (\(p, c) -> (p, findAndSubstCmdInCmd (name, cmd) c)) branches)
-findAndSubstCmdInExpr (name, cmd) (Cons c args) =
-  Cons c (map (findAndSubstCmdInExpr (name, cmd)) args)
-findAndSubstCmdInExpr _ (Var v) =
-  Var v
-
-findAndSubstCmdInCmd :: CommandBinding -> Command -> Command
-findAndSubstCmdInCmd (name, cmd) (Command expr1 expr2) =
-  Command (findAndSubstCmdInExpr (name, cmd) expr1) (findAndSubstCmdInExpr (name, cmd) expr2)
-findAndSubstCmdInCmd (name, cmd) (CommandVar cmdId) =
-  if cmdId == name then cmd else CommandVar cmdId
-
--- Cut-as-let: let VAR = EXPR in CMD => EXPR . { VAR -> CMD }
-letCommand :: Parser Command
-letCommand = label "let command" $ do
-  _ <- symbol "let"
-  pat <- pattern
-  _ <- symbol "="
-  e <- expr
-  _ <- symbol "in"
-  cmd <- command
-  return $ Command e (Mu [(pat, cmd)])
-
--- letc: letc COVAR = COEXPR in CMD => { COVAR -> CMD } . COEXPR
-letcCommand :: Parser Command
-letcCommand = label "letc command" $ do
-  _ <- symbol "letc"
-  pat <- pattern
-  _ <- symbol "="
-  ce <- expr
-  _ <- symbol "in"
-  cmd <- command
-  return $ Command (Mu [(pat, cmd)]) ce
-
--- match: match EXPR with | PAT1 -> CMD1 | PAT2 -> CMD2 ... => EXPR . { PAT1 -> CMD1 | PAT2 -> CMD2 ... }
-matchCommand :: Parser Command
-matchCommand = label "match command" $ do
-  _ <- symbol "match"
-  e <- expr
-  _ <- symbol "with"
-  _ <- optional (symbol "|")
-  cases <- sepBy1 patternCase (symbol "|")
-  return $ Command e (Mu cases)
-
--- patch: patch COEXPR with | PAT1 -> CMD1 | PAT2 -> CMD2 ... => { PAT1 -> CMD1 | PAT2 -> CMD2 ... } . COEXPR
-patchCommand :: Parser Command
-patchCommand = label "patch command" $ do
-  _ <- symbol "patch"
-  ce <- expr
-  _ <- symbol "with"
-  _ <- optional (symbol "|")
-  cases <- sepBy1 patternCase (symbol "|")
-  return $ Command (Mu cases) ce
-
--- Sugar: do...then grammar
-doThenCommand :: Parser Command
-doThenCommand = label "do/then command" $ do
-  _ <- symbol "do"
-  bindings <- sepBy (notFollowedBy (symbol "then") *> doBinding) (symbol ",")
-  _ <- symbol "then"
-  desugarDoThen bindings <$> command
-  where
-    doBinding :: Parser (Pattern, Expr)
-    doBinding = do
-      pat <- pattern
-      _ <- symbol "<-"
-      funCall <- expr
-      return (pat, funCall)
-
-    desugarDoThen :: [(Pattern, Expr)] -> Command -> Command
-    desugarDoThen [] cmd = cmd
-    desugarDoThen ((pat, funCall) : rest) cmd =
-      -- FUN(ARGS...) . { PAT -> (rest) }
-      Command funCall (Mu [(pat, desugarDoThen rest cmd)])
-
-binding :: Parser (Either VarId CommandId, Either Expr Command)
-binding = label "Parsing binding in let/where" $ do
-  choice
-    [ try $ label "Parsing a command binding" $ do
-        name <- commandId
-        _ <- symbol "="
-        c <- command
-        return (Right name, Right c),
-      label "Parsing an expr binding" $ do
-        name <- varId
-        _ <- symbol "="
-        e <- expr
-        return (Left name, Left e)
-    ]

@@ -4,6 +4,7 @@ module Syntax
     CommandId,
     ImportDecl (..),
     Program (..),
+    SugarProgram (..),
     SugarDecl (..),
     DoThenBinding (..),
     SugarCommand (..),
@@ -61,14 +62,22 @@ data ImportDecl = ImportDecl String [VarId] -- import "module" (x, y, z)
 
 -- | Sugared Syntax | --
 
+data SugarProgram = SugarProgram
+  { sugarProgramImports :: [ImportDecl], -- at beginning
+    sugarProgramDecls :: [SugarDecl], -- middle
+    sugarProgramExports :: [VarId] -- at end
+  }
+  deriving (Show, Eq, Ord)
+
 -- | Sugared Declarations | --
 data SugarDecl
-  = FuncDecl VarId [VarId] SugarExpr -- fn f x y z = e
+  = FuncDecl VarId [VarId] SugarCommand -- fn f x y z = e
+  | RunDecl SugarCommand
   | DefaultDecl VarId SugarExpr
   deriving (Show, Eq, Ord)
 
 -- | Bindings for do/then syntax | --
-data DoThenBinding = Binding VarId SugarExpr -- x <- e
+data DoThenBinding = Binding Pattern SugarExpr -- x <- e
   deriving (Show, Eq, Ord)
 
 -- | Sugared Commands | --
@@ -79,6 +88,7 @@ data SugarCommand
   | PatchCommand SugarExpr [(Pattern, SugarCommand)] -- patch e with p1 -> q1 | p2 -> q2 | ...
   | DoThenCommand [DoThenBinding] SugarCommand -- do binding* then q
   | AtCommand SugarExpr [SugarExpr] -- f @ a b c
+  | CoAtCommand [SugarExpr] SugarExpr -- a b c @ 'f
   | DotCommand SugarExpr SugarExpr -- p . c
   | SugarCommandVar CommandId
   deriving (Show, Eq, Ord)
@@ -94,7 +104,7 @@ data SugarExpr
   = AppExpr SugarExpr [SugarExpr] [SugarExpr] -- f {k1, k2} (x1, x2, k1, k2)
   | CoAppExpr CommandId [SugarExpr] [SugarExpr] -- 'f {k1, k2} (x1, x2, k1, k2)
   | HaveExpr [HaveBinding] SugarExpr -- have bindings* in e
-  | DelimExpr SugarCommand -- < ... >
+  -- | DelimExpr SugarCommand -- < ... >
   | NatLit Integer -- 42
   | TupLit [SugarExpr] -- (e1, e2, ..., en)
   | SugarCons ConsId [SugarExpr] -- Foo e1 e2 ... en
