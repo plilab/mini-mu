@@ -16,6 +16,7 @@ import Sugar (desugarProgram)
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
+import Fresh (fresh)
 
 type Parser = Parsec Void String
 
@@ -47,7 +48,7 @@ parseMiniMu file = do
         putStrLn $ errorBundlePretty err
         error "Failed to parse MiniMu program"
     )
-    (return . desugarProgram)
+    (return . fresh . desugarProgram)
     ast
 
 -- | Parse a file into a Program, consuming leading whitespace | --
@@ -186,8 +187,8 @@ exportList = do
 -- | Utility Parsers | --
 
 -- | Parse pattern case for sugared commands | --
-sugarPatternCase :: Parser (Pattern, SugarCommand)
-sugarPatternCase =
+sugarBranch :: Parser (Pattern, SugarCommand)
+sugarBranch =
   label "sugar pattern case" $
     (,) <$> pattern <* symbol "->" <*> sugarCommand
 
@@ -275,7 +276,7 @@ sugarMatchCommand = label "sugar match command" $ do
   e <- sugarExpr
   _ <- symbol "with"
   _ <- optional (symbol "|")
-  cases <- sepBy1 sugarPatternCase (symbol "|")
+  cases <- sepBy1 sugarBranch (symbol "|")
   return $ MatchCommand e cases
 
 -- | Parse sugared patch command | --
@@ -285,7 +286,7 @@ sugarPatchCommand = label "sugar patch command" $ do
   e <- sugarExpr
   _ <- symbol "with"
   _ <- optional (symbol "|")
-  cases <- sepBy1 sugarPatternCase (symbol "|")
+  cases <- sepBy1 sugarBranch (symbol "|")
   return $ PatchCommand e cases
 
 -- | Parse do/then binding | --
@@ -386,7 +387,7 @@ sugarCons =
 sugarMu :: Parser SugarExpr
 sugarMu = label "sugar mu" $ do
   _ <- symbol "{"
-  cases <- sepBy1 sugarPatternCase (symbol "|")
+  cases <- sepBy1 sugarBranch (symbol "|")
   _ <- symbol "}"
   return $ SugarMu cases
 
