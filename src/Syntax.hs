@@ -10,7 +10,6 @@ module Syntax
     Expr (..),
     Value (..),
     Addr (..),
-    Context(..),
     Env (..),
     envEmpty,
     envLookup,
@@ -55,6 +54,19 @@ data Program = Program
 data ImportDecl = ImportDecl String [VarId] -- import "module" (x, y, z)
   deriving (Show, Eq, Ord)
 
+data SugarDecl
+  = FuncDecl VarId [VarId] Expr -- fn f x y z = e
+  | PlainDecl VarId Expr
+
+data DoThenBinding = Binding VarId Expr -- x <- e
+
+data SugarCommand
+  = LetCommand VarId Expr Command -- let x = e in q
+  | LetcCommand VarId Expr Command -- set x = e in q
+  | MatchCommand Expr [(Pattern, Command)] -- match e with p1 -> q1 | p2 -> q2 | ...
+  | PatchCommand Expr [(Pattern, Command)] -- patch e with p1 -> q1 | p2 -> q2 | ...
+  | DoThenCommand [DoThenBinding] Command -- do binding* then q
+
 data Decl
   = Decl VarId Expr -- a = e
   deriving (Show, Eq, Ord)
@@ -97,14 +109,6 @@ data Config
   = CommandConfig Env Store Command -- ρ |- q
   | ValueConfig Store Value Value
   | ErrorConfig String
-  deriving (Eq, Show, Ord)
-
-data Context 
-  = CommandContext Context Env Store Expr 
-  -- env, store, upper level context, hole context
-  | ConstructorContext Context Env Store Expr [Expr] [Value] 
-  -- env, store, upper level context, the constructor, the accumulator
-  | TopContext
   deriving (Eq, Show, Ord)
 
 newtype Addr = Addr Int deriving (Show, Eq, Ord)

@@ -323,10 +323,6 @@ command =
         try patchCommand,
         try commandSugar,
         try doThenCommand,
-        try $ angles $ do
-          e <- expr
-          _ <- symbol "|>"
-          Command e <$> expr,
         CommandVar <$> commandId
       ]
 
