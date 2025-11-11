@@ -97,16 +97,22 @@ General Goals: Fewer brackets, Fewer nestings
 We use a special kind of command as delimiter, and I am quite sure this can give us delimited control. Interestingly, this kind command can be implemented as a dynamic time generated value, or a mu-abstraction.
 Here is the thing:
 ```ocaml
-add @ 1 [add @ 1 2 here] halt
-=> { there -> add @ 1 2 there } . { non_tail_call -> add @ 1 non_tail_call halt }
+add @ 1 <add @ 1 2 here> halt
+=> { _callback -> add @ 1 2 _callback } . { _delim -> add @ 1 _delim halt }
 ```
 conceptually, in the delimited scope, all "here" are changed to "there", and we eta-expand the command with this introduced variable, namely:
 ```ocaml
-{ there -> add @ 1 2 there }
+{ _callback -> add @ 1 2 _callback }
 ```
 Out of the delimited scope, we introduce a one-hole-context, namely:
 ```ocaml
-{ non_tail_call -> add @ 1 non_tail_call halt }
+{ _delim -> add @ 1 _delim halt }
+```
+So Basically, this sugar is in this form:
+```ocaml
+CONTEXT <CMD>
+=> {_callback -> CMD[_callback/here]} . {_delim -> CONTEXT[delim] }
+"/" means substitutes
 ```
 
 ## Other  

@@ -3,8 +3,7 @@
 
 module Parser
   ( parseMiniMu,
-    parseFile,
-  )
+    parseFile )
 where
 
 import Data.Void
@@ -25,10 +24,12 @@ keywords =
     "in",
     "where",
     "seq",
+    "do",
     "then",
     "match",
     "patch",
     "with",
+    "have",
     "here"
   ]
 
@@ -168,40 +169,16 @@ intToPeanoPattern n = ConsPattern "S" [intToPeanoPattern (n - 1)]
 -- varID cannot start with ~
 varId :: Parser VarId
 varId =
-  label
-    "variable id"
-    $ lexeme
-    $ do
-      -- notFollowedBy (char '~')
-      varIdentifier
+  label "variable id" $ lexeme varIdentifier
 
 commandId :: Parser CommandId
 commandId =
-  label
-    "command id"
-    $ lexeme
-    $ do
-      -- notFollowedBy (char '~')
-      cmdIdentifier
-
--- coVarID must start with ~
--- coVarId :: Parser CoVarId
--- coVarId =
---   label
---     "co-variable id"
---     ( lexeme $ do
---         void (char '~') *> varIdentifier
---     )
+  label "command id" $ lexeme cmdIdentifier
 
 -- same for constructors
 consId :: Parser ConsId
 consId =
-  label
-    "constructor id"
-    ( lexeme $ do
-        -- notFollowedBy (char '~')
-        consIdentifier
-    )
+  label "constructor id" $ lexeme consIdentifier
 
 -- coConsId :: Parser CoConsId
 -- coConsId =
@@ -451,6 +428,41 @@ haveExpr = label "have expression" $ do
         body
         bindings
 
+-- Helper functions for substitution in let/where desugaring
+type ExprBinding = (VarId, Expr)
+
+type CommandBinding = (CommandId, Command)
+
+-- Structural recursions on Expr and Command for substitution
+
+findAndSubstExprInExpr :: ExprBinding -> Expr -> Expr
+findAndSubstExprInExpr (name, e) (Mu branches) =
+  Mu (map (\(p, c) -> (p, findAndSubstExprInCmd (name, e) c)) branches)
+findAndSubstExprInExpr (name, e) (Cons c args) =
+  Cons c (map (findAndSubstExprInExpr (name, e)) args)
+findAndSubstExprInExpr (name, e) (Var v) =
+  if v == name then e else Var v
+
+findAndSubstExprInCmd :: ExprBinding -> Command -> Command
+findAndSubstExprInCmd (name, e) (Command expr1 expr2) =
+  Command (findAndSubstExprInExpr (name, e) expr1) (findAndSubstExprInExpr (name, e) expr2)
+findAndSubstExprInCmd _ (CommandVar cmdId) =
+  CommandVar cmdId -- No substitution for command variables
+
+findAndSubstCmdInExpr :: CommandBinding -> Expr -> Expr
+findAndSubstCmdInExpr (name, cmd) (Mu branches) =
+  Mu (map (\(p, c) -> (p, findAndSubstCmdInCmd (name, cmd) c)) branches)
+findAndSubstCmdInExpr (name, cmd) (Cons c args) =
+  Cons c (map (findAndSubstCmdInExpr (name, cmd)) args)
+findAndSubstCmdInExpr _ (Var v) =
+  Var v
+
+findAndSubstCmdInCmd :: CommandBinding -> Command -> Command
+findAndSubstCmdInCmd (name, cmd) (Command expr1 expr2) =
+  Command (findAndSubstCmdInExpr (name, cmd) expr1) (findAndSubstCmdInExpr (name, cmd) expr2)
+findAndSubstCmdInCmd (name, cmd) (CommandVar cmdId) =
+  if cmdId == name then cmd else CommandVar cmdId
+
 -- Cut-as-let: let VAR = EXPR in CMD => EXPR . { VAR -> CMD }
 letCommand :: Parser Command
 letCommand = label "let command" $ do
@@ -493,57 +505,6 @@ patchCommand = label "patch command" $ do
   cases <- sepBy1 patternCase (symbol "|")
   return $ Command (Mu cases) ce
 
-binding :: Parser (Either VarId CommandId, Either Expr Command)
-binding = label "Parsing binding in let/where" $ do
-  choice
-    [ try $ label "Parsing a command binding" $ do
-        name <- commandId
-        _ <- symbol "="
-        c <- command
-        return (Right name, Right c),
-      label "Parsing an expr binding" $ do
-        name <- varId
-        _ <- symbol "="
-        e <- expr
-        return (Left name, Left e)
-    ]
-
--- Helper functions for substitution in let/where desugaring
-type ExprBinding = (VarId, Expr)
-
-type CommandBinding = (CommandId, Command)
-
--- Structural recursions on Expr and Command for substitution
-
-findAndSubstExprInExpr :: ExprBinding -> Expr -> Expr
-findAndSubstExprInExpr (name, e) (Mu branches) =
-  Mu (map (\(p, c) -> (p, findAndSubstExprInCmd (name, e) c)) branches)
-findAndSubstExprInExpr (name, e) (Cons c args) =
-  Cons c (map (findAndSubstExprInExpr (name, e)) args)
-findAndSubstExprInExpr (name, e) (Var v) =
-  if v == name then e else Var v
-
-findAndSubstExprInCmd :: ExprBinding -> Command -> Command
-findAndSubstExprInCmd (name, e) (Command expr1 expr2) =
-  Command (findAndSubstExprInExpr (name, e) expr1) (findAndSubstExprInExpr (name, e) expr2)
-findAndSubstExprInCmd _ (CommandVar cmdId) =
-  CommandVar cmdId -- No substitution for command variables
-
-findAndSubstCmdInExpr :: CommandBinding -> Expr -> Expr
-findAndSubstCmdInExpr (name, cmd) (Mu branches) =
-  Mu (map (\(p, c) -> (p, findAndSubstCmdInCmd (name, cmd) c)) branches)
-findAndSubstCmdInExpr (name, cmd) (Cons c args) =
-  Cons c (map (findAndSubstCmdInExpr (name, cmd)) args)
-findAndSubstCmdInExpr _ (Var v) =
-  Var v
-
-findAndSubstCmdInCmd :: CommandBinding -> Command -> Command
-findAndSubstCmdInCmd (name, cmd) (Command expr1 expr2) =
-  Command (findAndSubstCmdInExpr (name, cmd) expr1) (findAndSubstCmdInExpr (name, cmd) expr2)
-findAndSubstCmdInCmd (name, cmd) (CommandVar cmdId) =
-  if cmdId == name then cmd else CommandVar cmdId
-
-
 -- Sugar: do...then grammar
 doThenCommand :: Parser Command
 doThenCommand = label "do/then command" $ do
@@ -564,3 +525,18 @@ doThenCommand = label "do/then command" $ do
     desugarDoThen ((pat, funCall) : rest) cmd =
       -- FUN(ARGS...) . { PAT -> (rest) }
       Command funCall (Mu [(pat, desugarDoThen rest cmd)])
+
+binding :: Parser (Either VarId CommandId, Either Expr Command)
+binding = label "Parsing binding in let/where" $ do
+  choice
+    [ try $ label "Parsing a command binding" $ do
+        name <- commandId
+        _ <- symbol "="
+        c <- command
+        return (Right name, Right c),
+      label "Parsing an expr binding" $ do
+        name <- varId
+        _ <- symbol "="
+        e <- expr
+        return (Left name, Left e)
+    ]

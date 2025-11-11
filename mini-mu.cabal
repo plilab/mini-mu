@@ -37,7 +37,7 @@ library
       Module
       Parser
       Pretty
-      SmallStep
+      Sugar
       Syntax
   other-modules:
       Paths_mini_mu
@@ -71,7 +71,7 @@ executable mini-mu
       Module
       Parser
       Pretty
-      SmallStep
+      Sugar
       Syntax
       Paths_mini_mu
   autogen-modules:
