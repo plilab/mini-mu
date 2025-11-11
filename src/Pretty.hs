@@ -27,22 +27,20 @@ prettyConfig (CommandConfig env store command) _show =
     <> line
     <> prettyStore store _show
     <> line
-    <> prettyCommand command
+    <> pretty "COMMAND:"
+    <+> prettyCommand command
 prettyConfig (ValueConfig store value value') _show =
   pretty "<Value Config>"
     <> line
     <> prettyStore store _show
     <> line
-    <> pretty "value:"
+    <> pretty "VALUE:"
     <+> prettyTopLevelValue value _show
-    <+> pretty ", co-value:"
+    <> line
+    <> pretty "COVALUE:"
     <+> prettyTopLevelValue value' _show
 prettyConfig (ErrorConfig string) _ =
   pretty "<Message> " <> pretty string
-
--- prettyTopLevelEitherValue :: Either Value CoValue -> Doc ann
--- prettyTopLevelEitherValue (Left v) = prettyTopLevelValue v
--- prettyTopLevelEitherValue (Right cv) = prettyTopLevelCoValue cv
 
 prettyProgram :: Program -> Doc ann
 prettyProgram (Program imports decls exports) =
@@ -75,26 +73,22 @@ prettyProgram (Program imports decls exports) =
 prettyTopLevelValue :: Value -> Bool -> Doc ann
 prettyTopLevelValue (ConsValue "Z" []) _ = pretty "0"
 prettyTopLevelValue (ConsValue "S" [v]) _ =
-  pretty (peanoValueToInt (ConsValue "S" [v]))
+  pretty (prettyNatValue (ConsValue "S" [v]))
+prettyTopLevelValue listVal@(ConsValue "List::" _) showEnv =
+  prettyListValue listVal showEnv
+prettyTopLevelValue tupVal@(ConsValue "Tuple" _) showEnv =
+  prettyTupleValue tupVal showEnv
 prettyTopLevelValue (ConsValue con args) showEnv =
   pretty con <+> hsep (map (`prettyValue` showEnv) args)
 prettyTopLevelValue mu@(MuValue _ _) showEnv =
   prettyMuValueAux mu showEnv
 
--- prettyTopLevelCoValue :: CoValue -> Doc ann
--- prettyTopLevelCoValue (CoConsValue con args) =
---   pretty con <+> hsep (map prettyEitherValue args)
--- prettyTopLevelCoValue mu@(MuValue _ _) =
---   prettyMuValueAux mu
-
--- prettyEitherValue :: Either Value CoValue -> Doc ann
--- prettyEitherValue (Left v) = prettyValue v
--- prettyEitherValue (Right cv) = prettyCoValue cv
-
 prettyValue :: Value -> Bool -> Doc ann
 prettyValue (ConsValue "Z" []) _ = pretty "0"
 prettyValue (ConsValue "S" [v]) _ =
-  pretty (peanoValueToInt (ConsValue "S" [v]))
+  pretty (prettyNatValue (ConsValue "S" [v]))
+prettyValue listVal@(ConsValue "List::" _) showEnv = prettyListValue listVal showEnv
+prettyValue tupVal@(ConsValue "Tuple" _) showEnv = prettyTupleValue tupVal showEnv
 prettyValue (ConsValue con args) showEnv =
   case args of
     [] -> pretty con
@@ -104,31 +98,38 @@ prettyValue mu@(MuValue _ _) showEnv =
 
 -- Helper function to convert Peano numbers to integers
 -- safe cause there is no variable names in values
-peanoValueToInt :: Value -> Integer
-peanoValueToInt (ConsValue "Z" []) = 0
-peanoValueToInt (ConsValue "S" [v]) = 1 + peanoValueToInt v
-peanoValueToInt _ = error "Not a Peano number"
+prettyNatValue :: Value -> Integer
+prettyNatValue (ConsValue "Z" []) = 0
+prettyNatValue (ConsValue "S" [v]) = 1 + prettyNatValue v
+prettyNatValue _ = error "Not a Peano number"
 
--- prettyCoValue :: CoValue -> Doc ann
--- prettyCoValue (CoConsValue con args) =
---   case args of
---     [] -> pretty con
---     _ -> pretty "(" <> pretty con <+> hsep (map prettyEitherValue args) <> pretty ")"
--- prettyCoValue mu@(MuValue _ _) =
---   prettyMuValueAux mu
+-- Helper function to pretty print List:: values as [v1, v2, ..., vn]
+prettyListValue :: Value -> Bool -> Doc ann
+prettyListValue val showEnv =
+  case collectListValueElements val of
+    Just elements -> brackets (hsep (punctuate comma (map (`prettyValue` showEnv) elements)))
+    Nothing -> prettyValueFallback val showEnv
+  where
+    collectListValueElements :: Value -> Maybe [Value]
+    collectListValueElements (ConsValue "Nil" []) = Just []
+    collectListValueElements (ConsValue "List::" [v, rest]) =
+      case collectListValueElements rest of
+        Just vs -> Just (v : vs)
+        Nothing -> Nothing
+    collectListValueElements _ = Nothing
 
-{- TODO:
-   #9 ↦ MuValue {
-      vars = { eq ↦ #4, f ↦ #34, for_loop ↦ #3, if ↦ #5,
-               inc ↦ #1, list_map ↦ #0, lt ↦ #2, main ↦ #8,  <-- Note indented line wrapping
-               map_once ↦ #6, map_twice ↦ #7, x ↦ #36,
-               xs ↦ #35, xs' ↦ #37 },
-      coVars = { k ↦ #8 },
-      expr = μ[ y ->
-          < list_map ▷ Ap3 f xs' μ[ ys' ->
-                                    < (List:: y ys') ▷ k >] >]
-   }
--}
+    prettyValueFallback :: Value -> Bool -> Doc ann
+    prettyValueFallback (ConsValue con args) se =
+      case args of
+        [] -> pretty con
+        _ -> pretty "(" <> pretty con <+> hsep (map (`prettyValue` se) args) <> pretty ")"
+    prettyValueFallback v se = prettyValue v se
+
+-- Helper function to pretty print Tuple values as (v1, v2, ..., vn)
+prettyTupleValue :: Value -> Bool -> Doc ann
+prettyTupleValue (ConsValue "Tuple" args) showEnv =
+  parens (hsep (punctuate comma (map (`prettyValue` showEnv) args)))
+prettyTupleValue v showEnv = prettyValue v showEnv
 
 prettyMuValueAux :: Value -> Bool -> Doc ann
 prettyMuValueAux (MuValue env cases) showEnv =
@@ -137,10 +138,7 @@ prettyMuValueAux (MuValue env cases) showEnv =
       ( line
           <> indent
             2
-            ( prettyEnv env showEnv
-                <+> pretty "μ"
-                <> brackets (hang (-1) (prettyCases cases))
-            )
+            (prettyEnv env showEnv <+> line <> braces (hang (-1) (prettyCases cases)))
           <> line
       )
   where
@@ -151,55 +149,72 @@ prettyMuValueAux (MuValue env cases) showEnv =
         <> mconcat [line <> pipe <> space <> prettyCase c' | c' <- cs]
 prettyMuValueAux _ _ = error "Expected a MuValue"
 
--- prettyCoMuValueAux :: Value -> Doc ann
--- prettyCoMuValueAux (CoMuValue env cases) =
---   prettyEnv env
---     <+> pretty "μ̃"
---     <> brackets (hang (-1) (prettyCases cases))
---   where
---     prettyCases [] = mempty
---     prettyCases (c : cs) =
---       space
---         <> prettyCoCase c
---         <> mconcat [line <> pipe <> space <> prettyCoCase c' | c' <- cs]
--- prettyCoMuValueAux _ = error "Expected a CoMuValue"
-
 prettyCommand :: Command -> Doc ann
 prettyCommand (Command e k) =
   space
-    <> pretty "< "
     <> prettyTopLevelExpr e
-    <+> pretty "▷"
+    <+> pretty "."
     <+> prettyTopLevelExpr k
-    <> pretty " >"
     <> space
 prettyCommand (CommandVar x) = pretty x
 
--- prettyEitherExpr :: Either Expr CoExpr -> Doc ann
--- prettyEitherExpr (Left e) = prettyExpr e
--- prettyEitherExpr (Right k) = prettyCoExpr k
-peanoExprToInt :: Expr -> Maybe Integer
-peanoExprToInt (Cons "Z" []) = Just 0
-peanoExprToInt (Cons "S" [e]) = (+ 1) <$> peanoExprToInt e
-peanoExprToInt _ = Nothing
 
 prettyTopLevelExpr :: Expr -> Doc ann
 prettyTopLevelExpr (Var x) = pretty x
 prettyTopLevelExpr (Cons "Z" []) = pretty "0"
 prettyTopLevelExpr add1@(Cons "S" _) =
-  maybe (prettyTopLevelPeanoExprFallback add1) pretty (peanoExprToInt add1)
+  maybe (prettyNatExprFallback add1) pretty (peanoNatExpr add1)
+prettyTopLevelExpr li@(Cons "List::" _) =
+  prettyListExpr li
+prettyTopLevelExpr tup@(Cons "Tuple" _) =
+  prettyTupleExpr tup
 prettyTopLevelExpr (Cons con args) =
   pretty con <+> hsep (map prettyExpr args)
 prettyTopLevelExpr mu@(Mu _) =
   prettyMuExprAux mu
 
-prettyTopLevelPeanoExprFallback :: Expr -> Doc ann
-prettyTopLevelPeanoExprFallback (Cons "Z" []) = pretty "0"
-prettyTopLevelPeanoExprFallback (Cons "S" n) = pretty "S" <+> prettyTopLevelPeanoExprFallback (head n)
-prettyTopLevelPeanoExprFallback e = prettyExpr e
+peanoNatExpr :: Expr -> Maybe Integer
+peanoNatExpr (Cons "Z" []) = Just 0
+peanoNatExpr (Cons "S" [e]) = (+ 1) <$> peanoNatExpr e
+peanoNatExpr _ = Nothing
+
+prettyNatExprFallback :: Expr -> Doc ann
+prettyNatExprFallback (Cons "Z" []) = pretty "0"
+prettyNatExprFallback (Cons "S" n) = pretty "S" <+> prettyNatExprFallback (head n)
+prettyNatExprFallback e = prettyExpr e
+
+-- Helper function to pretty print List:: as [e1, e2, ..., en]
+prettyListExpr :: Expr -> Doc ann
+prettyListExpr expr =
+  case collectListElements expr of
+    Just elements -> brackets (hsep (punctuate comma (map prettyExpr elements)))
+    Nothing -> prettyExprFallback expr
+  where
+    collectListElements :: Expr -> Maybe [Expr]
+    collectListElements (Cons "Nil" []) = Just []
+    collectListElements (Cons "List::" [e, rest]) =
+      case collectListElements rest of
+        Just es -> Just (e : es)
+        Nothing -> Nothing
+    collectListElements _ = Nothing
+
+    prettyExprFallback :: Expr -> Doc ann
+    prettyExprFallback (Cons c args) =
+      case args of
+        [] -> pretty c
+        _ -> pretty "(" <> pretty c <+> hsep (map prettyExpr args) <> pretty ")"
+    prettyExprFallback e = prettyExpr e
+
+-- Helper function to pretty print Tuple as (e1, e2, ..., en)
+prettyTupleExpr :: Expr -> Doc ann
+prettyTupleExpr (Cons "Tuple" args) =
+  parens (hsep (punctuate comma (map prettyExpr args)))
+prettyTupleExpr e = prettyExpr e
 
 prettyExpr :: Expr -> Doc ann
 prettyExpr (Var x) = pretty x
+prettyExpr listExpr@(Cons "List::" _) = prettyListExpr listExpr
+prettyExpr tupExpr@(Cons "Tuple" _) = prettyTupleExpr tupExpr
 prettyExpr (Cons c args) =
   case args of
     [] -> pretty c
@@ -208,7 +223,7 @@ prettyExpr (Mu cases) = prettyMuExprAux (Mu cases)
 
 prettyMuExprAux :: Expr -> Doc ann
 prettyMuExprAux (Mu cases) =
-  pretty "μ" <> brackets (hang (-1) (prettyCases cases))
+  braces (hang (-1) (prettyCases cases))
   where
     prettyCases [] = mempty
     prettyCases (c : cs) =
@@ -217,42 +232,48 @@ prettyMuExprAux (Mu cases) =
         <> mconcat [line <> pipe <> space <> prettyCase c' | c' <- cs]
 prettyMuExprAux _ = error "Expected a Mu expression"
 
--- prettyCoExpr :: CoExpr -> Doc ann
--- prettyCoExpr (CoVar x) = pretty x
--- prettyCoExpr (CoCons c args) =
---   pretty c <+> hsep (map prettyEitherExpr args)
--- prettyCoExpr (Mu cases) =
---   pretty "μ"
---     <> brackets (hang (-1) (prettyCases cases))
---   where
---     prettyCases [] = mempty
---     prettyCases (c : cs) =
---       space
---         <> prettyCase c
---         <> mconcat [line <> pipe <> space <> prettyCase c' | c' <- cs]
-
 prettyCase :: (Pattern, Command) -> Doc ann
 prettyCase (pat, cmd) =
   prettyPattern pat <+> pretty "->" <> line <> indent 2 (prettyCommand cmd)
 
--- prettyCoCase :: (CoPattern, Command) -> Doc ann
--- prettyCoCase (pat, cmd) =
---   prettyCoPattern pat <+> pretty "->" <> line <> indent 2 (prettyCommand cmd)
 
 prettyPattern :: Pattern -> Doc ann
+prettyPattern listPat@(ConsPattern "List::" _) = prettyListPattern listPat
+prettyPattern tupPat@(ConsPattern "Tuple" _) = prettyTuplePattern tupPat
 prettyPattern (ConsPattern con args) =
-  pretty con <+> hsep (map prettyPattern args)
+  case args of
+    [] -> pretty con
+    _ -> pretty con <+> hsep (map prettyPattern args)
 prettyPattern (VarPattern x) = pretty x
 prettyPattern WildcardPattern = pretty "_"
 
--- prettyCoPattern :: CoPattern -> Doc ann
--- prettyCoPattern (CoConsPattern con args) =
---   pretty con <+> hsep (map prettyEitherVar args)
--- prettyCoPattern (CoVarPattern x) = pretty x
+-- Helper function to pretty print List:: patterns as [p1, p2, ..., pn]
+prettyListPattern :: Pattern -> Doc ann
+prettyListPattern pat =
+  case collectListPatternElements pat of
+    Just elements -> brackets (hsep (punctuate comma (map prettyPattern elements)))
+    Nothing -> prettyPatternFallback pat
+  where
+    collectListPatternElements :: Pattern -> Maybe [Pattern]
+    collectListPatternElements (ConsPattern "Nil" []) = Just []
+    collectListPatternElements (ConsPattern "List::" [p, rest]) =
+      case collectListPatternElements rest of
+        Just ps -> Just (p : ps)
+        Nothing -> Nothing
+    collectListPatternElements _ = Nothing
 
--- prettyEitherVar :: Either VarId CoVarId -> Doc ann
--- prettyEitherVar (Left v) = pretty v
--- prettyEitherVar (Right cv) = pretty cv
+    prettyPatternFallback :: Pattern -> Doc ann
+    prettyPatternFallback (ConsPattern con args) =
+      case args of
+        [] -> pretty con
+        _ -> pretty con <+> hsep (map prettyPattern args)
+    prettyPatternFallback p = prettyPattern p
+
+-- Helper function to pretty print Tuple patterns as (p1, p2, ..., pn)
+prettyTuplePattern :: Pattern -> Doc ann
+prettyTuplePattern (ConsPattern "Tuple" args) =
+  parens (hsep (punctuate comma (map prettyPattern args)))
+prettyTuplePattern p = prettyPattern p
 
 prettyEnv :: Env -> Bool -> Doc ann
 prettyEnv (Env varMap cmdMap) True =
@@ -304,9 +325,6 @@ prettyEnv _ False = pretty "{ Environment }"
 
 prettyAddr :: Addr -> Doc ann
 prettyAddr (Addr n) = pretty "#" <> pretty n
-
--- prettyCoAddr :: CoAddr -> Doc ann
--- prettyCoAddr (CoAddr n) = pretty "#" <> pretty n
 
 prettyStore :: Store -> Bool -> Doc ann
 prettyStore (Store addr cmdAddr valMap cmdMap) True =

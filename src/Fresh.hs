@@ -12,12 +12,12 @@ fresh (Program imports decls exports) =
   in Program imports decls' exports
 
 -- | Renaming environment: maps original variable names to their renamed versions | --
-type Renaming = Map.Map VarId VarId
+type Renaming = (Map.Map VarId VarId, Int)
 
 -- | Fresh monad: tracks renaming environment and a counter for generating unique names | --
-type FreshM a = (Renaming, Int) -> (a, (Renaming, Int))
+type FreshM a = Renaming -> (a, Renaming)
 
-runFresh :: FreshM a -> (Renaming, Int) -> (a, (Renaming, Int))
+runFresh :: FreshM a -> Renaming -> (a, Renaming)
 runFresh = id
 
 returnFresh :: a -> FreshM a
