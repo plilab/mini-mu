@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use second" #-}
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
 module Parser
   ( parseMiniMu,
@@ -37,8 +38,7 @@ keywords =
     "here"
   ]
 
--- Parse a MiniMu program from a file, handing errors
--- Main entry point for parsing
+-- | Parse a MiniMu program from a file, handing errors, main entry point for parsing | --
 parseMiniMu :: FilePath -> IO Program
 parseMiniMu file = do
   ast <- parseFile file
@@ -50,13 +50,13 @@ parseMiniMu file = do
     (return . desugarProgram)
     ast
 
--- Parse a file into a Program, consuming leading whitespace
+-- | Parse a file into a Program, consuming leading whitespace | --
 parseFile :: String -> IO (Either (ParseErrorBundle String Void) SugarProgram)
 parseFile file = do
   contents <- readFile file
   return $ parse (sc *> sugarProgram <* eof) file contents
 
--- Space consumer
+-- | Space, comments consumer | --
 sc :: Parser ()
 sc =
   L.space
@@ -64,30 +64,57 @@ sc =
     (L.skipLineComment "--") -- Skip line comments starting with "--"
     (L.skipBlockComment "{-" "-}") -- Skip block comments between "{-" and "-}"
 
--- Helper for lexemes: consumes trailing whitespace
+-- | Helper for lexemes: consumes trailing whitespace | --
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
 
--- Parse a specific symbol and consume trailing whitespace
+-- | Parse a specific symbol and consume trailing whitespace | --
 symbol :: String -> Parser String
 symbol = L.symbol sc
 
+-- | Parse something between curly braces | --
 curly :: Parser a -> Parser a
 curly = between (symbol "{") (symbol "}")
 
--- Parse something between angle brackets
+-- | Parse something between angle brackets | --
 angles :: Parser a -> Parser a
 angles = between (symbol "<") (symbol ">")
 
--- Parse something between square brackets
+-- | Parse something between square brackets | --
 squares :: Parser a -> Parser a
 squares = between (symbol "[") (symbol "]")
 
--- Parse something between parentheses
+-- | Parse something between parentheses | --
 parens :: Parser a -> Parser a
 parens = between (symbol "(") (symbol ")")
 
--- Parse variable name (starting with lowercase)
+-- | Utilities definitions for ids | --
+
+-- | Parse file identifier (a string in quotes) | --
+fileIdentifier :: Parser String
+fileIdentifier =
+  label
+    "file identifier"
+    $ lexeme
+    $ do
+      _ <- symbol "\""
+      first <- lowerChar
+      rest <- many (alphaNumChar <|> char '_' <|> char '-' <|> char '.')
+      _ <- symbol "\""
+      return (first : rest)
+
+-- | Parse a constructor (starting with Uppercase) | --
+consIdentifier :: Parser String
+consIdentifier =
+  label
+    "constructor name"
+    $ lexeme
+    $ do
+      first <- upperChar
+      rest <- many (alphaNumChar <|> char '_' <|> char ':' <|> char '\'')
+      return (first : rest)
+
+-- | Parse variable name (starting with lowercase) | --
 varIdentifier :: Parser String
 varIdentifier =
   label
@@ -101,29 +128,7 @@ varIdentifier =
         then fail $ "keyword " ++ show word ++ " cannot be the name of a variable"
         else return word
 
--- Parse a constructor (starting with uppercase)
-consIdentifier :: Parser String
-consIdentifier =
-  label
-    "constructor name"
-    $ lexeme
-    $ do
-      first <- upperChar
-      rest <- many (alphaNumChar <|> char '_' <|> char ':' <|> char '\'')
-      return (first : rest)
-
-fileIdentifier :: Parser String
-fileIdentifier =
-  label
-    "file identifier"
-    $ lexeme
-    $ do
-      _ <- symbol "\""
-      first <- lowerChar
-      rest <- many (alphaNumChar <|> char '_' <|> char '-' <|> char '.')
-      _ <- symbol "\""
-      return (first : rest)
-
+-- | Parse command identifiers (starting with lowercase) | --
 cmdIdentifier :: Parser String
 cmdIdentifier =
   label
@@ -137,10 +142,13 @@ cmdIdentifier =
         else return word
 
 -- | Parse variable ids, command ids, and constructor ids | --
+
+-- | Parse variable ids | --
 varId :: Parser VarId
 varId =
   label "variable id" $ lexeme varIdentifier
 
+-- | Parse command ids | --
 commandId :: Parser CommandId
 commandId =
   label "command id" $ lexeme cmdIdentifier
@@ -155,7 +163,10 @@ sugarProgram :: Parser SugarProgram
 sugarProgram = label "sugar program" $ do
   imports <- many importDecl
   decls <- sugarDecls
-  SugarProgram imports decls <$> option [] exportList
+  SugarProgram 
+    imports 
+    decls 
+    <$> option [] exportList
 
 -- | Parse import declarations | --
 importDecl :: Parser ImportDecl
@@ -171,19 +182,20 @@ exportList = do
   _ <- symbol "export"
   sepBy1 varId (symbol ",")
 
--- | Sugared Syntax Parsers | --
 
 -- | Utility Parsers | --
 
--- Parse pattern case for sugared commands
+-- | Parse pattern case for sugared commands | --
 sugarPatternCase :: Parser (Pattern, SugarCommand)
-sugarPatternCase = label "sugar pattern case" $ (,) <$> pattern <* symbol "->" <*> sugarCommand
+sugarPatternCase =
+  label "sugar pattern case" $
+    (,) <$> pattern <* symbol "->" <*> sugarCommand
 
--- Parse natural number as SugarExpr
+-- | Parse natural number as SugarExpr | --
 sugarNatLit :: Parser SugarExpr
 sugarNatLit = label "natural number literal" $ NatLit <$> lexeme L.decimal
 
--- Parse sugared tuple literals
+-- | Parse sugared tuple literals | --
 sugarTupleLit :: Parser SugarExpr
 sugarTupleLit = label "tuple literal" $ do
   _ <- symbol "("
@@ -193,10 +205,15 @@ sugarTupleLit = label "tuple literal" $ do
   _ <- symbol ")"
   return $ TupLit (first : rest)
 
+-- | Sugared Syntax Parsers | --
+
+-- | Parse multiple sugared declarations | --
+sugarDecls :: Parser [SugarDecl]
+sugarDecls = many $ notFollowedBy (symbol "export") *> sugarDecl <* symbol ";"
 
 -- | Parse SugarDecl | --
 
--- Parse sugared function declaration
+-- | Parse sugared function declaration | --
 sugarFuncDecl :: Parser SugarDecl
 sugarFuncDecl = label "sugar func decl" $ do
   _ <- symbol "fn"
@@ -205,20 +222,20 @@ sugarFuncDecl = label "sugar func decl" $ do
   _ <- symbol ":="
   FuncDecl f args <$> sugarCommand
 
--- Parse sugared default declaration
+-- | Parse sugared default declaration | --
 sugarDefaultDecl :: Parser SugarDecl
 sugarDefaultDecl = label "sugar default decl" $ do
   name <- varId
   _ <- symbol ":="
   DefaultDecl name <$> sugarExpr
 
--- Parse run declaration (run q => main = { halt -> q })
+-- | Parse run declaration (run M => main = { halt -> M }) | --
 sugarRunDecl :: Parser SugarDecl
 sugarRunDecl = label "run declaration" $ do
   _ <- symbol "run"
   RunDecl <$> sugarCommand
 
--- Main sugared declaration parser
+-- | Main sugared declaration parser | --
 sugarDecl :: Parser SugarDecl
 sugarDecl =
   label "sugar declaration" $
@@ -228,11 +245,10 @@ sugarDecl =
         sugarDefaultDecl
       ]
 
-sugarDecls :: Parser [SugarDecl]
-sugarDecls = many $ notFollowedBy (symbol "export") *> sugarDecl <* symbol ";"
+
 -- | Parse SugarCommand | --
 
--- Parse sugared let command
+-- | Parse sugared let command | --
 sugarLetCommand :: Parser SugarCommand
 sugarLetCommand = label "sugar let command" $ do
   _ <- symbol "let"
@@ -242,7 +258,7 @@ sugarLetCommand = label "sugar let command" $ do
   _ <- symbol "in"
   LetCommand var e <$> sugarCommand
 
--- Parse sugared letc command
+-- | Parse sugared letc command | --
 sugarLetcCommand :: Parser SugarCommand
 sugarLetcCommand = label "sugar letc command" $ do
   _ <- symbol "letc"
@@ -252,7 +268,7 @@ sugarLetcCommand = label "sugar letc command" $ do
   _ <- symbol "in"
   LetcCommand var e <$> sugarCommand
 
--- Parse sugared match command
+-- | Parse sugared match command | --
 sugarMatchCommand :: Parser SugarCommand
 sugarMatchCommand = label "sugar match command" $ do
   _ <- symbol "match"
@@ -262,7 +278,7 @@ sugarMatchCommand = label "sugar match command" $ do
   cases <- sepBy1 sugarPatternCase (symbol "|")
   return $ MatchCommand e cases
 
--- Parse sugared patch command
+-- | Parse sugared patch command | --
 sugarPatchCommand :: Parser SugarCommand
 sugarPatchCommand = label "sugar patch command" $ do
   _ <- symbol "patch"
@@ -272,14 +288,14 @@ sugarPatchCommand = label "sugar patch command" $ do
   cases <- sepBy1 sugarPatternCase (symbol "|")
   return $ PatchCommand e cases
 
--- Parse do/then binding
+-- | Parse do/then binding | --
 doThenBinding :: Parser DoThenBinding
 doThenBinding = label "do/then binding" $ do
   pat <- pattern
   _ <- symbol "<-"
   Binding pat <$> sugarExpr
 
--- Parse sugared do/then command
+-- | Parse sugared do/then command | --
 sugarDoThenCommand :: Parser SugarCommand
 sugarDoThenCommand = label "sugar do/then command" $ do
   _ <- symbol "do"
@@ -287,7 +303,7 @@ sugarDoThenCommand = label "sugar do/then command" $ do
   _ <- symbol "then"
   DoThenCommand bindings <$> sugarCommand
 
--- Parse sugared @ command
+-- | Parse sugared @ command | --
 sugarAtCommand :: Parser SugarCommand
 sugarAtCommand = label "sugar @ command" $ do
   choice
@@ -304,14 +320,14 @@ sugarAtCommand = label "sugar @ command" $ do
         CoAtCommand args <$> sugarExpr
     ]
 
--- Parse sugared . command
+-- | Parse sugared . command | --
 sugarDotCommand :: Parser SugarCommand
 sugarDotCommand = label "sugar . command" $ do
   e1 <- sugarExpr
   _ <- symbol "."
   DotCommand e1 <$> sugarExpr
 
--- Main sugared command parser
+-- | Main sugared command parser | --
 sugarCommand :: Parser SugarCommand
 sugarCommand =
   label "sugar command" $
@@ -337,7 +353,7 @@ sugarCommand =
 --   _ <- symbol ">"
 --   return $ DelimExpr cmd
 
--- Parse have bindings
+-- | Parse have bindings | --
 sugarHaveBinding :: Parser HaveBinding
 sugarHaveBinding = label "have binding" $ do
   choice
@@ -352,7 +368,7 @@ sugarHaveBinding = label "have binding" $ do
         HaveExprBinding var <$> sugarExpr
     ]
 
--- Parse have expression
+-- | Parse have expression | --
 sugarHaveExpr :: Parser SugarExpr
 sugarHaveExpr = label "have expression" $ do
   _ <- symbol "have"
@@ -360,13 +376,13 @@ sugarHaveExpr = label "have expression" $ do
   _ <- symbol "in"
   HaveExpr bindings <$> sugarExpr
 
--- Parse sugared constructor application
+-- | Parse sugared constructor application | --
 sugarCons :: Parser SugarExpr
 sugarCons =
   label "sugar constructor" $
     SugarCons <$> consId <*> many sugarAtom
 
--- Parse sugared mu expression
+-- | Parse sugared mu expression | --
 sugarMu :: Parser SugarExpr
 sugarMu = label "sugar mu" $ do
   _ <- symbol "{"
@@ -374,7 +390,7 @@ sugarMu = label "sugar mu" $ do
   _ <- symbol "}"
   return $ SugarMu cases
 
--- Parse sugared atoms
+-- | Parse sugared atoms | --
 sugarAtom :: Parser SugarExpr
 sugarAtom =
   label "sugar atom" $
@@ -389,7 +405,7 @@ sugarAtom =
         parens sugarExpr
       ]
 
--- Parse sugared function application: f{k1, k2}(x1, x2, k1, k2)
+-- | Parse sugared function application: f{k1, k2}(x1, x2, k1, k2) | --
 sugarAppExpr :: Parser SugarExpr
 sugarAppExpr = label "sugar app expression" $ do
   fun <- sugarAtom
@@ -399,7 +415,7 @@ sugarAppExpr = label "sugar app expression" $ do
   _ <- symbol ")"
   return $ AppExpr fun explicitConts args
 
--- Parse sugared cofunction application: 'f{k1, k2}(x1, x2, k1, k2)
+-- | Parse sugared cofunction application: 'f{k1, k2}(x1, x2, k1, k2) | --
 sugarCoAppExpr :: Parser SugarExpr
 sugarCoAppExpr = label "sugar coapp expression" $ do
   _ <- symbol "'"
@@ -410,7 +426,7 @@ sugarCoAppExpr = label "sugar coapp expression" $ do
   _ <- symbol ")"
   return $ CoAppExpr cmdId explicitConts args
 
--- Main sugared expression parser
+-- | Main sugared expression parser | --
 sugarExpr :: Parser SugarExpr
 sugarExpr =
   label "sugar expression" $
@@ -423,7 +439,7 @@ sugarExpr =
 
 -- | Parse Patterns | --
 
--- Parse tuple patterns with arbitrary length (minimum 2 elements)  
+-- | Parse tuple patterns with arbitrary length (minimum 2 elements)  
 tuplePattern :: Parser Pattern
 tuplePattern = label "tuple pattern" $ do
   _ <- symbol "("
@@ -433,14 +449,16 @@ tuplePattern = label "tuple pattern" $ do
   _ <- symbol ")"
   return $ ConsPattern "Tuple" (first : rest)
 
+-- | Parse natural number patterns | --
 natPattern :: Parser Pattern
 natPattern = label "natural number pattern" $ intToPeanoPattern <$> lexeme L.decimal
 
+-- | Convert integer to Peano pattern | --
 intToPeanoPattern :: Integer -> Pattern
 intToPeanoPattern 0 = ConsPattern "Z" []
 intToPeanoPattern n = ConsPattern "S" [intToPeanoPattern (n - 1)]
 
--- Parse a pattern
+-- | Parse a pattern | --
 pattern :: Parser Pattern
 pattern =
   label "pattern" $

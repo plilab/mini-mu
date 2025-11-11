@@ -1,8 +1,11 @@
 import "std_nat" (eq)
 
 fn list_append as bs k :=
-  as . { Nil -> bs . k
-       | List:: a as' -> list_append @ as' bs { rest -> List:: a rest . k } };
+  match as with 
+    Nil -> bs . k
+  | List:: a as' -> 
+    letc k' = { rest -> List:: a rest . k } in 
+    list_append @ as' bs k';
 
 fn list_map f xs k :=
   xs . { Nil -> Nil . k
