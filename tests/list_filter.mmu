@@ -1,9 +1,11 @@
 import "std_nat" (geq)
 
 fn list_filter pred xs cpr k :=
-  xs . { Nil -> Nil . k
-       | List:: x xs' -> 
-          pred @ x cpr { True -> list_filter @ pred xs' cpr { ys' -> List:: x ys' . k } 
-                       | False -> list_filter @ pred xs' cpr { ys' -> ys' . k } } };
+  match xs with
+    Nil -> Nil . k
+  | List:: x xs' -> 
+    patch pred(x, cpr) with 
+      True -> list_filter @ pred xs' cpr { ys' -> List:: x ys' . k } 
+    | False -> list_filter @ pred xs' cpr { ys' -> ys' . k };
 
 run list_filter @ geq (List:: 3 (List:: 1 (List:: 0 (List:: 4 (List:: 2 (List:: 1 Nil)))))) 2 halt;

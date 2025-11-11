@@ -1,11 +1,13 @@
 import "std_nat" (lt)
 
 fn list_split pred xs cpr k :=
-  xs . { Nil -> (Nil, Nil) . k
-       | List:: x xs' ->
-            do rest <- list_split pred xs' cpr
-            then rest . { Pair smaller greater ->
-              pred @ x cpr { True -> Pair (List:: x smaller) greater . k
-                           | False -> Pair smaller (List:: x greater) . k } } };
+  match xs with 
+    Nil -> (Nil, Nil) . k
+  | List:: x xs' ->
+      let rest = list_split(pred, xs', cpr) in
+      let (smaller, greater) = rest in
+      match pred(x, cpr) with 
+        True -> ((List:: x smaller), greater) . k
+      | False -> (smaller, (List:: x greater)) . k;
 
 run list_split @ lt (List:: 3 (List:: 1 (List:: 2 (List:: 0 Nil)))) 2 halt;

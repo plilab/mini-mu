@@ -1,5 +1,5 @@
 import "std_nat"(inc)
 
-run { cbv -> 2 halt @ cbv } . { cbn -> inc . cbn };
+run { f -> f @ 2 halt } . { args -> inc . args };
 
 -- 2 halt @ { cbn -> inc @ cbn }

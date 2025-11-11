@@ -1,4 +1,4 @@
 import "std_nat" (inc)
 
-run let double = { (x, k) -> inc @ x { x' -> inc @ x' k } }
-      in double @ (let x = 1 in x) halt;
+run have double_inc = { (x, k) -> inc @ x { x' -> inc @ x' k } }
+      in double_inc @ 1 halt;
