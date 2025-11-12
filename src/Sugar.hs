@@ -1,5 +1,5 @@
 module Sugar
-  ( 
+  (
     desugarProgram,
     desugarDecl,
     desugarExpr,
@@ -35,6 +35,38 @@ desugarDecl (RunDecl cmd) =
 desugarDecl (DefaultDecl name body) =
   -- x = e  =>  x = desugar(e)
   Decl name (desugarExpr body)
+
+desugarDecl (ModuleDecl name fields methods) =
+  -- module obj := field x = e1; field y = e2; Method1(args) -> cmd1; Method2(args) -> cmd2 end
+  -- =>
+  -- obj = { Method1 args _k -> (e1, e2) . { (_x, _y) -> desugar(cmd1) }
+  --       | Method2 args _k -> (e1, e2) . { (_x, _y) -> desugar(cmd2) } }
+  let fieldExprs = map (\(FieldBinding _ expr) -> desugarExpr expr) fields
+      fieldNames = map (\(FieldBinding fieldName _) -> "_" ++ fieldName) fields
+      fieldTuple = Cons "Tuple" fieldExprs
+      fieldPattern = case fieldNames of
+        [] -> WildcardPattern
+        [x] -> VarPattern x
+        xs -> ConsPattern "Tuple" (map VarPattern xs)
+
+      -- Desugar each method into a mu clause
+      methodClauses = map (desugarMethod fieldTuple fieldPattern) methods
+   in Decl name (Mu methodClauses)
+
+-- | Desugar a method definition into a mu clause | --
+desugarMethod :: Expr -> Pattern -> MethodDef -> (Pattern, Command)
+desugarMethod fieldTuple fieldPattern (MethodDef methodName conts args cmd) =
+  let contPatterns = map VarPattern conts
+      argPatterns = map VarPattern args
+  in 
+  if null contPatterns 
+    then 
+      let fullPattern = ConsPattern methodName $ argPatterns ++ [VarPattern "_k"] -- implicit continuation
+          methodBody = Command fieldTuple (Mu [(fieldPattern, desugarCommand cmd)]) in
+      (fullPattern, methodBody)
+    else 
+      let methodBody = Command fieldTuple (Mu [(fieldPattern, desugarCommand cmd)]) in
+      (ConsPattern methodName argPatterns, methodBody) -- Full pattern is the argPatterns
 
 -- | Desugar SugarExpr to Expr | --
 desugarExpr :: SugarExpr -> Expr
@@ -110,6 +142,20 @@ desugarExpr (CoAppExpr cmdId explicitConts args) =
     toVarPattern (SugarVar x) = VarPattern x
     toVarPattern _ = error "Expected variable in explicit continuation list"
 
+desugarExpr (ThisExpr fieldName) =
+  -- this.fieldName  =>  _fieldName
+  Var ("_" ++ fieldName)
+
+desugarExpr (MethodCall obj methodName args) =
+  -- obj::Method args  =>  { _k -> obj . Method args _k }
+  -- This creates a thunk that, when given a continuation, calls the method
+  let desugaredObj = desugarExpr obj
+      desugaredArgs = map desugarExpr args
+      -- The pattern for the method constructor
+      methodCall = Cons methodName (desugaredArgs ++ [Var "_k"])
+      -- Build: { _k -> obj . Method args _k }
+   in Mu [(VarPattern "_k", Command desugaredObj methodCall)]
+
 -- | Desugar SugarCommand to Command | --
 desugarCommand :: SugarCommand -> Command
 desugarCommand (SugarCommandVar c) = CommandVar c
@@ -148,6 +194,10 @@ desugarCommand (CoAtCommand args fun) =
 desugarCommand (DotCommand e1 e2) =
   -- e1 . e2  =>  desugar(e1) . desugar(e2)
   Command (desugarExpr e1) (desugarExpr e2)
+
+desugarCommand (ReturnCommand e) =
+  -- return e  =>  e . _k
+  Command (desugarExpr e) (Var "_k")
 
 -- | Helper function for have expression desugaring | --
 desugarHaveExpr :: [HaveBinding] -> Expr -> Expr

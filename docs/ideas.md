@@ -137,7 +137,7 @@ car = {
 
 usage:
 
-car::Get_brand . halt
+car::Get_brand() . halt
 => 
 { _k -> car . Get_brand _k } . halt
 ```

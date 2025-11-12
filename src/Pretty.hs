@@ -463,6 +463,40 @@ prettySugarDecl (DefaultDecl name expr) =
     <+> prettyTopLevelSugarExpr expr
     <> pretty ";"
     <> line
+prettySugarDecl (ModuleDecl name fields methods) =
+  pretty "module"
+    <+> pretty name
+    <+> pretty ":="
+    <> line
+    <> indent 2 (vsep (map prettyFieldBinding fields))
+    <> line
+    <> indent 2 (vsep (map prettyMethodDef methods))
+    <> pretty "end"
+    <> pretty ";"
+    <> line
+    <> line
+
+-- | Pretty print a field binding | --
+prettyFieldBinding :: FieldBinding -> Doc ann
+prettyFieldBinding (FieldBinding fieldName expr) =
+      pretty "field"
+        <+> pretty fieldName
+        <+> pretty "="
+        <+> prettyTopLevelSugarExpr expr
+        <> line
+
+-- | Pretty print a method definition | --
+prettyMethodDef :: MethodDef -> Doc ann
+prettyMethodDef (MethodDef methodName args conts cmd) =
+  pretty methodName
+    <> if null conts 
+       then mempty 
+       else braces (hsep (punctuate comma (map pretty conts)))
+    <> parens (hsep (punctuate comma (map pretty args)))
+    <+> pretty "->"
+    <> line
+    <> indent 2 (prettySugarCommand cmd)
+    <> line
 
 -- | Pretty print a sugared command | --
 prettySugarCommand :: SugarCommand -> Doc ann
@@ -514,6 +548,9 @@ prettySugarCommand (DotCommand expr1 expr2) =
   prettyTopLevelSugarExpr expr1
     <+> pretty "."
     <+> prettyTopLevelSugarExpr expr2
+prettySugarCommand (ReturnCommand expr) =
+  pretty "return"
+    <+> prettyTopLevelSugarExpr expr
 prettySugarCommand (SugarCommandVar cmdId) =
   pretty cmdId
 
@@ -578,6 +615,13 @@ prettySugarExpr (SugarMu branches) =
   braces (hang (-1) (prettySugarMuBranches branches))
 prettySugarExpr (SugarVar var) =
   pretty var
+prettySugarExpr (ThisExpr fieldName) =
+  pretty "this" <> pretty "." <> pretty fieldName
+prettySugarExpr (MethodCall obj methodName args) =
+  prettySugarExpr obj
+    <> pretty "::"
+    <> pretty methodName
+    <> (if null args then mempty else parens (hsep (punctuate comma (map prettySugarExpr args))))
 
 -- | Helper function to pretty print continuation arguments | --
 prettyContArgs :: [SugarExpr] -> Doc ann

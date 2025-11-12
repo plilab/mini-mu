@@ -6,6 +6,8 @@ module Syntax
     Program (..),
     SugarProgram (..),
     SugarDecl (..),
+    FieldBinding (..),
+    MethodDef (..),
     DoThenBinding (..),
     SugarCommand (..),
     HaveBinding (..),
@@ -74,6 +76,15 @@ data SugarDecl
   = FuncDecl VarId [VarId] SugarCommand -- fn f x y z = e
   | RunDecl SugarCommand
   | DefaultDecl VarId SugarExpr
+  | ModuleDecl VarId [FieldBinding] [MethodDef] -- module OBJId := fields methods end
+  deriving (Show, Eq, Ord)
+
+-- | Field bindings inside modules | --
+data FieldBinding = FieldBinding VarId SugarExpr -- field x = e
+  deriving (Show, Eq, Ord)
+
+-- | Method definitions inside modules | --
+data MethodDef = MethodDef ConsId [VarId] [VarId] SugarCommand -- MethodId{conts}(args) -> cmd
   deriving (Show, Eq, Ord)
 
 -- | Bindings for do/then syntax | --
@@ -90,6 +101,7 @@ data SugarCommand
   | AtCommand SugarExpr [SugarExpr] -- f @ a b c
   | CoAtCommand [SugarExpr] SugarExpr -- a b c @ 'f
   | DotCommand SugarExpr SugarExpr -- p . c
+  | ReturnCommand SugarExpr -- return e (used inside methods, desugars to e . _k)
   | SugarCommandVar CommandId
   deriving (Show, Eq, Ord)
 
@@ -111,6 +123,8 @@ data SugarExpr
   | SugarCons ConsId [SugarExpr] -- Foo e1 e2 ... en
   | SugarMu [(Pattern, SugarCommand)] -- mu [ Foo x y -> q | Bar x y -> q | k -> q ]
   | SugarVar VarId -- x
+  | ThisExpr VarId -- this.fieldName (desugars to _fieldName inside methods)
+  | MethodCall SugarExpr ConsId [SugarExpr] -- obj::Method args or obj::Method{conts}(args)
   deriving (Show, Eq, Ord)
 
 -- | Core Syntax | --

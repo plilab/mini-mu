@@ -1,0 +1,11 @@
+-- Test OOP implementation with the car example from the specification
+
+module car :=
+  field brand = Bmw
+  field year = 2020
+
+  Get_brand() -> return this.brand
+  Year_till(year) -> return this.year
+end;
+
+run car::Get_brand() . halt;
