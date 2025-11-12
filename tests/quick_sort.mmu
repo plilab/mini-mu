@@ -5,12 +5,13 @@ fn list_split pred xs cpr k :=
   match xs with 
     Nil -> (Nil, Nil) . k
   | List:: x xs' ->
-      let rest = list_split(pred, xs', cpr) in 
-      match rest with 
-        (smaller, greater) ->
-          letc final = { True -> ((List:: x smaller), greater) . k
-                       | False -> (smaller, (List:: x greater)) . k }
-          in pred(x, cpr) . final;
+      do 
+        rest <- list_split(pred, xs', cpr),
+        (smaller, greater) <- rest 
+      then
+      letc final = { True -> ((List:: x smaller), greater) . k
+                   | False -> (smaller, (List:: x greater)) . k }
+      in pred(x, cpr) . final;
 
 fn quick_sort xs k :=
   match xs with
@@ -23,4 +24,4 @@ fn quick_sort xs k :=
       then list_append(sorted_s, (List:: pivot sorted_g)) . k ;
 
 run quick_sort @ (List:: 3 (List:: 1 Nil)) halt;
--- not confluent:  μ[_k -> <quick_sort ...>]  ,  co-value: μ[rest -> <List:: a rest . k>]
+-- not confluent now:  μ[_k -> <quick_sort ...>]  ,  co-value: μ[rest -> <List:: a rest . k>]

@@ -104,7 +104,7 @@ prettyTopLevelExpr :: Expr -> Doc ann
 prettyTopLevelExpr (Var x) = pretty x
 prettyTopLevelExpr (Cons "Z" []) = pretty "0"
 prettyTopLevelExpr add1@(Cons "S" _) =
-  maybe (prettyNatExprFallback add1) pretty (peanoNatExpr add1)
+  maybe (prettyNatExprFallback add1) pretty (prettyNatExpr add1)
 prettyTopLevelExpr (Cons "Nil" []) = pretty "[]"
 prettyTopLevelExpr li@(Cons "List::" _) =
   prettyListExpr li
@@ -118,6 +118,9 @@ prettyTopLevelExpr mu@(Mu _) =
 -- | Pretty print an Expression | --
 prettyExpr :: Expr -> Doc ann
 prettyExpr (Var x) = pretty x
+prettyExpr (Cons "Z" []) = pretty "0"
+prettyExpr add1@(Cons "S" _) =
+  maybe (prettyNatExprFallback add1) pretty (prettyNatExpr add1)
 prettyExpr (Cons "Nil" []) = pretty "[]"
 prettyExpr listExpr@(Cons "List::" _) = prettyListExpr listExpr
 prettyExpr tupExpr@(Cons "Tuple" _) = prettyTupleExpr tupExpr
@@ -128,10 +131,10 @@ prettyExpr (Cons c args) =
 prettyExpr (Mu cases) = prettyMuExprAux (Mu cases)
 
 -- | Convert Peano number expressions to Integer if possible | --
-peanoNatExpr :: Expr -> Maybe Integer
-peanoNatExpr (Cons "Z" []) = Just 0
-peanoNatExpr (Cons "S" [e]) = (+ 1) <$> peanoNatExpr e
-peanoNatExpr _ = Nothing
+prettyNatExpr :: Expr -> Maybe Integer
+prettyNatExpr (Cons "Z" []) = Just 0
+prettyNatExpr (Cons "S" [e]) = (+ 1) <$> prettyNatExpr e
+prettyNatExpr _ = Nothing
 
 -- | Fallback pretty printing for Peano numbers | --
 prettyNatExprFallback :: Expr -> Doc ann
@@ -469,14 +472,16 @@ prettySugarCommand (LetCommand var expr cmd) =
     <+> pretty "="
     <+> prettyTopLevelSugarExpr expr
     <+> pretty "in"
-    <+> prettySugarCommand cmd
+    <> line
+    <> indent 2 (prettySugarCommand cmd)
 prettySugarCommand (LetcCommand var expr cmd) =
   pretty "letc"
     <+> pretty var
     <+> pretty "="
     <+> prettyTopLevelSugarExpr expr
     <+> pretty "in"
-    <+> prettySugarCommand cmd
+    <> line
+    <> indent 2 (prettySugarCommand cmd)
 prettySugarCommand (MatchCommand expr branches) =
   pretty "match"
     <+> prettyTopLevelSugarExpr expr
@@ -495,7 +500,8 @@ prettySugarCommand (DoThenCommand bindings cmd) =
     <> indent 2 (vsep (map prettyDoThenBinding bindings))
     <> line
     <> pretty "then"
-    <+> prettySugarCommand cmd
+    <> line
+    <> indent 2 (prettySugarCommand cmd)
 prettySugarCommand (AtCommand expr args) =
   prettyTopLevelSugarExpr expr
     <+> pretty "@"
@@ -515,15 +521,16 @@ prettySugarCommand (SugarCommandVar cmdId) =
 prettySugarBranches :: [(Pattern, SugarCommand)] -> Doc ann
 prettySugarBranches [] = mempty
 prettySugarBranches (b : bs) =
-    space <+> prettySugarBranch b
-    <> mconcat [line <> pipe <> space <> prettySugarBranch b' | b' <- bs]
+  prettySugarBranch b
+    <> mconcat [line <> pipe <+> prettySugarBranch b' | b' <- bs]
 
 -- | Pretty print a sugared branch | --
 prettySugarBranch :: (Pattern, SugarCommand) -> Doc ann
 prettySugarBranch (pat, cmd) =
   prettyPattern pat
     <+> pretty "->"
-    <+> prettySugarCommand cmd
+    <> line
+    <> indent 2 (prettySugarCommand cmd)
 
 -- | Pretty print do-then binding | --
 prettyDoThenBinding :: DoThenBinding -> Doc ann
@@ -609,7 +616,7 @@ prettySugarMuBranches [] = mempty
 prettySugarMuBranches (b : bs) =
   space
     <> prettySugarBranch b
-    <> mconcat [line <> pipe <> space <> prettySugarBranch b' | b' <- bs]
+    <> mconcat [line <> pipe <+> prettySugarBranch b' | b' <- bs]
     <> space
 
 -- | Utility Functions | --
