@@ -96,6 +96,20 @@ evalWithCtx env store ctx expr = case evalExprWithCtx env store ctx expr of
 --   where
 --     (value, store') = evalCoExpr env store coexpr
 
+-- a Mu expression is NOT value if:
+-- it has a single clause that binds a single variable
+-- a Mu expression is a value otherwise,
+-- when it does some form of pattern matching / co-pattern matching 
+-- currently, these are lazy dynamics
+muIsValue :: Value -> Bool
+muIsValue (MuValue _ []) = True -- absurd
+muIsValue HoleValue = True -- absurd
+muIsValue (ConsValue _ _) = True
+muIsValue (MuValue _ [(ConsPattern _ _, _)]) = True
+muIsValue (MuValue _ (_ : _ : _)) = True
+muIsValue (MuValue _ [(VarPattern _, _)]) = False
+muIsValue (MuValue _ [(WildcardPattern, _)]) = False
+
 step :: Config -> [Config]
 -- Command configs
 step (CommandConfig env store (Command e ce)) =
