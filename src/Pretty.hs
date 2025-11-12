@@ -106,17 +106,15 @@ prettyNatValue _ = error "Not a Peano number"
 -- Helper function to pretty print List:: values as [v1, v2, ..., vn]
 prettyListValue :: Value -> Bool -> Doc ann
 prettyListValue val showEnv =
-  case collectListValueElements val of
+  case collectListValueElements val [] of
     Just elements -> brackets (hsep (punctuate comma (map (`prettyValue` showEnv) elements)))
     Nothing -> prettyValueFallback val showEnv
   where
-    collectListValueElements :: Value -> Maybe [Value]
-    collectListValueElements (ConsValue "Nil" []) = Just []
-    collectListValueElements (ConsValue "List::" [v, rest]) =
-      case collectListValueElements rest of
-        Just vs -> Just (v : vs)
-        Nothing -> Nothing
-    collectListValueElements _ = Nothing
+    collectListValueElements :: Value -> [Value] -> Maybe [Value]
+    collectListValueElements (ConsValue "Nil" []) acc = Just (reverse acc)
+    collectListValueElements (ConsValue "List::" [v, rest]) acc =
+      collectListValueElements rest (v : acc)
+    collectListValueElements _ _ = Nothing
 
     prettyValueFallback :: Value -> Bool -> Doc ann
     prettyValueFallback (ConsValue con args) se =
@@ -186,17 +184,15 @@ prettyNatExprFallback e = prettyExpr e
 -- Helper function to pretty print List:: as [e1, e2, ..., en]
 prettyListExpr :: Expr -> Doc ann
 prettyListExpr expr =
-  case collectListElements expr of
+  case collectListElements expr [] of
     Just elements -> brackets (hsep (punctuate comma (map prettyExpr elements)))
     Nothing -> prettyExprFallback expr
   where
-    collectListElements :: Expr -> Maybe [Expr]
-    collectListElements (Cons "Nil" []) = Just []
-    collectListElements (Cons "List::" [e, rest]) =
-      case collectListElements rest of
-        Just es -> Just (e : es)
-        Nothing -> Nothing
-    collectListElements _ = Nothing
+    collectListElements :: Expr -> [Expr] -> Maybe [Expr]
+    collectListElements (Cons "Nil" []) acc = Just (reverse acc)
+    collectListElements (Cons "List::" [e, rest]) acc =
+      collectListElements rest (e : acc)
+    collectListElements _ _ = Nothing
 
     prettyExprFallback :: Expr -> Doc ann
     prettyExprFallback (Cons c args) =
@@ -250,17 +246,15 @@ prettyPattern WildcardPattern = pretty "_"
 -- Helper function to pretty print List:: patterns as [p1, p2, ..., pn]
 prettyListPattern :: Pattern -> Doc ann
 prettyListPattern pat =
-  case collectListPatternElements pat of
+  case collectListPatternElements pat [] of
     Just elements -> brackets (hsep (punctuate comma (map prettyPattern elements)))
     Nothing -> prettyPatternFallback pat
   where
-    collectListPatternElements :: Pattern -> Maybe [Pattern]
-    collectListPatternElements (ConsPattern "Nil" []) = Just []
-    collectListPatternElements (ConsPattern "List::" [p, rest]) =
-      case collectListPatternElements rest of
-        Just ps -> Just (p : ps)
-        Nothing -> Nothing
-    collectListPatternElements _ = Nothing
+    collectListPatternElements :: Pattern -> [Pattern] -> Maybe [Pattern]
+    collectListPatternElements (ConsPattern "Nil" []) acc = Just (reverse acc)
+    collectListPatternElements (ConsPattern "List::" [p, rest]) acc =
+      collectListPatternElements rest (p : acc)
+    collectListPatternElements _ _ = Nothing
 
     prettyPatternFallback :: Pattern -> Doc ann
     prettyPatternFallback (ConsPattern con args) =
