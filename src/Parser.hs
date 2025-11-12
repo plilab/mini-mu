@@ -20,11 +20,15 @@ keywords :: [String]
 keywords =
   [ "def",
     "run",
-    "let",
-    "in",
     "where",
     "seq",
-    "then"
+    "then",
+    "let",
+    "letcc",
+    "in",
+    "match",
+    "dispatch",
+    "with"
   ]
 
 -- Parse a MiniMu program from a file, handing errors
