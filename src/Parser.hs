@@ -241,7 +241,7 @@ atom =
     choice
       [ -- Sugar 7: Simplify mu[] as []
         try (Mu <$> curly (sepBy1 patternCase (symbol "|"))),
-        try letExpr, -- TODO: move to atom so we allow: x @ X let y = ... in ...
+        -- try letExpr, -- TODO: move to atom so we allow: x @ X let y = ... in ...
         try hole,
         try idiomExpr, -- [expr] - basic idiom form
         try natExpr, -- Sugar 8: Expand numerical to S...Z
@@ -275,7 +275,7 @@ command =
   label
     "command"
     $ choice
-      [ try letCommand,
+      [ -- try letCommand,
         try commandSugar,
         try seqThenCommand,
         try $ angles $ do
@@ -387,6 +387,7 @@ runDecl = do
     desugarRun :: Command -> Expr
     desugarRun cmd = Mu [(VarPattern "halt", cmd)]
 
+-- TODO: find a way to restore let...in grammar while NOT using the let...in pattern.
 -- Sugar 4: let grammar
 letExpr :: Parser Expr
 letExpr = label "let expression" $ do
