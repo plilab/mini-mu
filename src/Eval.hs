@@ -14,6 +14,7 @@ where
 import qualified Data.Map as Map
 import Pretty (prettyTopLevelValue, renderPretty)
 import Syntax
+import GHC.RTS.Flags (GCFlags(oldGenFactor))
 
 evalExpr :: Env -> Store -> Expr -> (Value, Store)
 evalExpr env store (Var x) = (storeLookup store (envLookup env x), store)
@@ -32,6 +33,47 @@ eval env store expr = (value, store')
   where
     (value, store') = evalExpr env store expr
 
+-- value/covalue judgements for Mini-Mu.
+-- Of note, any single-armed variable binder Mu is NOT a value.
+-- eg: { x -> CMD } NOT VALUE
+-- eg: { ConsPattern ... -> CMD } IS VALUE
+-- eg: { branch1 -> CMD1 | branch2 -> CMD2 } IS VALUE
+isValue :: Value -> Bool
+isValue (MuValue _ []) = True -- absurd
+isValue (MuValue _ [(ConsPattern _ _, _)]) = True
+isValue (MuValue _ (_ : _ : _)) = True
+isValue (MuValue _ [(VarPattern _, _)]) = False
+isValue (MuValue _ [(WildcardPattern, _)]) = False
+isValue (ConsValue _ elems) = all isValue elems
+
+focus :: Store -> Either (ConsId, [Value]) (ConsId, [Value]) -> Env -> [(Pattern, Command)] -> [Config]
+focus store (Left (consId, vals)) muEnv muClauses =
+  case span isValue vals of
+    (_, []) -> match muEnv store (ConsValue consId vals) muClauses
+    (before, v : _) ->
+      let oldMu = MuValue muEnv muClauses
+          v_index = length before
+      -- create a new variable for each before and after value,
+      -- named _N after their index in the list
+          focus_vars = map (("_focus" ++) . show) [0 .. length vals - 1]
+          newCons = Cons consId (map Var focus_vars)
+      -- insert all of the focsus variables into the environment
+          (newEnv, newStore) = foldl
+            (\(e, s) (var, val) -> envStoreInsert e s var val)
+            (initEnv, store)
+            (zip focus_vars vals)
+      in 
+        -- finally, cut v against a freshly constructed mu-expression
+        [ ValueConfig
+            newStore
+            v
+            (MuValue newEnv [(VarPattern (focus_vars !! v_index), Command newCons oldMu)])
+        ]
+
+
+focus store (Right (consId, vals)) muEnv muClauses =
+  match muEnv store (ConsValue consId vals) muClauses
+
 step :: Config -> [Config]
 step (CommandConfig env store (Command e ce)) =
   [ValueConfig store'' value coValue]
@@ -44,14 +86,19 @@ step (CommandConfig env store (CommandVar cmdId)) =
       store
       (storeLookupCommand store (envLookup env cmdId))
   ]
-step (ValueConfig store cons@(ConsValue {}) (MuValue env clauses)) =
-  match env store cons clauses
-step (ValueConfig store (MuValue env clauses) cons@(ConsValue {})) =
-  match env store cons clauses
-step (ValueConfig store v@(MuValue env muClaus@[(VarPattern _, _)]) cv@(MuValue env' comuClaus@[(VarPattern _, _)])) =
-  match env store cv muClaus -- match env store cv muClaus
-step (ValueConfig store v@(MuValue env clauses) cv@(MuValue env' clauses')) =
-  match env' store v clauses' ++ match env store cv clauses
+step (ValueConfig store cons@(ConsValue cid vals) (MuValue env clauses)) =
+  focus store (Left (cid, vals)) env clauses
+step (ValueConfig store (MuValue env clauses) cons@(ConsValue cid vals)) =
+  focus store (Right (cid, vals)) env clauses
+step (ValueConfig store v@(MuValue env clauses) cv@(MuValue env' clauses')) 
+  | isValue v && isValue cv =
+    [ErrorConfig "Bad type: A covalue is being matched against a value"]
+  | isValue v =
+    match env' store v clauses'
+  | isValue cv =
+    match env store cv clauses
+  | otherwise = 
+    match env' store v clauses' ++ match env store cv clauses
 -- temporary hack to deal with "Halt"
 step (ValueConfig _ cons@(ConsValue _ _) (ConsValue "Halt" [])) =
   [ErrorConfig ("Halt with result: " ++ renderPretty (prettyTopLevelValue cons False))]
