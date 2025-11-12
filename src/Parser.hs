@@ -276,13 +276,15 @@ command =
     "command"
     $ choice
       [ -- try letCommand,
+        try cutletSugar,
         try commandSugar,
         try seqThenCommand,
         try $ angles $ do
           e <- expr
           _ <- symbol "|>"
           Command e <$> expr,
-        CommandVar <$> commandId
+        CommandVar <$> commandId,
+        parens command
       ]
 
 -- z = e;
@@ -432,6 +434,66 @@ letCommand = label "let command" $ do
         )
         cmd
         bindings
+
+cutletSugar :: Parser Command
+cutletSugar = label "cutlet command sugar" $ do
+  choice 
+    [ 
+      try letCommand,
+      try letccCommand,
+      try matchCommand,
+      try dispatchCommand
+    ]
+  where 
+    -- let binder <- e in body => e . { binder -> body }
+    letCommand :: Parser Command
+    letCommand = label "let command" $ do
+      _ <- symbol "let"
+      binder <- varId
+      _ <- symbol "<-"
+      e <- expr
+      _ <- symbol "in"
+      body <- command
+      return $ Command e (Mu [(VarPattern binder, body)])
+    -- letcc binder <- c in body => { binder -> body } . c
+    letccCommand :: Parser Command
+    letccCommand = label "letcc command" $ do
+      _ <- symbol "letcc"
+      binder <- varId
+      _ <- symbol "<-"
+      c <- expr
+      _ <- symbol "in"
+      body <- command
+      return $ Command (Mu [(VarPattern binder, body)]) c
+    -- match e with
+    -- | p1 -> c1
+    -- | p2 -> c2
+    -- ... => e . { p1 -> c1 | p2 -> c2 | ... }
+    -- TODO: would it be better to follow rust-style match syntax instead?
+    -- match e {
+    --    p1 => c1,
+    --    p2 => c2,
+    --    ...
+    -- }
+    matchCommand :: Parser Command
+    matchCommand = label "match command" $ do
+      _ <- symbol "match"
+      e <- expr
+      _ <- symbol "with"
+      branches <- optional (symbol "|") *> sepBy1 patternCase (symbol "|")
+      return $ Command e (Mu branches)
+    -- dispatch e with
+    -- | p1 -> c1
+    -- | p2 -> c2
+    -- ... => dispatch e with | p1 -> c1 | p2 -> c2
+    -- TODO: ditto as above, will rust-style be better?
+    dispatchCommand :: Parser Command
+    dispatchCommand = label "dispatch command" $ do
+      _ <- symbol "dispatch"
+      c <- expr
+      _ <- symbol "with"
+      branches <- optional (symbol "|") *> sepBy1 patternCase (symbol "|")
+      return $ Command (Mu branches) c
 
 binding :: Parser (Either VarId CommandId, Either Expr Command)
 binding = label "Parsing binding in let/where" $ do
