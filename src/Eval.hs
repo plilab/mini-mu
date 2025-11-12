@@ -100,15 +100,50 @@ evalWithCtx env store ctx expr = case evalExprWithCtx env store ctx expr of
 -- it has a single clause that binds a single variable
 -- a Mu expression is a value otherwise,
 -- when it does some form of pattern matching / co-pattern matching 
--- currently, these are lazy dynamics
+-- for constructors, we will assume that they are values iff
+-- everything inside is a value.
 muIsValue :: Value -> Bool
 muIsValue (MuValue _ []) = True -- absurd
 muIsValue HoleValue = True -- absurd
-muIsValue (ConsValue _ _) = True
 muIsValue (MuValue _ [(ConsPattern _ _, _)]) = True
 muIsValue (MuValue _ (_ : _ : _)) = True
 muIsValue (MuValue _ [(VarPattern _, _)]) = False
 muIsValue (MuValue _ [(WildcardPattern, _)]) = False
+muIsValue (ConsValue _ elems) = all muIsValue elems
+
+-- given a list of values, insert them into the environment
+-- and return the list of binders they correspond to
+bindValuesToEnv :: Env -> Int -> [Value] -> (Env, [VarId])
+bindValuesToEnv env startId = foldr go (env, [], startId)
+  where
+    go v (e, acc, nextId) =
+      let (e', binder) = bindValueToEnv e nextId v in (e', binder : acc, nextId + 1)
+
+-- given a value (and what it was meant to be cut with),
+-- we return a pair of some value to focus on, as well as a fresh mu clause to bind it to.
+focus :: Value -> Value -> Maybe (Value, [(Pattern, Command)])
+focus (ConsValue ident args) mu@(MuValue env clauses) =
+  case args of 
+    [] -> Nothing
+    xs ->
+      let (before, after) = span muIsValue xs in
+      case after of
+        [] -> Nothing
+        (x:rest) -> 
+        -- create a mu clause that binds x to the constructor 
+          let focus_val = Var "_focus" in
+        -- we create a perfect copy of new_cons, but with x replaced by the focus variable
+        -- it's not a value, but an expression. we also create an environment mapping
+        -- for each VALUE in ConsValue to a new variable in the environment.
+        -- we are going to use that in the command to evaluate the mu clause.
+          let (lnewEnv, leftBinders) = bindValuesToEnv initEnv before in
+          let (rnewEnv, rightBinders) = bindValuesToEnv lnewEnv rest in 
+          let new_conss = Cons ident (before ++ [focus_val] ++ rest) in
+          let new_cons = ConsValue ident (before ++ [focus_val] ++ rest) in
+          let focus_mu = MuValue newEnv [(VarPattern "_focus", Command new_cons mu)] in
+          Just (x, ConsValue ident (before ++ [HoleValue] ++ rest))
+
+focus _ _ = Nothing
 
 step :: Config -> [Config]
 -- Command configs
