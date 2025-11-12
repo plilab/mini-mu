@@ -18,6 +18,9 @@
       "include": "#operators"
     },
     {
+      "include": "#modules"
+    },
+    {
       "include": "#functions"
     },
     {
@@ -46,7 +49,15 @@
       "patterns": [
         {
           "name": "keyword.control.minimu",
-          "match": "\\b(fn|run|import|export|do|then|halt|let|have|letc|in|match|patch|with)\\b"
+          "match": "\\b(fn|run|import|export|module|end|do|then|halt|let|letc|have|in|match|patch|with|field|return)\\b"
+        }
+      ]
+    },
+    "modules": {
+      "patterns": [
+        {
+          "name": "entity.name.namespace.minimu",
+          "match": "(?<=\\bmodule\\s+)[A-Z][a-zA-Z0-9_']*"
         }
       ]
     },
@@ -84,6 +95,10 @@
           "match": "@"
         },
         {
+          "name": "keyword.operator.double-colon.minimu",
+          "match": "::"
+        },
+        {
           "name": "keyword.operator.assign.minimu",
           "match": ":="
         },
@@ -98,6 +113,10 @@
         {
           "name": "entity.name.function.definition.minimu",
           "match": "(?<=fn\\s+)[a-z_][a-zA-Z0-9_]*"
+        },
+        {
+          "name": "variable.other.property.minimu",
+          "match": "(?<=\\bfield\\s+)[a-z_][a-zA-Z0-9_']*"
         },
         {
           "name": "entity.name.function.call.minimu",

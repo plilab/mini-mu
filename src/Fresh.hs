@@ -29,15 +29,15 @@ bindFresh ma f st =
   in f a st'
 
 -- | Generate a fresh name for a binding occurrence
--- This creates a NEW binding and extends the environment
+-- This creates a NEW binding but does NOT extend the environment
+-- The environment extension happens later in withBinding/withBindings
 generateFreshName :: VarId -> FreshM VarId
 generateFreshName var (env, counter) =
   if "_" `isPrefixOf` var
   then
     let newName = var ++ show counter
-        env' = Map.insert var newName env
         counter' = counter + 1
-    in (newName, (env', counter'))
+    in (newName, (env, counter'))
   else (var, (env, counter))
 
 -- | Look up the renamed version of a variable (use occurrence)

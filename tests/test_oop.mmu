@@ -1,0 +1,19 @@
+-- Test OOP implementation with the car example from the specification
+fn sub x y k :=
+  match (x, y) with
+    (0, _) -> 0 . k
+  | (_, 0) -> x . k
+  | (S x', S y') -> sub(x', y') . k;
+
+module car :=
+  field brand = Bmw
+  field year = 2017
+
+  Get_brand() -> return this.brand
+
+  Years_till_now(now) -> 
+    let res = sub(now, this.year) in 
+    return res
+end;
+
+run car::Years_till_now(2025) . halt;

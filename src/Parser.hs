@@ -37,7 +37,12 @@ keywords =
     "patch",
     "with",
     "have",
-    "here"
+    "here",
+    "module",
+    "field",
+    "end",
+    "return",
+    "this"
   ]
 
 -- | Parse a MiniMu program from a file, handing errors, main entry point for parsing | --
@@ -235,12 +240,41 @@ sugarRunDecl = label "run declaration" $ do
   _ <- symbol "run"
   RunDecl <$> sugarCommand
 
+-- | Parse module declaration | --
+sugarModuleDecl :: Parser SugarDecl
+sugarModuleDecl = label "module declaration" $ do
+  _ <- symbol "module"
+  name <- varId
+  _ <- symbol ":="
+  fields <- many fieldBinding
+  methods <- many methodDef
+  _ <- symbol "end"
+  return $ ModuleDecl name fields methods
+
+-- | Parse field binding | --
+fieldBinding :: Parser FieldBinding
+fieldBinding = label "field binding" $ do
+  _ <- symbol "field"
+  name <- varId
+  _ <- symbol "="
+  FieldBinding name <$> sugarExpr
+
+-- | Parse method definition | --
+methodDef :: Parser MethodDef
+methodDef = label "method definition" $ do
+  name <- consId
+  conts <- option [] (curly (sepBy1 varId (symbol ",")))
+  args <- parens (sepBy varId (symbol ","))
+  _ <- symbol "->"
+  MethodDef name conts args <$> sugarCommand
+
 -- | Main sugared declaration parser | --
 sugarDecl :: Parser SugarDecl
 sugarDecl =
   label "sugar declaration" $
     choice
       [ try sugarRunDecl,
+        try sugarModuleDecl,
         try sugarFuncDecl,
         sugarDefaultDecl
       ]
@@ -327,6 +361,12 @@ sugarDotCommand = label "sugar . command" $ do
   _ <- symbol "."
   DotCommand e1 <$> sugarExpr
 
+-- | Parse return command | --
+sugarReturnCommand :: Parser SugarCommand
+sugarReturnCommand = label "return command" $ do
+  _ <- symbol "return"
+  ReturnCommand <$> sugarExpr
+
 -- | Main sugared command parser | --
 sugarCommand :: Parser SugarCommand
 sugarCommand =
@@ -337,6 +377,7 @@ sugarCommand =
         try sugarMatchCommand,
         try sugarPatchCommand,
         try sugarDoThenCommand,
+        try sugarReturnCommand,
         try sugarAtCommand,
         try sugarDotCommand,
         SugarCommandVar <$> commandId
@@ -390,6 +431,13 @@ sugarMu = label "sugar mu" $ do
   _ <- symbol "}"
   return $ SugarMu cases
 
+-- | Parse this.field expression | --
+sugarThisExpr :: Parser SugarExpr
+sugarThisExpr = label "this expression" $ do
+  _ <- symbol "this"
+  _ <- symbol "."
+  ThisExpr <$> varId
+
 -- | Parse sugared atoms | --
 sugarAtom :: Parser SugarExpr
 sugarAtom =
@@ -397,6 +445,7 @@ sugarAtom =
     choice
       [ try sugarMu,
         try sugarHaveExpr,
+        try sugarThisExpr,
         try sugarNatLit,
         try sugarTupleLit,
         try sugarListLit,
@@ -406,12 +455,24 @@ sugarAtom =
         parens sugarExpr
       ]
 
+-- | Parse method call: obj::Method(args) | --
+sugarMethodCall :: Parser SugarExpr
+sugarMethodCall = label "method call" $ do
+  obj <- sugarAtom
+  _ <- symbol "::"
+  method <- consId
+  _ <- symbol "("
+  args <- sepBy sugarExpr (symbol ",")
+  _ <- symbol ")"
+  return $ MethodCall obj method args
+
 -- | Main sugared expression parser | --
 sugarExpr :: Parser SugarExpr
 sugarExpr =
   label "sugar expression" $
     choice
       [ try sugarCons,
+        try sugarMethodCall,
         try sugarAppExpr,
         try sugarCoAppExpr,
         sugarAtom
