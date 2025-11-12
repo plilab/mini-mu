@@ -482,11 +482,18 @@ sugarExpr =
 sugarAppExpr :: Parser SugarExpr
 sugarAppExpr = label "sugar app expression" $ do
   fun <- sugarAtom
-  explicitConts <- option [] (curly (sepBy1 sugarExpr (symbol ",")))
-  _ <- symbol "("
-  args <- sepBy sugarExpr (symbol ",")
-  _ <- symbol ")"
-  return $ AppExpr fun explicitConts args
+  applications <- some singleAppln
+  return $ foldl desugarApply fun applications
+  where
+    singleAppln :: Parser ([SugarExpr], [SugarExpr])
+    singleAppln = label "single application" $ do
+      explicitConts <- option [] (curly (sepBy1 sugarExpr (symbol ",")))
+      _ <- symbol "("
+      args <- sepBy sugarExpr (symbol ",")
+      _ <- symbol ")"
+      return (explicitConts, args)
+    desugarApply :: SugarExpr -> ([SugarExpr], [SugarExpr]) -> SugarExpr
+    desugarApply f (cont, args) = AppExpr f cont args
 
 -- | Parse natural number as SugarExpr | --
 sugarNatLit :: Parser SugarExpr
