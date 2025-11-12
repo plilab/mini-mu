@@ -418,7 +418,8 @@ genSym base = "_" ++ base
 -- fun(a, b, c) --> { k -> fun . (a, b, c, k) }
 -- or, in this case, { k -> fun @ a b c k }
 -- a() -> { k -> a . (k) }
--- ^ TODO: would it be better to desugar this to { k -> a . k } ?
+-- IMPORTANT: above is NOT the same as a -> { k -> a . k }!
+-- the first represents an application as a tuple.
 -- a(b)(c) -> { k -> { k -> a . (b, k) } . (c, k) }
 -- !! as it is, this is its own dual.
 applnExpr :: Parser Expr
