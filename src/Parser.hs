@@ -474,11 +474,11 @@ sugarExpr =
       [ try sugarCons,
         try sugarMethodCall,
         try sugarAppExpr,
-        try sugarCoAppExpr,
         sugarAtom
       ]
 
 -- | Parse sugared function application: f{k1, k2}(x1, x2, k1, k2) | --
+-- this should be its OWN dual.
 sugarAppExpr :: Parser SugarExpr
 sugarAppExpr = label "sugar app expression" $ do
   fun <- sugarAtom
@@ -487,17 +487,6 @@ sugarAppExpr = label "sugar app expression" $ do
   args <- sepBy sugarExpr (symbol ",")
   _ <- symbol ")"
   return $ AppExpr fun explicitConts args
-
--- | Parse sugared cofunction application: 'f{k1, k2}(x1, x2, k1, k2) | --
-sugarCoAppExpr :: Parser SugarExpr
-sugarCoAppExpr = label "sugar coapp expression" $ do
-  _ <- symbol "'"
-  cmdId <- commandId
-  explicitConts <- option [] (curly (sepBy1 sugarExpr (symbol ",")))
-  _ <- symbol "("
-  args <- sepBy sugarExpr (symbol ",")
-  _ <- symbol ")"
-  return $ CoAppExpr cmdId explicitConts args
 
 -- | Parse natural number as SugarExpr | --
 sugarNatLit :: Parser SugarExpr

@@ -588,10 +588,6 @@ prettySugarExpr (AppExpr fun conts args) =
   prettySugarExpr fun
     <> prettyContArgs conts
     <> prettyExprArgs args
-prettySugarExpr (CoAppExpr cmdId conts args) =
-  pretty cmdId
-    <> prettyContArgs conts
-    <> prettyExprArgs args
 prettySugarExpr (HaveExpr bindings expr) =
   pretty "have"
     <> line

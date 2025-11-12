@@ -114,7 +114,6 @@ data HaveBinding
 -- | Sugared Expressions | --
 data SugarExpr
   = AppExpr SugarExpr [SugarExpr] [SugarExpr] -- f {k1, k2} (x1, x2, k1, k2)
-  | CoAppExpr CommandId [SugarExpr] [SugarExpr] -- 'f {k1, k2} (x1, x2, k1, k2)
   | HaveExpr [HaveBinding] SugarExpr -- have bindings* in e
   -- | DelimExpr SugarCommand -- < ... >
   | NatLit Integer -- 42
