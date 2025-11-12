@@ -192,19 +192,6 @@ sugarBranch =
   label "sugar pattern case" $
     (,) <$> pattern <* symbol "->" <*> sugarCommand
 
--- | Parse natural number as SugarExpr | --
-sugarNatLit :: Parser SugarExpr
-sugarNatLit = label "natural number literal" $ NatLit <$> lexeme L.decimal
-
--- | Parse sugared tuple literals | --
-sugarTupleLit :: Parser SugarExpr
-sugarTupleLit = label "tuple literal" $ do
-  _ <- symbol "("
-  first <- sugarExpr
-  _ <- symbol ","
-  rest <- sepBy1 sugarExpr (symbol ",")
-  _ <- symbol ")"
-  return $ TupLit (first : rest)
 
 -- | Sugared Syntax Parsers | --
 
@@ -400,10 +387,22 @@ sugarAtom =
         try sugarHaveExpr,
         try sugarNatLit,
         try sugarTupleLit,
+        try sugarListLit,
         -- try delimExpr,
         try $ SugarCons <$> consId <*> pure [],
         try $ SugarVar <$> varId,
         parens sugarExpr
+      ]
+
+-- | Main sugared expression parser | --
+sugarExpr :: Parser SugarExpr
+sugarExpr =
+  label "sugar expression" $
+    choice
+      [ try sugarCons,
+        try sugarAppExpr,
+        try sugarCoAppExpr,
+        sugarAtom
       ]
 
 -- | Parse sugared function application: f{k1, k2}(x1, x2, k1, k2) | --
@@ -427,16 +426,27 @@ sugarCoAppExpr = label "sugar coapp expression" $ do
   _ <- symbol ")"
   return $ CoAppExpr cmdId explicitConts args
 
--- | Main sugared expression parser | --
-sugarExpr :: Parser SugarExpr
-sugarExpr =
-  label "sugar expression" $
-    choice
-      [ try sugarCons,
-        try sugarAppExpr,
-        try sugarCoAppExpr,
-        sugarAtom
-      ]
+-- | Parse natural number as SugarExpr | --
+sugarNatLit :: Parser SugarExpr
+sugarNatLit = label "natural number literal" $ NatLit <$> lexeme L.decimal
+
+-- | Parse sugared tuple literals, at least 2 elems | --
+sugarTupleLit :: Parser SugarExpr
+sugarTupleLit = label "tuple literal" $ do
+  _ <- symbol "("
+  first <- sugarExpr
+  _ <- symbol ","
+  rest <- sepBy1 sugarExpr (symbol ",")
+  _ <- symbol ")"
+  return $ TupLit (first : rest)
+
+-- | Parse sugared list literals | --
+sugarListLit :: Parser SugarExpr
+sugarListLit = label "list literal" $ do
+  _ <- symbol "["
+  elems <- sepBy sugarExpr (symbol ",")
+  _ <- symbol "]"
+  return $ ListLit elems
 
 -- | Parse Patterns | --
 

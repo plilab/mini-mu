@@ -1,5 +1,5 @@
 import "std_nat" (add, inc)
 
-test = (List:: 1 (List:: (S Z) (List:: Z Nil)));
+test := (1, 2);
 
 run test . halt;

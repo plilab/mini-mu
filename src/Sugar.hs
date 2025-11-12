@@ -49,6 +49,13 @@ desugarExpr (TupLit es) =
   -- (e1, e2, ..., en)  =>  Tuple e1 e2 ... en
   Cons "Tuple" (map desugarExpr es)
 
+desugarExpr (ListLit es) =
+  -- [e1, e2, ..., en]  =>  List:: e1 (List:: e2 (... (List:: en Nil)...))
+  foldr
+    (\e acc -> Cons "List::" [desugarExpr e, acc])
+    (Cons "Nil" [])
+    es
+
 desugarExpr (SugarCons c args) =
   -- Foo e1 e2 ... en  =>  Foo (desugar e1) (desugar e2) ... (desugar en)
   Cons c (map desugarExpr args)

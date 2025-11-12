@@ -107,6 +107,7 @@ data SugarExpr
   -- | DelimExpr SugarCommand -- < ... >
   | NatLit Integer -- 42
   | TupLit [SugarExpr] -- (e1, e2, ..., en)
+  | ListLit [SugarExpr] -- [e1, e2, ..., en]
   | SugarCons ConsId [SugarExpr] -- Foo e1 e2 ... en
   | SugarMu [(Pattern, SugarCommand)] -- mu [ Foo x y -> q | Bar x y -> q | k -> q ]
   | SugarVar VarId -- x

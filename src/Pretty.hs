@@ -10,6 +10,7 @@ module Pretty
     prettyTopLevelValue,
     -- prettyTopLevelCoValue,
     prettyProgram,
+    prettySugaredProgram,
   )
 where
 
@@ -42,6 +43,7 @@ prettyConfig (ValueConfig store value value') _show =
 prettyConfig (ErrorConfig string) _ =
   pretty "<Message> " <> pretty string
 
+-- | Pretty Printing Programs | --
 prettyProgram :: Program -> Doc ann
 prettyProgram (Program imports decls exports) =
   pretty "Program"
@@ -51,102 +53,42 @@ prettyProgram (Program imports decls exports) =
           <> line
           <> indent 2 (prettyDecls decls)
           <> line
-          <> indent 2 (prettyMainExpr exports)
-          <> line
-      )
-  where
-    prettyImports [] = mempty
-    prettyImports (ImportDecl name _ : is) =
-      pretty "Import"
-        <+> pretty name
-        <> line
-        <> prettyImports is
-    prettyDecls [] = mempty
-    prettyDecls (Decl varId expr : ds) =
-      pretty varId
-        <+> pretty ":="
-        <+> prettyExpr expr
-        <> line
-        <> prettyDecls ds
-    prettyMainExpr es = pretty "Exports:" <+> hsep (map pretty es)
+          <> indent 2 (prettyExports exports)
+          <> line )
 
-prettyTopLevelValue :: Value -> Bool -> Doc ann
-prettyTopLevelValue (ConsValue "Z" []) _ = pretty "0"
-prettyTopLevelValue (ConsValue "S" [v]) _ =
-  pretty (prettyNatValue (ConsValue "S" [v]))
-prettyTopLevelValue listVal@(ConsValue "List::" _) showEnv =
-  prettyListValue listVal showEnv
-prettyTopLevelValue tupVal@(ConsValue "Tuple" _) showEnv =
-  prettyTupleValue tupVal showEnv
-prettyTopLevelValue (ConsValue con args) showEnv =
-  pretty con <+> hsep (map (`prettyValue` showEnv) args)
-prettyTopLevelValue mu@(MuValue _ _) showEnv =
-  prettyMuValueAux mu showEnv
+-- | Pretty print import declarations | --
+prettyImports :: [ImportDecl] -> Doc ann
+prettyImports [] = mempty
+prettyImports (ImportDecl name _ : is) =
+  pretty "Import"
+  <+> pretty name
+  <> line
+  <> prettyImports is
 
-prettyValue :: Value -> Bool -> Doc ann
-prettyValue (ConsValue "Z" []) _ = pretty "0"
-prettyValue (ConsValue "S" [v]) _ =
-  pretty (prettyNatValue (ConsValue "S" [v]))
-prettyValue listVal@(ConsValue "List::" _) showEnv = prettyListValue listVal showEnv
-prettyValue tupVal@(ConsValue "Tuple" _) showEnv = prettyTupleValue tupVal showEnv
-prettyValue (ConsValue con args) showEnv =
-  case args of
-    [] -> pretty con
-    _ -> pretty "(" <> pretty con <+> hsep (map (`prettyValue` showEnv) args) <> pretty ")"
-prettyValue mu@(MuValue _ _) showEnv =
-  prettyMuValueAux mu showEnv
+-- | Pretty print declarations | --
+prettyDecls :: [Decl] -> Doc ann
+prettyDecls [] = mempty
+prettyDecls ds =
+  mconcat [prettyDecl d | d <- ds]
 
--- Helper function to convert Peano numbers to integers
--- safe cause there is no variable names in values
-prettyNatValue :: Value -> Integer
-prettyNatValue (ConsValue "Z" []) = 0
-prettyNatValue (ConsValue "S" [v]) = 1 + prettyNatValue v
-prettyNatValue _ = error "Not a Peano number"
+-- | Pretty print the main expression (exports) | --
+prettyExports :: [VarId] -> Doc ann
+prettyExports es = pretty "Exports:" <+> hsep (map pretty es)
 
--- Helper function to pretty print List:: values as [v1, v2, ..., vn]
-prettyListValue :: Value -> Bool -> Doc ann
-prettyListValue val showEnv =
-  case collectListValueElements val [] of
-    Just elements -> brackets (hsep (punctuate comma (map (`prettyValue` showEnv) elements)))
-    Nothing -> prettyValueFallback val showEnv
-  where
-    collectListValueElements :: Value -> [Value] -> Maybe [Value]
-    collectListValueElements (ConsValue "Nil" []) acc = Just (reverse acc)
-    collectListValueElements (ConsValue "List::" [v, rest]) acc =
-      collectListValueElements rest (v : acc)
-    collectListValueElements _ _ = Nothing
+-- | Pretty printing a declaration | --
+prettyDecl :: Decl -> Doc ann
+prettyDecl (Decl "main" expr) =
+  pretty "MAIN"
+    <+> pretty ":="
+    <+> prettyExpr expr
+    <> line
+prettyDecl (Decl varId expr) =
+  pretty varId
+    <+> pretty ":="
+    <+> prettyExpr expr
+    <> line
 
-    prettyValueFallback :: Value -> Bool -> Doc ann
-    prettyValueFallback (ConsValue con args) se =
-      case args of
-        [] -> pretty con
-        _ -> pretty "(" <> pretty con <+> hsep (map (`prettyValue` se) args) <> pretty ")"
-    prettyValueFallback v se = prettyValue v se
-
--- Helper function to pretty print Tuple values as (v1, v2, ..., vn)
-prettyTupleValue :: Value -> Bool -> Doc ann
-prettyTupleValue (ConsValue "Tuple" args) showEnv =
-  parens (hsep (punctuate comma (map (`prettyValue` showEnv) args)))
-prettyTupleValue v showEnv = prettyValue v showEnv
-
-prettyMuValueAux :: Value -> Bool -> Doc ann
-prettyMuValueAux (MuValue env cases) showEnv =
-  pretty "μ-Closure"
-    <+> braces
-      ( line
-          <> indent
-            2
-            (prettyEnv env showEnv <+> line <> braces (hang (-1) (prettyCases cases)))
-          <> line
-      )
-  where
-    prettyCases [] = mempty
-    prettyCases (c : cs) =
-      space
-        <> prettyCase c
-        <> mconcat [line <> pipe <> space <> prettyCase c' | c' <- cs]
-prettyMuValueAux _ _ = error "Expected a MuValue"
-
+-- | Pretty Printing Commands | --
 prettyCommand :: Command -> Doc ann
 prettyCommand (Command e k) =
   space
@@ -156,12 +98,15 @@ prettyCommand (Command e k) =
     <> space
 prettyCommand (CommandVar x) = pretty x
 
+-- | Pretty Printing Expressions | --
 
+-- | Pretty print a top-level Expression | --
 prettyTopLevelExpr :: Expr -> Doc ann
 prettyTopLevelExpr (Var x) = pretty x
 prettyTopLevelExpr (Cons "Z" []) = pretty "0"
 prettyTopLevelExpr add1@(Cons "S" _) =
   maybe (prettyNatExprFallback add1) pretty (peanoNatExpr add1)
+prettyTopLevelExpr (Cons "Nil" []) = pretty "[]"
 prettyTopLevelExpr li@(Cons "List::" _) =
   prettyListExpr li
 prettyTopLevelExpr tup@(Cons "Tuple" _) =
@@ -171,17 +116,31 @@ prettyTopLevelExpr (Cons con args) =
 prettyTopLevelExpr mu@(Mu _) =
   prettyMuExprAux mu
 
+-- | Pretty print an Expression | --
+prettyExpr :: Expr -> Doc ann
+prettyExpr (Var x) = pretty x
+prettyExpr (Cons "Nil" []) = pretty "[]"
+prettyExpr listExpr@(Cons "List::" _) = prettyListExpr listExpr
+prettyExpr tupExpr@(Cons "Tuple" _) = prettyTupleExpr tupExpr
+prettyExpr (Cons c args) =
+  case args of
+    [] -> pretty c
+    _ -> pretty "(" <> pretty c <+> hsep (map prettyExpr args) <> pretty ")"
+prettyExpr (Mu cases) = prettyMuExprAux (Mu cases)
+
+-- | Convert Peano number expressions to Integer if possible | --
 peanoNatExpr :: Expr -> Maybe Integer
 peanoNatExpr (Cons "Z" []) = Just 0
 peanoNatExpr (Cons "S" [e]) = (+ 1) <$> peanoNatExpr e
 peanoNatExpr _ = Nothing
 
+-- | Fallback pretty printing for Peano numbers | --
 prettyNatExprFallback :: Expr -> Doc ann
 prettyNatExprFallback (Cons "Z" []) = pretty "0"
 prettyNatExprFallback (Cons "S" n) = pretty "S" <+> prettyNatExprFallback (head n)
 prettyNatExprFallback e = prettyExpr e
 
--- Helper function to pretty print List:: as [e1, e2, ..., en]
+-- | Helper function to pretty print List:: as [e1, e2, ..., en] | --
 prettyListExpr :: Expr -> Doc ann
 prettyListExpr expr =
   case collectListElements expr [] of
@@ -201,22 +160,13 @@ prettyListExpr expr =
         _ -> pretty "(" <> pretty c <+> hsep (map prettyExpr args) <> pretty ")"
     prettyExprFallback e = prettyExpr e
 
--- Helper function to pretty print Tuple as (e1, e2, ..., en)
+-- | Helper function to pretty print Tuple as (e1, e2, ..., en) | --
 prettyTupleExpr :: Expr -> Doc ann
 prettyTupleExpr (Cons "Tuple" args) =
   parens (hsep (punctuate comma (map prettyExpr args)))
 prettyTupleExpr e = prettyExpr e
 
-prettyExpr :: Expr -> Doc ann
-prettyExpr (Var x) = pretty x
-prettyExpr listExpr@(Cons "List::" _) = prettyListExpr listExpr
-prettyExpr tupExpr@(Cons "Tuple" _) = prettyTupleExpr tupExpr
-prettyExpr (Cons c args) =
-  case args of
-    [] -> pretty c
-    _ -> pretty "(" <> pretty c <+> hsep (map prettyExpr args) <> pretty ")"
-prettyExpr (Mu cases) = prettyMuExprAux (Mu cases)
-
+-- | Helper function to pretty print Mu expressions | --
 prettyMuExprAux :: Expr -> Doc ann
 prettyMuExprAux (Mu cases) =
   braces (hang (-1) (prettyCases cases))
@@ -224,16 +174,102 @@ prettyMuExprAux (Mu cases) =
     prettyCases [] = mempty
     prettyCases (c : cs) =
       space
-        <> prettyCase c
-        <> mconcat [line <> pipe <> space <> prettyCase c' | c' <- cs]
+        <> prettyBranch c
+        <> mconcat [line <> pipe <> space <> prettyBranch c' | c' <- cs]
 prettyMuExprAux _ = error "Expected a Mu expression"
 
-prettyCase :: (Pattern, Command) -> Doc ann
-prettyCase (pat, cmd) =
+
+-- | Pretty Printing Values | --
+
+-- | Pretty print a top-level Value | --
+prettyTopLevelValue :: Value -> Bool -> Doc ann
+prettyTopLevelValue (ConsValue "Z" []) _ = pretty "0"
+prettyTopLevelValue (ConsValue "S" [v]) _ =
+  pretty (prettyNatValue (ConsValue "S" [v]))
+prettyTopLevelValue (ConsValue "Nil" []) _ = pretty "[]"
+prettyTopLevelValue listVal@(ConsValue "List::" _) showEnv =
+  prettyListValue listVal showEnv
+prettyTopLevelValue tupVal@(ConsValue "Tuple" _) showEnv =
+  prettyTupleValue tupVal showEnv
+prettyTopLevelValue (ConsValue con args) showEnv =
+  pretty con <+> hsep (map (`prettyValue` showEnv) args)
+prettyTopLevelValue mu@(MuValue _ _) showEnv =
+  prettyMuValueAux mu showEnv
+
+-- | Pretty print a Value | --
+prettyValue :: Value -> Bool -> Doc ann
+prettyValue (ConsValue "Z" []) _ = pretty "0"
+prettyValue (ConsValue "S" [v]) _ =
+  pretty (prettyNatValue (ConsValue "S" [v]))
+prettyValue (ConsValue "Nil" []) _ = pretty "[]"
+prettyValue listVal@(ConsValue "List::" _) showEnv = prettyListValue listVal showEnv
+prettyValue tupVal@(ConsValue "Tuple" _) showEnv = prettyTupleValue tupVal showEnv
+prettyValue (ConsValue con args) showEnv =
+  case args of
+    [] -> pretty con
+    _ -> pretty "(" <> pretty con <+> hsep (map (`prettyValue` showEnv) args) <> pretty ")"
+prettyValue mu@(MuValue _ _) showEnv =
+  prettyMuValueAux mu showEnv
+
+-- | Helper function to convert Peano numbers to integers | --
+prettyNatValue :: Value -> Integer
+prettyNatValue (ConsValue "Z" []) = 0
+prettyNatValue (ConsValue "S" [v]) = 1 + prettyNatValue v
+prettyNatValue _ = error "Not a Peano number" -- safe cause there is no variable names in values
+
+-- | Helper function to pretty print List:: values as [v1, v2, ..., vn] | --
+prettyListValue :: Value -> Bool -> Doc ann
+prettyListValue val showEnv =
+  case collectListValueElements val [] of
+    Just elements -> brackets (hsep (punctuate comma (map (`prettyValue` showEnv) elements)))
+    Nothing -> prettyValueFallback val showEnv
+  where
+    collectListValueElements :: Value -> [Value] -> Maybe [Value]
+    collectListValueElements (ConsValue "Nil" []) acc = Just (reverse acc)
+    collectListValueElements (ConsValue "List::" [v, rest]) acc =
+      collectListValueElements rest (v : acc)
+    collectListValueElements _ _ = Nothing
+
+    prettyValueFallback :: Value -> Bool -> Doc ann
+    prettyValueFallback (ConsValue con args) se =
+      case args of
+        [] -> pretty con
+        _ -> pretty "(" <> pretty con <+> hsep (map (`prettyValue` se) args) <> pretty ")"
+    prettyValueFallback v se = prettyValue v se
+
+-- | Helper function to pretty print Tuple values as (v1, v2, ..., vn) | --
+prettyTupleValue :: Value -> Bool -> Doc ann
+prettyTupleValue (ConsValue "Tuple" args) showEnv =
+  parens (hsep (punctuate comma (map (`prettyValue` showEnv) args)))
+prettyTupleValue v showEnv = prettyValue v showEnv
+
+-- | Helper function to pretty print Mu values | --
+prettyMuValueAux :: Value -> Bool -> Doc ann
+prettyMuValueAux (MuValue env cases) showEnv =
+  pretty "μ-Closure"
+    <+> braces
+      ( line
+          <> indent
+            2
+            (prettyEnv env showEnv <+> line <> braces (hang (-1) (prettyCases cases)))
+          <> line
+      )
+  where
+    prettyCases [] = mempty
+    prettyCases (c : cs) =
+      space
+        <> prettyBranch c
+        <> mconcat [line <> pipe <> space <> prettyBranch c' | c' <- cs]
+prettyMuValueAux _ _ = error "Expected a MuValue"
+
+-- | Pretty print a branch (pattern and command) | --
+prettyBranch :: (Pattern, Command) -> Doc ann
+prettyBranch (pat, cmd) =
   prettyPattern pat <+> pretty "->" <> line <> indent 2 (prettyCommand cmd)
 
-
+-- | Pretty print a pattern | --
 prettyPattern :: Pattern -> Doc ann
+prettyPattern (ConsPattern "Nil" []) = pretty "[]"
 prettyPattern listPat@(ConsPattern "List::" _) = prettyListPattern listPat
 prettyPattern tupPat@(ConsPattern "Tuple" _) = prettyTuplePattern tupPat
 prettyPattern (ConsPattern con args) =
@@ -243,7 +279,7 @@ prettyPattern (ConsPattern con args) =
 prettyPattern (VarPattern x) = pretty x
 prettyPattern WildcardPattern = pretty "_"
 
--- Helper function to pretty print List:: patterns as [p1, p2, ..., pn]
+-- | Helper function to pretty print List:: patterns as [p1, p2, ..., pn]
 prettyListPattern :: Pattern -> Doc ann
 prettyListPattern pat =
   case collectListPatternElements pat [] of
@@ -263,12 +299,15 @@ prettyListPattern pat =
         _ -> pretty con <+> hsep (map prettyPattern args)
     prettyPatternFallback p = prettyPattern p
 
--- Helper function to pretty print Tuple patterns as (p1, p2, ..., pn)
+-- | Helper function to pretty print Tuple patterns as (p1, p2, ..., pn)
 prettyTuplePattern :: Pattern -> Doc ann
 prettyTuplePattern (ConsPattern "Tuple" args) =
   parens (hsep (punctuate comma (map prettyPattern args)))
 prettyTuplePattern p = prettyPattern p
 
+-- | Env and Store Pretty Printing | --
+
+-- | Pretty print an environment | --
 prettyEnv :: Env -> Bool -> Doc ann
 prettyEnv (Env varMap cmdMap) True =
   pretty "Environment"
@@ -317,9 +356,11 @@ prettyEnv (Env varMap cmdMap) True =
             )
 prettyEnv _ False = pretty "{ Environment }"
 
+-- | Pretty print an address | --
 prettyAddr :: Addr -> Doc ann
 prettyAddr (Addr n) = pretty "#" <> pretty n
 
+-- | Pretty print a store | --
 prettyStore :: Store -> Bool -> Doc ann
 prettyStore (Store addr cmdAddr valMap cmdMap) True =
   pretty "Store"
@@ -375,7 +416,193 @@ prettyStore (Store addr cmdAddr valMap cmdMap) True =
             )
 prettyStore _ False = pretty "{ Store }"
 
--- Helper functions to convert to String
+-- | Pretty Print Sugared Program | --
 
+-- | Pretty print a Sugared Program | --
+prettySugaredProgram :: SugarProgram -> Doc ann
+prettySugaredProgram (SugarProgram imports decls exports) =
+  pretty "Sugared Program"
+    <+> braces
+      ( line
+          <> indent 2 (prettyImports imports)
+          <> line
+          <> indent 2 (prettySugarDecls decls)
+          <> line
+          <> indent 2 (prettyExports exports)
+          <> line
+      )
+
+-- | Pretty print sugared declarations | --
+prettySugarDecls :: [SugarDecl] -> Doc ann
+prettySugarDecls [] = mempty
+prettySugarDecls sdecls =
+  mconcat [prettySugarDecl d | d <- sdecls]
+
+-- | Pretty print a sugared declaration | --
+prettySugarDecl :: SugarDecl -> Doc ann
+prettySugarDecl (FuncDecl name args cmd) =
+  pretty "fn"
+    <+> pretty name
+    <+> hsep (map pretty args)
+    <+> pretty ":="
+    <+> prettySugarCommand cmd
+    <> line
+prettySugarDecl (RunDecl cmd) =
+  pretty "run"
+    <+> prettySugarCommand cmd
+    <> pretty ";"
+    <> line
+prettySugarDecl (DefaultDecl name expr) =
+  pretty name
+    <+> pretty ":="
+    <+> prettySugarExpr expr
+    <> pretty ";"
+    <> line
+
+-- | Pretty print a sugared command | --
+prettySugarCommand :: SugarCommand -> Doc ann
+prettySugarCommand (LetCommand var expr cmd) =
+  pretty "let"
+    <+> pretty var
+    <+> pretty "="
+    <+> prettySugarExpr expr
+    <+> pretty "in"
+    <+> prettySugarCommand cmd
+prettySugarCommand (LetcCommand var expr cmd) =
+  pretty "letc"
+    <+> pretty var
+    <+> pretty "="
+    <+> prettySugarExpr expr
+    <+> pretty "in"
+    <+> prettySugarCommand cmd
+prettySugarCommand (MatchCommand expr branches) =
+  pretty "match"
+    <+> prettySugarExpr expr
+    <+> pretty "with"
+    <> line
+    <> indent 2 (prettySugarBranches branches)
+prettySugarCommand (PatchCommand expr branches) =
+  pretty "patch"
+    <+> prettySugarExpr expr
+    <+> pretty "with"
+    <> line
+    <> indent 2 (prettySugarBranches branches)
+prettySugarCommand (DoThenCommand bindings cmd) =
+  pretty "do"
+    <> line
+    <> indent 2 (vsep (map prettyDoThenBinding bindings))
+    <> line
+    <> pretty "then"
+    <+> prettySugarCommand cmd
+prettySugarCommand (AtCommand expr args) =
+  prettySugarExpr expr
+    <+> pretty "@"
+    <+> hsep (map prettySugarExpr args)
+prettySugarCommand (CoAtCommand args expr) =
+  hsep (map prettySugarExpr args)
+    <+> pretty "@"
+    <+> prettySugarExpr expr
+prettySugarCommand (DotCommand expr1 expr2) =
+  prettySugarExpr expr1
+    <+> pretty "."
+    <+> prettySugarExpr expr2
+prettySugarCommand (SugarCommandVar cmdId) =
+  pretty cmdId
+
+-- | Pretty print sugared branches | --
+prettySugarBranches :: [(Pattern, SugarCommand)] -> Doc ann
+prettySugarBranches [] = mempty
+prettySugarBranches (b : bs) =
+  prettySugarBranch b
+    <> mconcat [line <> pipe <> space <> prettySugarBranch b' | b' <- bs]
+
+-- | Pretty print a sugared branch | --
+prettySugarBranch :: (Pattern, SugarCommand) -> Doc ann
+prettySugarBranch (pat, cmd) =
+  prettyPattern pat
+    <+> pretty "->"
+    <+> prettySugarCommand cmd
+
+-- | Pretty print do-then binding | --
+prettyDoThenBinding :: DoThenBinding -> Doc ann
+prettyDoThenBinding (Binding pat expr) =
+  prettyPattern pat
+    <+> pretty "<-"
+    <+> prettySugarExpr expr
+
+-- | Pretty print a sugared expression | --
+prettySugarExpr :: SugarExpr -> Doc ann
+prettySugarExpr (AppExpr fun conts args) =
+  prettySugarExpr fun
+    <> prettyContArgs conts
+    <> prettyValueArgs args
+prettySugarExpr (CoAppExpr cmdId conts args) =
+  pretty cmdId
+    <> prettyContArgs conts
+    <> prettyValueArgs args
+prettySugarExpr (HaveExpr bindings expr) =
+  pretty "have"
+    <> line
+    <> indent 2 (vsep (map prettyHaveBinding bindings))
+    <> line
+    <> pretty "in"
+    <+> prettySugarExpr expr
+prettySugarExpr (NatLit n) =
+  pretty n
+prettySugarExpr (TupLit exprs) =
+  parens (hsep (punctuate comma (map prettySugarExpr exprs)))
+prettySugarExpr listExpr@(ListLit _) =
+  prettySugarListExpr listExpr
+prettySugarExpr (SugarCons con args) =
+  case args of
+    [] -> pretty con
+    _ -> pretty con <+> hsep (map prettySugarExpr args)
+prettySugarExpr (SugarMu branches) =
+  braces (hang (-1) (prettySugarMuBranches branches))
+prettySugarExpr (SugarVar var) =
+  pretty var
+
+-- | Helper function to pretty print continuation arguments | --
+prettyContArgs :: [SugarExpr] -> Doc ann
+prettyContArgs [] = mempty
+prettyContArgs conts =
+  braces (hsep (punctuate comma (map prettySugarExpr conts)))
+
+-- | Helper function to pretty print value arguments | --
+prettyValueArgs :: [SugarExpr] -> Doc ann
+prettyValueArgs [] = mempty
+prettyValueArgs args =
+  parens (hsep (punctuate comma (map prettySugarExpr args)))
+
+-- | Helper function to pretty print have bindings | --
+prettyHaveBinding :: HaveBinding -> Doc ann
+prettyHaveBinding (HaveExprBinding var expr) =
+  pretty var
+    <+> pretty "="
+    <+> prettySugarExpr expr
+prettyHaveBinding (HaveCommandBinding cmdId cmd) =
+  pretty cmdId
+    <+> pretty "="
+    <+> prettySugarCommand cmd
+
+-- | Helper function to pretty print sugared list expressions | --
+prettySugarListExpr :: SugarExpr -> Doc ann
+prettySugarListExpr expr =
+  case expr of
+    ListLit elements ->
+      brackets (hsep (punctuate comma (map prettySugarExpr elements)))
+    _ -> error "Expected a list literal"
+
+-- | Helper function to pretty print sugared mu branches | --
+prettySugarMuBranches :: [(Pattern, SugarCommand)] -> Doc ann
+prettySugarMuBranches [] = mempty
+prettySugarMuBranches (b : bs) =
+  space
+    <> prettySugarBranch b
+    <> mconcat [line <> pipe <> space <> prettySugarBranch b' | b' <- bs]
+
+-- | Utility Functions | --
+
+-- | Helper functions to convert to String | --
 renderPretty :: Doc ann -> String
 renderPretty = renderString . layoutPretty defaultLayoutOptions
