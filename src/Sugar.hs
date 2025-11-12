@@ -104,20 +104,17 @@ desugarExpr (AppExpr fun explicitConts args) =
   -- f{k1, k2}(x1, x2, k1, k2)  =>  desugared function application
   if null explicitConts
     then
-      -- Simple case: f(a, b, c) => { k -> { args -> f . args } . { _f -> _f . (a, b, c, k) } }
+      -- Simple case: f(a, b, c) => { k -> f . (a, b, c, k) }
       let desugaredFun = desugarExpr fun
           desugaredArgs = map desugarExpr args
-          innerLeft = Mu [(VarPattern "_args", Command desugaredFun (Var "_args"))]
-          innerRight = Mu [(VarPattern "_f", Command (Var "_f") (Cons "Tuple" (desugaredArgs ++ [Var "_k"])))]
-       in Mu [(VarPattern "_k", Command innerLeft innerRight)]
+          newArgs = desugaredArgs ++ [Var "_k"]
+       in Mu [(VarPattern "_k", Command desugaredFun (Cons "Tuple" newArgs))]
     else
-      -- With explicit continuations: f{k1, k2}(a, k1, b, k2) => { (k1, k2) -> { args -> f . args } . { _f -> _f . (a, k1, b, k2) } }
+      -- With explicit continuations: f{k1, k2}(a, k1, b, k2) => { (k1, k2) -> f . (a, k1, b, k2) }
       let desugaredFun = desugarExpr fun
           desugaredArgs = map desugarExpr args
           contsPat = ConsPattern "Tuple" (map toVarPattern explicitConts)
-          innerLeft = Mu [(VarPattern "_args", Command desugaredFun (Var "_args"))]
-          innerRight = Mu [(VarPattern "_f", Command (Var "_f") (Cons "Tuple" desugaredArgs))]
-       in Mu [(contsPat, Command innerLeft innerRight)]
+       in Mu [(contsPat, Command desugaredFun (Cons "Tuple" desugaredArgs))]
   where
     toVarPattern (SugarVar x) = VarPattern x
     toVarPattern _ = error "Expected variable in explicit continuation list"
