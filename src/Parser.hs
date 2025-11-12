@@ -309,7 +309,7 @@ sugarAtCommand = label "sugar @ command" $ do
   choice
     [ try $ do
         -- f @ a b c => f . (a, b, c)
-        fun <- sugarAtom
+        fun <- sugarExpr
         _ <- symbol "@"
         args <- many sugarAtom
         return $ AtCommand fun args,

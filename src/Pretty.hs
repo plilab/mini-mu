@@ -473,7 +473,7 @@ prettySugarCommand (LetCommand var expr cmd) =
     <+> prettyTopLevelSugarExpr expr
     <+> pretty "in"
     <> line
-    <> indent 2 (prettySugarCommand cmd)
+    <> prettySugarCommand cmd
 prettySugarCommand (LetcCommand var expr cmd) =
   pretty "letc"
     <+> pretty var
@@ -481,7 +481,7 @@ prettySugarCommand (LetcCommand var expr cmd) =
     <+> prettyTopLevelSugarExpr expr
     <+> pretty "in"
     <> line
-    <> indent 2 (prettySugarCommand cmd)
+    <> prettySugarCommand cmd
 prettySugarCommand (MatchCommand expr branches) =
   pretty "match"
     <+> prettyTopLevelSugarExpr expr
@@ -501,7 +501,7 @@ prettySugarCommand (DoThenCommand bindings cmd) =
     <> line
     <> pretty "then"
     <> line
-    <> indent 2 (prettySugarCommand cmd)
+    <> prettySugarCommand cmd
 prettySugarCommand (AtCommand expr args) =
   prettyTopLevelSugarExpr expr
     <+> pretty "@"
