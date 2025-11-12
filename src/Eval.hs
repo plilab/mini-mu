@@ -32,6 +32,7 @@ import Syntax
       storeLookupCommand,
       freshSubstVar,
       envStoreInsert )
+import GHC.RTS.Flags (GCFlags(oldGenFactor))
 
 -- | Big-step evaluator for expressions, just for Var and Mu | --
 evalExpr :: Env -> Store -> Expr -> (Value, Store)
@@ -77,6 +78,57 @@ popCoFrame (ConsFrame parentId parentEvaled (nextArg:remaining) : rest) value co
   [CoConsEvalConfig env store value (ConsFrame parentId (parentEvaled ++ [coValue]) remaining : rest) nextArg]
 
 -- || Small-step evaluator for the CESK machine || --
+-- value/covalue judgements for Mini-Mu.
+-- Of note, any single-armed variable binder Mu is NOT a value.
+-- eg: { x -> CMD } NOT VALUE
+-- eg: { ConsPattern ... -> CMD } IS VALUE
+-- eg: { branch1 -> CMD1 | branch2 -> CMD2 } IS VALUE
+isValue :: Value -> Bool
+isValue (MuValue _ []) = True -- absurd
+isValue (MuValue _ [(ConsPattern _ _, _)]) = True
+isValue (MuValue _ (_ : _ : _)) = True
+isValue (MuValue _ [(VarPattern _, _)]) = False
+isValue (MuValue _ [(WildcardPattern, _)]) = False
+isValue (ConsValue _ elems) = all isValue elems
+
+-- work in progress. we might need to introduce fresh variables here.
+focus :: Store -> Either (ConsId, [Value]) (ConsId, [Value]) -> Env -> [(Pattern, Command)] -> [Config]
+focus store value muEnv muClauses =
+  let (consId, vals) =
+        case value of
+          Left (cid, vls) -> (cid, vls)
+          Right (cid, vls) -> (cid, vls)
+  in 
+  case span isValue vals of
+    (_, []) -> match muEnv store (ConsValue consId vals) muClauses
+    (before, v : _) ->
+      let oldMu = Mu muClauses
+          v_index = length before
+      -- create a new variable for each before and after value,
+      -- named _N after their index in the list
+          focus_vars = map (("_focus" ++) . show) [0 .. length vals - 1]
+          newCons = Cons consId (map Var focus_vars)
+      -- insert all of the focsus variables into the environment
+          (newEnv, newStore) = foldl
+            (\(e, s) (var, val) -> envStoreInsert e s var val)
+            (muEnv, store)
+            (zip focus_vars vals)
+      in 
+      -- finally, cut v against a freshly constructed mu-expression
+      case value of
+        Left _ ->
+          [ ValueConfig
+              newStore
+              v
+              (MuValue newEnv [(VarPattern (focus_vars !! v_index), Command newCons oldMu)])
+          ]
+        Right _ ->
+          [ ValueConfig
+              newStore
+              (MuValue newEnv [(VarPattern (focus_vars !! v_index), Command newCons oldMu)])
+              v
+          ]
+
 step :: Config -> [Config]
 
 -- +++ BEGIN OF STEP FUNCTION +++ --
@@ -314,8 +366,10 @@ step (CoConsEvalConfig env store value [] (Var x)) =
 step (CoConsEvalConfig env store value [] (Mu clauses)) =
   [ValueConfig store value (MuValue env clauses)]
 
-
 -- VALUE CONFIGURATIONS --
+
+-- for these two cases, we depend on matchers being
+-- transformed to handle one level of pattern matching at a time.
 
 -- Constructor and MuValue matching
 step (ValueConfig store cons@(ConsValue {}) (MuValue env clauses)) =
@@ -325,13 +379,21 @@ step (ValueConfig store cons@(ConsValue {}) (MuValue env clauses)) =
 step (ValueConfig store (MuValue env clauses) cons@(ConsValue {})) =
   match env store cons clauses
 
--- Both single-clause Var pattern MuValues matching
-step (ValueConfig store v@(MuValue env muClaus@[(VarPattern _, _)]) cv@(MuValue env' comuClaus@[(VarPattern _, _)])) =
-  match env store cv muClaus -- ++ match env store cv muClaus THIS IS A TEMPORARY HACK
-
--- Both MuValues with multiple clauses matching
-step (ValueConfig store v@(MuValue env clauses) cv@(MuValue env' clauses')) =
-  match env' store v clauses' ++ match env store cv clauses
+-- for matching mu vs mu, we have to consider 4 cases:
+-- 1. both sides are values -> error
+-- 2. left side is value -> match right side against left clauses
+-- 3. right side is value -> match left side against right clauses
+-- 4. neither side is value -> match both sides separately and combine results
+-- case 4 might be eliminated with a reasonable evaluation strategy in the future.
+step (ValueConfig store v@(MuValue env clauses) cv@(MuValue env' clauses')) 
+  | isValue v && isValue cv =
+    [ErrorConfig "Bad type: A covalue is being matched against a value"]
+  | isValue v =
+    match env' store v clauses'
+  | isValue cv =
+    match env store cv clauses
+  | otherwise = 
+    match env' store v clauses' ++ match env store cv clauses
 
 -- temporary hack to deal with "Halt"
 step (ValueConfig _ cons@(ConsValue _ _) (ConsValue "Halt" [])) =
