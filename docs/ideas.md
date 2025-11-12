@@ -115,6 +115,56 @@ CONTEXT <CMD>
 "/" means substitutes
 ```
 
+## OOP
+```ocaml
+module car :=
+  field brand = "bmw"
+  field year = 2020
+  
+  Get_brand() -> return this.brand
+  Year_till(year) -> return sub(year, this.year)
+  Check_year{t, f}(year, t, f) -> eq @ year 10 . { True -> year . t | False -> year . f }
+end
+=>
+car = {
+    Get_brand k -> 
+    ("bmw", 2020) . { (_brand, _year) ->  _brand . k }
+  | Year_till_now year k -> 
+    ("bmw", 2020) . { (_brand, _year) -> sub(year, _year) . k }
+  | Check_year year t f ->
+    ("bmw", 2020) . { (_brand, _year) -> eq @ year 10 . { True -> year . t | False -> year . f } }
+}
+
+usage:
+
+car::Get_brand . halt
+=> 
+{ _k -> car . Get_brand _k } . halt
+```
+
+So generally the sugar is:
+
+```ocaml
+module OBJId :=
+  field VarId1 = Expr1
+  ...
+  field VarIdn = Exprn
+
+  ConsId1(ARGS*) -> CMD1
+  ConsId2{CONTS}(ARGS*) -> CMD2
+```
+
+```ocaml
+OBJId := {
+  ConsId1 [ARGS* ++ _k] ->
+    (Expr1,...,Exprn) . { (_VarId1,...,_VarIdn) -> CMD1 }
+  
+  ConsId2 ARGS* ->
+    (Expr1,...,Exprn) . { (_VarId1,...,_VarIdn) -> CMD2 }
+}
+return Expr => Expr . _k
+```
+
 ## Other  
 - Letrec
 - Debugger
