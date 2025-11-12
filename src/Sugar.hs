@@ -161,11 +161,11 @@ desugarCommand :: SugarCommand -> Command
 desugarCommand (SugarCommandVar c) = CommandVar c
 
 desugarCommand (LetCommand var e cmd) =
-  -- let x = e in q  =>  desugar(e) . { x -> desugar(q) }
+  -- let x <- e in q  =>  desugar(e) . { x -> desugar(q) }
   Command (desugarExpr e) (Mu [(VarPattern var, desugarCommand cmd)])
 
 desugarCommand (LetcCommand var e cmd) =
-  -- letcc x = e in q  =>  { x -> desugar(q) } . desugar(e)
+  -- letcc x <- e in q  =>  { x -> desugar(q) } . desugar(e)
   Command (Mu [(VarPattern var, desugarCommand cmd)]) (desugarExpr e)
 
 desugarCommand (MatchCommand e cases) =

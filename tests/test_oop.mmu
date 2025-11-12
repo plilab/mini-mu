@@ -12,7 +12,7 @@ module car :=
   Get_brand() -> return this.brand
 
   Years_till_now(now) -> 
-    let res = sub(now, this.year) in 
+    let res <- sub(now, this.year) in 
     return res
 end;
 

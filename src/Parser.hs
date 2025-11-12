@@ -287,7 +287,7 @@ sugarLetCommand :: Parser SugarCommand
 sugarLetCommand = label "sugar let command" $ do
   _ <- symbol "let"
   var <- varId
-  _ <- symbol "="
+  _ <- symbol "<-"
   e <- sugarExpr
   _ <- symbol "in"
   LetCommand var e <$> sugarCommand
@@ -297,7 +297,7 @@ sugarLetcCommand :: Parser SugarCommand
 sugarLetcCommand = label "sugar letcc command" $ do
   _ <- symbol "letcc"
   var <- varId
-  _ <- symbol "="
+  _ <- symbol "<-"
   e <- sugarExpr
   _ <- symbol "in"
   LetcCommand var e <$> sugarCommand
