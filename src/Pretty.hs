@@ -144,10 +144,10 @@ prettyProgram (Program imports decls exports) =
     prettyMainExpr es = pretty "Exports:" <+> hsep (map pretty es)
 
 prettyTopLevelValue :: Value -> Bool -> Doc ann
-prettyTopLevelValue (ConsValue "Z" []) _ = pretty "0"
-prettyTopLevelValue (ConsValue "S" [v]) _ =
-  pretty (peanoValueToInt (ConsValue "S" [v]))
 prettyTopLevelValue (ConsValue con args) showEnv =
+  if isPeanoValue (ConsValue con args)
+    then pretty (peanoValueToInt (ConsValue con args))
+    else
   pretty con <+> hsep (map (`prettyValue` showEnv) args)
 prettyTopLevelValue HoleValue _ =
   pretty "_"
@@ -165,10 +165,10 @@ prettyTopLevelValue mu@(MuValue _ _) showEnv =
 -- prettyEitherValue (Right cv) = prettyCoValue cv
 
 prettyValue :: Value -> Bool -> Doc ann
-prettyValue (ConsValue "Z" []) _ = pretty "0"
-prettyValue (ConsValue "S" [v]) _ =
-  pretty (peanoValueToInt (ConsValue "S" [v]))
 prettyValue (ConsValue con args) showEnv =
+  if isPeanoValue (ConsValue con args)
+    then pretty (peanoValueToInt (ConsValue con args))
+    else
   case args of
     [] -> pretty con
     _ -> pretty "(" <> pretty con <+> hsep (map (`prettyValue` showEnv) args) <> pretty ")"
@@ -177,12 +177,19 @@ prettyValue HoleValue _ =
 prettyValue mu@(MuValue _ _) showEnv =
   prettyMuValueAux mu showEnv
 
+-- helper function to check if a Value is a Peano number
+isPeanoValue :: Value -> Bool
+isPeanoValue (ConsValue "Z" []) = True
+isPeanoValue (ConsValue "S" [v]) = isPeanoValue v
+isPeanoValue _ = False
+
 -- Helper function to convert Peano numbers to integers
 -- safe cause there is no variable names in values
 peanoValueToInt :: Value -> Integer
 peanoValueToInt (ConsValue "Z" []) = 0
 peanoValueToInt (ConsValue "S" [v]) = 1 + peanoValueToInt v
 peanoValueToInt _ = error "Not a Peano number"
+-- peanoValueToInt _ = error "Not a Peano number"
 
 -- prettyCoValue :: CoValue -> Doc ann
 -- prettyCoValue (CoConsValue con args) =
