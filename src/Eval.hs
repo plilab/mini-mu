@@ -133,8 +133,21 @@ step (ValueConfig store cons@(ConsValue {}) (MuValue env clauses)) =
   match env store cons clauses
 step (ValueConfig store (MuValue env clauses) cons@(ConsValue {})) =
   match env store cons clauses
-step (ValueConfig store v@(MuValue env clauses) cv@(MuValue env' clauses')) =
-  match env' store v clauses' ++ match env store cv clauses
+-- some special work needs to be checked here.
+-- first, let's assume that a Mu with multiple clauses is a value/covalue. 
+-- it behaves as a value copattern comatcher,
+-- or a covalue, as a pattern matcher.
+-- the same goes for a Mu with a single clause, but the clause is a constructor pattern.
+-- the only remaining case is a Mu with a single clause that binds a single co/variable,
+-- that is NOT a value/covalue.
+step (ValueConfig store v@(MuValue env clauses) cv@(MuValue env' clauses'))
+  | muIsValue v && muIsValue cv = [ErrorConfig "Bad type: Mu value is being cut with another Mu value"]
+  -- if v is value, bind v to cv
+  | muIsValue v = match env' store v clauses'
+  -- if cv is value, bind cv to v
+  | muIsValue cv = match env store cv clauses
+  | otherwise = match env' store v clauses' ++ match env store cv clauses
+
 step (ValueConfig _ HoleValue _) =
   [ErrorConfig "Hole cannot be used as standalone value, it must be wrapped within a constructor"]
 step (ValueConfig _ _ HoleValue) =
@@ -176,8 +189,14 @@ step (ValueConfigWithCtx store ctx cons@(ConsValue {}) (MuValue env clauses)) =
   matchWithCtx env store ctx cons clauses
 step (ValueConfigWithCtx store ctx (MuValue env clauses) cons@(ConsValue {})) =
   matchWithCtx env store ctx cons clauses
-step (ValueConfigWithCtx store ctx v@(MuValue env clauses) cv@(MuValue env' clauses')) =
-  matchWithCtx env' store ctx v clauses' ++ matchWithCtx env store ctx cv clauses
+-- same as above, need to check muIsValue
+step (ValueConfigWithCtx store ctx v@(MuValue env clauses) cv@(MuValue env' clauses'))
+  | muIsValue v && muIsValue cv = [ErrorConfig "Bad type: Mu value is being cut with another Mu value"]
+  -- if v is value, bind v to cv
+  | muIsValue v = matchWithCtx env' store ctx v clauses'
+  -- if cv is value, bind cv to v
+  | muIsValue cv = matchWithCtx env store ctx cv clauses
+  | otherwise = matchWithCtx env' store ctx v clauses' ++ matchWithCtx env store ctx cv clauses
 step (ValueConfigWithCtx _ _ HoleValue _) =
   [ErrorConfig "Hole cannot be used as standalone value, it must be wrapped within a constructor"]
 step (ValueConfigWithCtx _ _ _ HoleValue) =
