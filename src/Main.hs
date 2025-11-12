@@ -6,7 +6,7 @@ import EvalTree (generateEvalTreeWithDepth, printEvalTree)
 import Graph (visualizeEvalTree)
 import Module (evalProgramWithDepDecls)
 import Options.Applicative
-import Parser (parseMiniMu)
+import Parser (parseMiniMu, parseSugaredMiniMu)
 import Pretty
 import System.Directory (listDirectory)
 import System.Exit (exitFailure)
@@ -22,7 +22,8 @@ data RunOptions = RunOptions
 
 data VizOptions = VizOptions
   { vizFile :: String,
-    pretty :: Bool
+    pretty :: Bool,
+    sugar :: Bool
   }
 
 data TreeOptions = TreeOptions
@@ -84,6 +85,11 @@ vizOptions =
       ( long "pretty"
           <> short 'p'
           <> help "Pretty print the AST"
+      )
+    <*> switch
+      ( long "sugar"
+          <> short 's'
+          <> help "Record this visualization as standard"
       )
 
 treeOptions :: Parser TreeOptions
@@ -233,11 +239,20 @@ run opts = do
 
 runViz :: VizOptions -> IO ()
 runViz opts = do
-  program <- parseMiniMu $ vizFile opts
   let prettyPrint = pretty opts
+  let sugarPrint = sugar opts
   if prettyPrint
-    then mapM_ (putStrLn . renderPretty . prettyProgram) [program]
-    else mapM_ print [program]
+  then 
+    if sugarPrint
+    then do 
+      sugaredProg <- parseSugaredMiniMu $ vizFile opts
+      mapM_ (putStrLn . renderPretty . prettySugaredProgram) [sugaredProg]
+    else do
+      program <- parseMiniMu $ vizFile opts
+      mapM_ (putStrLn . renderPretty . prettyProgram) [program]
+  else do 
+    program <- parseMiniMu $ vizFile opts
+    mapM_ print [program]
 
 runTree :: TreeOptions -> IO ()
 runTree opts = do

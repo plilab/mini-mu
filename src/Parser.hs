@@ -4,6 +4,7 @@
 
 module Parser
   ( parseMiniMu,
+    parseSugaredMiniMu,
     parseFile,
     sugarExpr,
     sugarCommand,
@@ -40,6 +41,17 @@ keywords =
   ]
 
 -- | Parse a MiniMu program from a file, handing errors, main entry point for parsing | --
+parseSugaredMiniMu :: FilePath -> IO SugarProgram
+parseSugaredMiniMu file = do
+  ast <- parseFile file
+  either
+    ( \err -> do
+        putStrLn $ errorBundlePretty err
+        error "Failed to parse MiniMu program"
+    )
+    return
+    ast
+
 parseMiniMu :: FilePath -> IO Program
 parseMiniMu file = do
   ast <- parseFile file

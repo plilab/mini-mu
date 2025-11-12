@@ -59,9 +59,12 @@ prettyProgram (Program imports decls exports) =
 -- | Pretty print import declarations | --
 prettyImports :: [ImportDecl] -> Doc ann
 prettyImports [] = mempty
-prettyImports (ImportDecl name _ : is) =
-  pretty "Import"
-  <+> pretty name
+prettyImports (ImportDecl name vars : is) =
+  pretty "import"
+  <+> pretty name 
+  <+> pretty "(" 
+  <> hsep (punctuate comma (map pretty vars)) 
+  <> pretty ")"
   <> line
   <> prettyImports is
 
@@ -73,19 +76,15 @@ prettyDecls ds =
 
 -- | Pretty print the main expression (exports) | --
 prettyExports :: [VarId] -> Doc ann
-prettyExports es = pretty "Exports:" <+> hsep (map pretty es)
+prettyExports es = pretty "export" <+> hsep (punctuate comma (map pretty es))
 
 -- | Pretty printing a declaration | --
 prettyDecl :: Decl -> Doc ann
-prettyDecl (Decl "main" expr) =
-  pretty "MAIN"
-    <+> pretty ":="
-    <+> prettyExpr expr
-    <> line
 prettyDecl (Decl varId expr) =
   pretty varId
     <+> pretty ":="
     <+> prettyExpr expr
+    <> line
     <> line
 
 -- | Pretty Printing Commands | --
@@ -445,7 +444,10 @@ prettySugarDecl (FuncDecl name args cmd) =
     <+> pretty name
     <+> hsep (map pretty args)
     <+> pretty ":="
-    <+> prettySugarCommand cmd
+    <> line
+    <> indent 2 (prettySugarCommand cmd)
+    <> pretty ";" 
+    <> line
     <> line
 prettySugarDecl (RunDecl cmd) =
   pretty "run"
@@ -455,7 +457,7 @@ prettySugarDecl (RunDecl cmd) =
 prettySugarDecl (DefaultDecl name expr) =
   pretty name
     <+> pretty ":="
-    <+> prettySugarExpr expr
+    <+> prettyTopLevelSugarExpr expr
     <> pretty ";"
     <> line
 
@@ -465,25 +467,25 @@ prettySugarCommand (LetCommand var expr cmd) =
   pretty "let"
     <+> pretty var
     <+> pretty "="
-    <+> prettySugarExpr expr
+    <+> prettyTopLevelSugarExpr expr
     <+> pretty "in"
     <+> prettySugarCommand cmd
 prettySugarCommand (LetcCommand var expr cmd) =
   pretty "letc"
     <+> pretty var
     <+> pretty "="
-    <+> prettySugarExpr expr
+    <+> prettyTopLevelSugarExpr expr
     <+> pretty "in"
     <+> prettySugarCommand cmd
 prettySugarCommand (MatchCommand expr branches) =
   pretty "match"
-    <+> prettySugarExpr expr
+    <+> prettyTopLevelSugarExpr expr
     <+> pretty "with"
     <> line
     <> indent 2 (prettySugarBranches branches)
 prettySugarCommand (PatchCommand expr branches) =
   pretty "patch"
-    <+> prettySugarExpr expr
+    <+> prettyTopLevelSugarExpr expr
     <+> pretty "with"
     <> line
     <> indent 2 (prettySugarBranches branches)
@@ -495,17 +497,17 @@ prettySugarCommand (DoThenCommand bindings cmd) =
     <> pretty "then"
     <+> prettySugarCommand cmd
 prettySugarCommand (AtCommand expr args) =
-  prettySugarExpr expr
+  prettyTopLevelSugarExpr expr
     <+> pretty "@"
-    <+> hsep (map prettySugarExpr args)
+    <+> hsep (map prettySugarExpr args) -- args are not top-level
 prettySugarCommand (CoAtCommand args expr) =
-  hsep (map prettySugarExpr args)
+  hsep (map prettySugarExpr args) -- args are not top-level
     <+> pretty "@"
-    <+> prettySugarExpr expr
+    <+> prettyTopLevelSugarExpr expr
 prettySugarCommand (DotCommand expr1 expr2) =
-  prettySugarExpr expr1
+  prettyTopLevelSugarExpr expr1
     <+> pretty "."
-    <+> prettySugarExpr expr2
+    <+> prettyTopLevelSugarExpr expr2
 prettySugarCommand (SugarCommandVar cmdId) =
   pretty cmdId
 
@@ -513,7 +515,7 @@ prettySugarCommand (SugarCommandVar cmdId) =
 prettySugarBranches :: [(Pattern, SugarCommand)] -> Doc ann
 prettySugarBranches [] = mempty
 prettySugarBranches (b : bs) =
-  prettySugarBranch b
+    space <+> prettySugarBranch b
     <> mconcat [line <> pipe <> space <> prettySugarBranch b' | b' <- bs]
 
 -- | Pretty print a sugared branch | --
@@ -528,18 +530,26 @@ prettyDoThenBinding :: DoThenBinding -> Doc ann
 prettyDoThenBinding (Binding pat expr) =
   prettyPattern pat
     <+> pretty "<-"
-    <+> prettySugarExpr expr
+    <+> prettyTopLevelSugarExpr expr
 
 -- | Pretty print a sugared expression | --
+prettyTopLevelSugarExpr :: SugarExpr -> Doc ann
+prettyTopLevelSugarExpr (SugarCons con args) =
+  case args of
+    [] -> pretty con
+    _ -> pretty con <+> hsep (map prettySugarExpr args)
+prettyTopLevelSugarExpr expr =
+  prettySugarExpr expr
+
 prettySugarExpr :: SugarExpr -> Doc ann
 prettySugarExpr (AppExpr fun conts args) =
   prettySugarExpr fun
     <> prettyContArgs conts
-    <> prettyValueArgs args
+    <> prettyExprArgs args
 prettySugarExpr (CoAppExpr cmdId conts args) =
   pretty cmdId
     <> prettyContArgs conts
-    <> prettyValueArgs args
+    <> prettyExprArgs args
 prettySugarExpr (HaveExpr bindings expr) =
   pretty "have"
     <> line
@@ -556,7 +566,7 @@ prettySugarExpr listExpr@(ListLit _) =
 prettySugarExpr (SugarCons con args) =
   case args of
     [] -> pretty con
-    _ -> pretty con <+> hsep (map prettySugarExpr args)
+    _ -> pretty "(" <> pretty con <+> hsep (map prettySugarExpr args) <> pretty ")"
 prettySugarExpr (SugarMu branches) =
   braces (hang (-1) (prettySugarMuBranches branches))
 prettySugarExpr (SugarVar var) =
@@ -566,20 +576,20 @@ prettySugarExpr (SugarVar var) =
 prettyContArgs :: [SugarExpr] -> Doc ann
 prettyContArgs [] = mempty
 prettyContArgs conts =
-  braces (hsep (punctuate comma (map prettySugarExpr conts)))
+  braces (hsep (punctuate comma (map prettyTopLevelSugarExpr conts)))
 
 -- | Helper function to pretty print value arguments | --
-prettyValueArgs :: [SugarExpr] -> Doc ann
-prettyValueArgs [] = mempty
-prettyValueArgs args =
-  parens (hsep (punctuate comma (map prettySugarExpr args)))
+prettyExprArgs :: [SugarExpr] -> Doc ann
+prettyExprArgs [] = mempty
+prettyExprArgs args =
+  parens (hsep (punctuate comma (map prettyTopLevelSugarExpr args)))
 
 -- | Helper function to pretty print have bindings | --
 prettyHaveBinding :: HaveBinding -> Doc ann
 prettyHaveBinding (HaveExprBinding var expr) =
   pretty var
     <+> pretty "="
-    <+> prettySugarExpr expr
+    <+> prettyTopLevelSugarExpr expr
 prettyHaveBinding (HaveCommandBinding cmdId cmd) =
   pretty cmdId
     <+> pretty "="
@@ -590,7 +600,7 @@ prettySugarListExpr :: SugarExpr -> Doc ann
 prettySugarListExpr expr =
   case expr of
     ListLit elements ->
-      brackets (hsep (punctuate comma (map prettySugarExpr elements)))
+      brackets (hsep (punctuate comma (map prettyTopLevelSugarExpr elements)))
     _ -> error "Expected a list literal"
 
 -- | Helper function to pretty print sugared mu branches | --
@@ -600,6 +610,7 @@ prettySugarMuBranches (b : bs) =
   space
     <> prettySugarBranch b
     <> mconcat [line <> pipe <> space <> prettySugarBranch b' | b' <- bs]
+    <> space
 
 -- | Utility Functions | --
 
