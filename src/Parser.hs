@@ -253,6 +253,7 @@ expr =
     "expression"
     $ choice
       [ try cons,
+        try applnExpr, -- function application sugar
         atom
       ]
 
@@ -405,6 +406,37 @@ letExpr = label "let expression" $ do
         )
         body
         bindings
+
+-- Generate a symbol that is guaranteed
+-- to not be captured by user code.
+-- TODO: make this better, but for now
+-- appending _ in front of an identifier is sufficient.
+genSym :: String -> String
+genSym base = "_" ++ base
+
+-- Parse a function application expression.
+-- fun(a, b, c) --> { k -> fun . (a, b, c, k) }
+-- or, in this case, { k -> fun @ a b c k }
+-- a() -> { k -> a . (k) }
+-- ^ TODO: would it be better to desugar this to { k -> a . k } ?
+-- a(b)(c) -> { k -> { k -> a . (b, k) } . (c, k) }
+-- !! as it is, this is its own dual.
+applnExpr :: Parser Expr
+applnExpr = label "function application" $ do
+  fun <- atom
+  -- we will continue to parse argument lists until
+  -- we stop seeing them.
+  args <- some (parens (sepBy expr (symbol ",")))
+  return $ foldl desugarApply fun args
+  where
+    kont = genSym "k"
+    desugarApply :: Expr -> [Expr] -> Expr
+    desugarApply f args =
+      Mu
+        [ ( VarPattern kont,
+            Command f (Cons "Tuple" (args ++ [Var kont]))
+          )
+        ]
 
 letCommand :: Parser Command
 letCommand = label "let command" $ do
