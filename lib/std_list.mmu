@@ -4,7 +4,7 @@ fn list_append as bs k :=
   match as with 
     Nil -> bs . k
   | List:: a as' -> 
-    letc k' = { rest -> List:: a rest . k } in 
+    letcc k' = { rest -> List:: a rest . k } in 
     list_append @ as' bs k';
 
 fn list_map f xs k :=

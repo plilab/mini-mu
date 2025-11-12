@@ -94,9 +94,9 @@ data DoThenBinding = Binding Pattern SugarExpr -- x <- e
 -- | Sugared Commands | --
 data SugarCommand
   = LetCommand VarId SugarExpr SugarCommand -- let x = e in q
-  | LetcCommand VarId SugarExpr SugarCommand -- letc x = e in q
+  | LetcCommand VarId SugarExpr SugarCommand -- letcc x = e in q
   | MatchCommand SugarExpr [(Pattern, SugarCommand)] -- match e with p1 -> q1 | p2 -> q2 | ...
-  | PatchCommand SugarExpr [(Pattern, SugarCommand)] -- patch e with p1 -> q1 | p2 -> q2 | ...
+  | PatchCommand SugarExpr [(Pattern, SugarCommand)] -- dispatch e with p1 -> q1 | p2 -> q2 | ...
   | DoThenCommand [DoThenBinding] SugarCommand -- do binding* then q
   | AtCommand SugarExpr [SugarExpr] -- f @ a b c
   | CoAtCommand [SugarExpr] SugarExpr -- a b c @ 'f

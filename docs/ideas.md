@@ -21,10 +21,11 @@ General Goals: Fewer brackets, Fewer nestings
 ### Current proposed sugars:
 - Cut-as-let (cut-let), thanks you Kyriel for generalizing this.
     ```ocaml
+    (* TODO: decide whether ocaml-style or rust-style is better. *)
     let VAR = EXPR in CMD
     => EXPR . { VAR -> CMD }
 
-    letc COVAR = COEXPR in CMD
+    letcc COVAR = COEXPR in CMD
     => { COVAR -> CMD } . COEXPR
 
     match EXPR with
@@ -34,7 +35,7 @@ General Goals: Fewer brackets, Fewer nestings
     | PATn -> CMDn
     => EXPR . { PAT1 -> CMD1 | PAT2 -> CMD2 ... | PATn -> CMDn }
 
-    patch COEXPR with
+    dispatch COEXPR with
     | PAT1 -> CMD1
     | PAT2 -> CMD2
     ...

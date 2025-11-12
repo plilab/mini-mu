@@ -165,7 +165,7 @@ desugarCommand (LetCommand var e cmd) =
   Command (desugarExpr e) (Mu [(VarPattern var, desugarCommand cmd)])
 
 desugarCommand (LetcCommand var e cmd) =
-  -- letc x = e in q  =>  { x -> desugar(q) } . desugar(e)
+  -- letcc x = e in q  =>  { x -> desugar(q) } . desugar(e)
   Command (Mu [(VarPattern var, desugarCommand cmd)]) (desugarExpr e)
 
 desugarCommand (MatchCommand e cases) =
@@ -173,7 +173,7 @@ desugarCommand (MatchCommand e cases) =
   Command (desugarExpr e) (Mu (map (\(p, cmd) -> (p, desugarCommand cmd)) cases))
 
 desugarCommand (PatchCommand e cases) =
-  -- patch e with p1 -> q1 | p2 -> q2 | ...  =>  { p1 -> desugar(q1) | p2 -> desugar(q2) | ... } . desugar(e)
+  -- dispatch e with p1 -> q1 | p2 -> q2 | ...  =>  { p1 -> desugar(q1) | p2 -> desugar(q2) | ... } . desugar(e)
   Command (Mu (map (\(p, cmd) -> (p, desugarCommand cmd)) cases)) (desugarExpr e)
 
 desugarCommand (DoThenCommand bindings cmd) =

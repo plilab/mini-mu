@@ -27,14 +27,14 @@ keywords =
   [ "fn",
     "run",
     "let",
-    "letc",
+    "letcc",
     "in",
     "where",
     "seq",
     "do",
     "then",
     "match",
-    "patch",
+    "dispatch",
     "with",
     "have",
     "here",
@@ -292,10 +292,10 @@ sugarLetCommand = label "sugar let command" $ do
   _ <- symbol "in"
   LetCommand var e <$> sugarCommand
 
--- | Parse sugared letc command | --
+-- | Parse sugared letcc command | --
 sugarLetcCommand :: Parser SugarCommand
-sugarLetcCommand = label "sugar letc command" $ do
-  _ <- symbol "letc"
+sugarLetcCommand = label "sugar letcc command" $ do
+  _ <- symbol "letcc"
   var <- varId
   _ <- symbol "="
   e <- sugarExpr
@@ -312,10 +312,10 @@ sugarMatchCommand = label "sugar match command" $ do
   cases <- sepBy1 sugarBranch (symbol "|")
   return $ MatchCommand e cases
 
--- | Parse sugared patch command | --
+-- | Parse sugared dispatch command | --
 sugarPatchCommand :: Parser SugarCommand
-sugarPatchCommand = label "sugar patch command" $ do
-  _ <- symbol "patch"
+sugarPatchCommand = label "sugar dispatch command" $ do
+  _ <- symbol "dispatch"
   e <- sugarExpr
   _ <- symbol "with"
   _ <- optional (symbol "|")

@@ -507,7 +507,7 @@ prettySugarCommand (LetCommand var expr cmd) =
     <> line
     <> prettySugarCommand cmd
 prettySugarCommand (LetcCommand var expr cmd) =
-  pretty "letc"
+  pretty "letcc"
     <+> pretty var
     <+> pretty "="
     <+> prettyTopLevelSugarExpr expr
@@ -521,7 +521,7 @@ prettySugarCommand (MatchCommand expr branches) =
     <> line
     <> indent 2 (prettySugarBranches branches)
 prettySugarCommand (PatchCommand expr branches) =
-  pretty "patch"
+  pretty "dispatch"
     <+> prettyTopLevelSugarExpr expr
     <+> pretty "with"
     <> line

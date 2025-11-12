@@ -4,7 +4,7 @@ fn insert xs n k :=
   match xs with 
     Nil -> List:: n Nil . k
   | List:: x xs' ->
-    patch lt(n, x) with 
+    dispatch lt(n, x) with 
       True -> List:: n (List:: x xs') . k
     | False ->
       let rest = insert(xs', n) in
