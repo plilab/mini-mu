@@ -1,37 +1,37 @@
 -- ATM there seems to be an issue with the std_bool library if i use True and False
 
-def not b k :=
+fn not b k :=
   b . { False -> True . k
       | True -> False . k };
 
 -- functional if - based on cond returns expression
-def if cond cons alt k := 
+fn if cond cons alt k := 
   cond . { False -> alt . k
          | True -> cons . k };
 
 -- imperative if - based on cond takes a continuation
-def branch cond then_k else_k :=
+fn branch cond then_k else_k :=
   cond . { False -> cond . else_k
          | True -> cond . then_k };
 
 {-
 WIP exploration of cobools
 
-def cotrue k_t k := (k_t, { a -> a }) . k; 
-def cofalse k_f k := ({ a -> a }, k_f) . k;
+fn cotrue k_t k := (k_t, { a -> a }) . k; 
+fn cofalse k_f k := ({ a -> a }, k_f) . k;
 
-def conot cb k :=
+fn conot cb k :=
   cb . { (k_true, k_false) -> (k_false, k_true) . k };
 
 -- dual to if: co-if (takes a pair, applies both parts)
 -- is it really dual?
-def coif cocond true_val false_val :=
+fn coif cocond true_val false_val :=
   -- cocond . { (k_true, k_false) -> (true_val . k_true, false_val . k_false) };
   cocond . { _ -> Not_implemented . Halt };
 
 -- dual to branch: co-branch (takes a pair, applies to both continuations)  
 -- is it really dual?
-def cobranch cocond k :=
+fn cobranch cocond k :=
   -- pair . k ???
   cocond . { _ -> Not_implemented . Halt }
 -}

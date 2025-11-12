@@ -1,44 +1,56 @@
-def lt a b k :=
-  (a, b) . { (Z, Z) -> False . k
-           | (Z, S _) -> True . k
-           | (S _, Z) -> False . k
-           | (S a', S b') -> lt @ a' b' k };
+fn lt a b k :=
+  match (a, b) with
+    (Z, Z) -> False . k
+  | (Z, S _) -> True . k
+  | (S _, Z) -> False . k
+  | (S a', S b') -> lt @ a' b' k;
 
-def geq a b k :=
-  (a, b) . { (Z, Z) -> True . k
-           | (Z, S _) -> False . k
-           | (S _, Z) -> True . k
-           | (S a', S b') -> geq @ a' b' k };
+fn geq a b k :=
+  match (a, b) with 
+    (Z, Z) -> True . k
+  | (Z, S _) -> False . k
+  | (S _, Z) -> True . k
+  | (S a', S b') -> geq @ a' b' k;
 
-def leq a b k :=
-  (a, b) . { (Z, Z) -> True . k
-           | (Z, S _) -> True . k
-           | (S a', Z) -> False . k
-           | (S a', S b') -> leq @ a' b' k };
+fn leq a b k :=
+  match (a, b) with 
+    (Z, Z) -> True . k
+  | (Z, S _) -> True . k
+  | (S a', Z) -> False . k
+  | (S a', S b') -> leq @ a' b' k;
 
-def eq a b k :=
-  a . { Z -> b . { Z -> True . k | S b' -> False . k }
-       | S a' -> b . { Z -> False . k | S b' -> eq @ a' b' k } };
+fn eq a b k :=
+  match (a, b) with 
+    (Z, Z) -> True . k
+  | (Z, S _) -> False . k
+  | (S _, Z) -> False . k
+  | (S a', S b') -> eq @ a' b' k;
 
-def add x y k :=
-    x . { Z -> y . k
-        | S x' -> x' (S y) k @ add };
+fn add x y k :=
+  match x with
+    Z -> y . k
+  | S x' -> add @ x' (S y) k;
 
-def sub a b k :=
-  b . { Z -> a . k
-      | S b' -> a . { Z -> Z . k
-                    | S a' -> sub @ a' b' k } };
+fn sub a b k :=
+  match b with
+    Z -> a . k
+  | S b' -> match a with
+              Z -> Z . k
+            | S a' -> sub @ a' b' k;
 
-def mul a b k :=
-  a . { Z -> Z . k
-      | S a' -> 
-          b . { Z -> Z . k
-              | _ -> seq prod <- mul a' b
-                     then add @ b prod k } };
+fn mul a b k :=
+  match a with 
+    Z -> Z . k
+  | S a' -> 
+      match b with 
+        Z -> Z . k
+      | _ -> let prod = mul(a', b) in add @ b prod k;
 
-def dec x k :=
-  x . { Z -> x . k | S x' -> x' . k };
+fn dec x k :=
+  match x with 
+    Z -> Z . k
+  | S x' -> x' . k;
 
-def inc x k := Tuple (S x) . k;
+fn inc x k := S x . k;
 
 export lt, geq, add, leq, eq, dec, inc, mul, sub

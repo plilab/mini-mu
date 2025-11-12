@@ -1,13 +1,5 @@
 import "std_nat" (add, inc)
 
-def testIdiom1 a := [ add @ _ 3 { v -> [ add @ 1 _ _ ] @ v Halt } ] @ a;
+test := (1, 2);
 
-def testIdiom2 a k := [ add @ _ 3 _ ] @ a k;
-
-def testIdiom3 a k := inc @ a [ add @ 1 _ k ];
-
--- run testIdiom1 @ 2;
-
-run testIdiom2 @ 2 { v -> [ add @ 1 _ _ ] @ v halt };
-
-run testIdiom3 @ 2 halt;
+run test . halt;

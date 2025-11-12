@@ -177,8 +177,8 @@ Here's a simple factorial implementation demonstrating continuation patterns:
 ```haskell
 import "std_nat" (mul, add)
 
-def factorial n k :=
-    let rec = seq f <- factorial n' then mul @ (S n') f k in
+fn factorial n k :=
+    let rec = do f <- factorial n' then mul @ (S n') f k in
     n . { 0 -> 1 . k 
         | S n' -> rec };
 

@@ -1,13 +1,13 @@
 import "std_nat" (eq, lt, inc)
 import "std_list" (list_map)
 
-def for_loop i end xs body k :=
+fn for_loop i end xs body k :=
   lt @ i end { is_less ->
     is_less . { True ->
                   body @ i xs { xs' ->
                     S i . { i_next -> for_loop @ i_next end xs' body k } }
               | False -> xs . k } };
 
-def map_once i xs k := list_map @ inc xs k;
+fn map_once i xs k := list_map @ inc xs k;
 
 run for_loop @ 0 (let three = 3 in three) (List:: 2 (List:: 1 (List:: 0 Nil))) map_once halt;
