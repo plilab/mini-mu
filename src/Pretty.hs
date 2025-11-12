@@ -469,8 +469,9 @@ prettySugarDecl (ModuleDecl name fields methods) =
     <+> pretty ":="
     <> line
     <> indent 2 (vsep (map prettyFieldBinding fields))
-    <> line
+    <> line <> line
     <> indent 2 (vsep (map prettyMethodDef methods))
+    <> line
     <> pretty "end"
     <> pretty ";"
     <> line
@@ -483,15 +484,12 @@ prettyFieldBinding (FieldBinding fieldName expr) =
         <+> pretty fieldName
         <+> pretty "="
         <+> prettyTopLevelSugarExpr expr
-        <> line
 
 -- | Pretty print a method definition | --
 prettyMethodDef :: MethodDef -> Doc ann
-prettyMethodDef (MethodDef methodName args conts cmd) =
+prettyMethodDef (MethodDef methodName conts args cmd) =
   pretty methodName
-    <> if null conts 
-       then mempty 
-       else braces (hsep (punctuate comma (map pretty conts)))
+    <> hsep (map pretty conts)
     <> parens (hsep (punctuate comma (map pretty args)))
     <+> pretty "->"
     <> line
