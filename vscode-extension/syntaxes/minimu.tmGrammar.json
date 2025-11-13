@@ -49,7 +49,7 @@
       "patterns": [
         {
           "name": "keyword.control.minimu",
-          "match": "\\b(fn|run|import|export|module|end|do|then|halt|let|letc|have|in|match|patch|with|field|return)\\b"
+          "match": "\\b(fn|run|import|export|module|end|do|then|halt|let|letcc|have|in|match|dispatch|with|field|return)\\b"
         }
       ]
     },

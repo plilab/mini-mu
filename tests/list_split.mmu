@@ -4,8 +4,8 @@ fn list_split pred xs cpr k :=
   match xs with 
     Nil -> (Nil, Nil) . k
   | List:: x xs' ->
-      let rest = list_split(pred, xs', cpr) in
-      let (smaller, greater) = rest in
+      let rest <- list_split(pred, xs', cpr) in
+      let (smaller, greater) <- rest in
       match pred(x, cpr) with 
         True -> ((List:: x smaller), greater) . k
       | False -> (smaller, (List:: x greater)) . k;
