@@ -6,8 +6,31 @@ import EvalTree (generateEvalTreeWithDepth, printEvalTree)
 import Graph (visualizeEvalTree)
 import Module (evalProgramWithDepDecls)
 import Options.Applicative
+    ( (<**>),
+      Alternative((<|>)),
+      auto,
+      command,
+      fullDesc,
+      header,
+      help,
+      info,
+      long,
+      metavar,
+      option,
+      progDesc,
+      short,
+      showDefault,
+      str,
+      strArgument,
+      switch,
+      value,
+      execParser,
+      helper,
+      hsubparser,
+      Parser )
 import Parser (parseMiniMu, parseSugaredMiniMu)
 import Pretty
+    ( renderPretty, prettyConfig, prettyProgram, prettySugaredProgram )
 import System.Directory (listDirectory)
 import System.Exit (exitFailure)
 import System.FilePath (takeBaseName, takeExtension, (</>))

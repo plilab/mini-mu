@@ -2,8 +2,15 @@ module Module (evalProgramWithDepDecls) where
 
 import Debug.Trace (trace)
 import Eval
+    ( Config(CommandConfig), evalDecls, initEnv, initStore )
 import Parser (parseMiniMu)
 import Syntax
+    ( Expr(Var, Cons),
+      VarId,
+      Command(Command),
+      Decl(..),
+      Program(Program),
+      ImportDecl(ImportDecl) )
 
 type ModuleName = String
 
@@ -29,7 +36,7 @@ buildDeclsFromProgram (Program imports _ _) = trace ("building module env for im
     removeDuplicates [] = []
     removeDuplicates (x : xs) = x : removeDuplicates (filter (/= x) xs)
 
--- Evaluate program with automatic dependency resolution
+-- | Evaluate program with automatic dependency resolution | --
 evalProgramWithDepDecls :: Program -> VarId -> IO Config
 evalProgramWithDepDecls prog@(Program _ decls _) varId = do
   -- Build module environment from program's imports

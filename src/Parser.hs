@@ -11,11 +11,39 @@ module Parser
     sugarDecl )
 where
 
-import Data.Void
+import Data.Void ( Void )
 import Syntax
+    ( VarId,
+      Pattern(..),
+      Program,
+      ImportDecl(..),
+      SugarExpr(..),
+      HaveBinding(..),
+      SugarCommand(..),
+      DoThenBinding(..),
+      MethodDef(..),
+      FieldBinding(..),
+      SugarDecl(..),
+      SugarProgram(SugarProgram),
+      CommandId,
+      ConsId )
 import Sugar (desugarProgram)
 import Text.Megaparsec
+    ( (<|>),
+      optional,
+      parse,
+      errorBundlePretty,
+      between,
+      choice,
+      option,
+      many,
+      sepBy,
+      sepBy1,
+      Parsec,
+      MonadParsec(try, eof, notFollowedBy, label),
+      ParseErrorBundle )
 import Text.Megaparsec.Char
+    ( alphaNumChar, char, lowerChar, space1, upperChar )
 import qualified Text.Megaparsec.Char.Lexer as L
 import Fresh (fresh)
 
@@ -343,7 +371,7 @@ sugarAtCommand = label "sugar @ command" $ do
   choice
     [ try $ do
         -- f @ a b c => f . (a, b, c)
-        fun <- sugarExpr
+        fun <- sugarAtom
         _ <- symbol "@"
         args <- many sugarAtom
         return $ AtCommand fun args,
@@ -351,7 +379,7 @@ sugarAtCommand = label "sugar @ command" $ do
         -- a b c @ f => (a, b, c) . f
         args <- many sugarAtom
         _ <- symbol "@"
-        CoAtCommand args <$> sugarExpr
+        CoAtCommand args <$> sugarAtom
     ]
 
 -- | Parse sugared . command | --

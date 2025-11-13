@@ -8,6 +8,21 @@ module Sugar
 where
 
 import Syntax
+    ( Expr(..),
+      VarId,
+      Pattern(..),
+      Command(..),
+      Decl(..),
+      Program(..),
+      SugarExpr(..),
+      HaveBinding(..),
+      SugarCommand(..),
+      DoThenBinding(Binding),
+      MethodDef(..),
+      FieldBinding(FieldBinding),
+      SugarDecl(..),
+      SugarProgram(SugarProgram),
+      CommandId )
 
 desugarProgram :: SugarProgram -> Program
 desugarProgram (SugarProgram imports decls exports) =
