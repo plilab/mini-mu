@@ -2,8 +2,15 @@ module Module (evalProgramWithDepDecls) where
 
 import Debug.Trace (trace)
 import Eval
+    ( Config(CommandConfig), evalDecls, initEnv, initStore )
 import Parser (parseMiniMu)
 import Syntax
+    ( Expr(Var, Cons),
+      VarId,
+      Command(Command),
+      Decl(..),
+      Program(Program),
+      ImportDecl(ImportDecl) )
 
 type ModuleName = String
 

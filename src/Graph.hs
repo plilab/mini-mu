@@ -1,6 +1,13 @@
 module Graph (visualizeEvalTree, generateTreeGraph) where
 
 import Data.GraphViz
+    ( graphElemsToDot,
+      nonClusteredParams,
+      runGraphvizCommand,
+      GraphvizParams(fmtEdge, globalAttributes, fmtNode),
+      GraphvizOutput(Svg),
+      GraphvizCommand(Dot),
+      GlobalAttributes(GraphAttrs) )
 import qualified Data.GraphViz.Attributes.Complete as A
 
 import Eval (Config(..))

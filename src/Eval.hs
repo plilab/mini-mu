@@ -14,6 +14,22 @@ where
 import qualified Data.Map as Map
 import Pretty (prettyTopLevelValue, renderPretty)
 import Syntax
+    ( Env(..),
+      Store(..),
+      Expr(..),
+      Value(..),
+      VarId,
+      Addr(Addr),
+      Pattern(..),
+      Command(..),
+      ConsFrame(..),
+      Config(..),
+      Decl(..),
+      Program(Program),
+      storeLookup,
+      envLookup,
+      storeLookupCommand,
+      envStoreInsert )
 
 -- | Big-step evaluator for expressions, just for Var and Mu | --
 evalExpr :: Env -> Store -> Expr -> (Value, Store)
@@ -23,9 +39,9 @@ evalExpr _ store (Cons ident []) = (ConsValue ident [], store)
 evalExpr _ _ (Cons _ (_:_)) = 
   error "evalExpr: Non-empty constructors must be evaluated in small-step"
 
--- | Helper function to collapse completed frames when multiple finish at once | --
-collapseFrames :: [ConsFrame] -> Value -> Env -> Store -> Expr -> [Config]
-collapseFrames [] value env store ce =
+-- | Helper function to collapse completed frames when a frame finishes | --
+popFrame :: [ConsFrame] -> Value -> Env -> Store -> Expr -> [Config]
+popFrame [] value env store ce =
   -- All frames collapsed, now handle the context (the coexpr)
   case ce of
     -- eval one by one for a arged constructor
@@ -35,29 +51,31 @@ collapseFrames [] value env store ce =
     _ ->
       let (coValue, store') = evalExpr env store ce
       in [ValueConfig store' value coValue]
-collapseFrames (ConsFrame parentId parentEvaled [] : rest) value env store ce =
+popFrame (ConsFrame parentId parentEvaled [] : rest) value env store ce =
   -- Parent frame is also done, keep collapsing
-  let parentValue = ConsValue parentId (parentEvaled ++ [value]) -- possible optimization: avoid reconstructing lists
-  in collapseFrames rest parentValue env store ce
-collapseFrames (ConsFrame parentId parentEvaled (nextArg:remaining) : rest) value env store ce =
+  let parentValue = ConsValue parentId (parentEvaled ++ [value]) -- TODO: possible optimization: avoid reconstructing lists
+  in popFrame rest parentValue env store ce
+popFrame (ConsFrame parentId parentEvaled (nextArg:remaining) : rest) value env store ce =
   -- Parent frame has more args, continue evaluation
   [ConsEvalConfig env store (ConsFrame parentId (parentEvaled ++ [value]) remaining : rest) nextArg ce]
 
 -- | Helper function to collapse completed frames for covalue side | --
-collapseCoFrames :: [ConsFrame] -> Value -> Value -> Env -> Store -> [Config]
-collapseCoFrames [] value coValue _env store =
+popCoFrame :: [ConsFrame] -> Value -> Value -> Env -> Store -> [Config]
+popCoFrame [] value coValue _env store =
   -- All frames collapsed, create ValueConfig
   [ValueConfig store value coValue]
-collapseCoFrames (ConsFrame parentId parentEvaled [] : rest) value coValue env store =
+popCoFrame (ConsFrame parentId parentEvaled [] : rest) value coValue env store =
   -- Parent frame is also done, keep collapsing
   let parentCoValue = ConsValue parentId (parentEvaled ++ [coValue])
-  in collapseCoFrames rest value parentCoValue env store
-collapseCoFrames (ConsFrame parentId parentEvaled (nextArg:remaining) : rest) value coValue env store =
+  in popCoFrame rest value parentCoValue env store
+popCoFrame (ConsFrame parentId parentEvaled (nextArg:remaining) : rest) value coValue env store =
   -- Parent frame has more args, continue evaluation
   [CoConsEvalConfig env store value (ConsFrame parentId (parentEvaled ++ [coValue]) remaining : rest) nextArg]
 
 -- || Small-step evaluator for the CESK machine || --
 step :: Config -> [Config]
+
+-- +++ BEGIN OF STEP FUNCTION +++ --
 
 -- COMMAND EVALUATION --
 
@@ -117,96 +135,162 @@ step (CommandConfig env store (Command e ce)) =
 
 -- CONSTRUCTOR EVALUATION WITH FRAMES --
 
--- +++ Cases for non-empty frame stack +++ --
+-- +++ Cases of encounter non-empty constructor: Always push +++ --
 
 -- 1. Evaluating a nested non-empty constructor - push new frame
 step (ConsEvalConfig env store frames (Cons consId (arg:args)) ce) =
   [ConsEvalConfig env store (ConsFrame consId [] args : frames) arg ce]
--- 2. Evaluating an empty nested constructor
-step (ConsEvalConfig env store (frame:restFrames) (Cons consId []) ce) =
-  -- Empty nested constructor - add to parent frame
-  let emptyConsValue = ConsValue consId []
-      ConsFrame parentId parentEvaled remainingArgs = frame
-  in case remainingArgs of
-       (nextArg:rest) ->
-         [ConsEvalConfig env store (ConsFrame parentId (parentEvaled ++ [emptyConsValue]) rest : restFrames) nextArg ce]
-       [] ->
-         -- Parent frame is also done, collapse through all completed frames
-         let parentConsValue = ConsValue parentId (parentEvaled ++ [emptyConsValue])
-         in collapseFrames restFrames parentConsValue env store ce
+
+
+-- +++ Cases for non-empty frame stack, with simple exprs +++ --
+
+-- 1. Non-empty frame with simple values (Cons)
+step (ConsEvalConfig env store (ConsFrame pconsId evaledArgs (nextArg:remainingArgs) : restFrames) (Cons consId []) ce) =
+  -- Evaluated an empty constructor, add it to current frame and continue with next arg
+  let emptyConsValue = ConsValue consId [] in
+  [ 
+    ConsEvalConfig 
+    env 
+    store 
+    (ConsFrame pconsId (evaledArgs ++ [emptyConsValue]) remainingArgs : restFrames) 
+    nextArg 
+    ce
+  ]
+
+-- 2. Non-empty frame with simple values (Var)
+step (ConsEvalConfig env store (ConsFrame consId evaledArgs (nextArg:remainingArgs) : restFrames) (Var x) ce) =
+  -- Evaluated a simple value, add it to current frame and continue with next arg
+  [
+    ConsEvalConfig 
+    env 
+    store' 
+    (ConsFrame consId (evaledArgs ++ [value]) remainingArgs : restFrames) 
+    nextArg 
+    ce
+  ]
+  where
+    value = storeLookup store (envLookup env x)
+    store' = store
+
+-- 3. Non-empty frame with simple values (Mu)
+step (ConsEvalConfig env store (ConsFrame consId evaledArgs (nextArg:remainingArgs) : restFrames) (Mu clauses) ce) =
+  -- Evaluated a Mu value, add it to current frame and continue with next arg
+  [
+    ConsEvalConfig 
+    env 
+    store 
+    (ConsFrame consId (evaledArgs ++ [MuValue env clauses]) remainingArgs : restFrames) 
+    nextArg 
+    ce
+  ]
+
+{- * Special cases for completing frames, with simple exprs *
+     In which cases, we will pop the frame -}
+
+-- 4. Last argument of this constructor, pop frame (Empty Cons)
+step (ConsEvalConfig env store (ConsFrame pconsId evaledArgs [] : restFrames) (Cons consId []) ce) =
+  let parentConsValue = ConsValue pconsId (evaledArgs ++ [emptyConsValue])
+      emptyConsValue = ConsValue consId [] 
+  in popFrame restFrames parentConsValue env store ce
+
+-- 5. Last argument of this constructor, pop frame (Var)
+step (ConsEvalConfig env store (ConsFrame consId evaledArgs [] : restFrames) (Var x) ce) =
+  -- Last argument of this constructor, pop frame
+  let value = storeLookup store (envLookup env x)
+      consValue = ConsValue consId (evaledArgs ++ [value])
+  in popFrame restFrames consValue env store ce
+
+-- 6. Last argument of this constructor, pop frame (Mu)
+step (ConsEvalConfig env store (ConsFrame consId evaledArgs [] : restFrames) (Mu clauses) ce) =
+  -- Last argument is Mu, pop frame
+  let consValue = ConsValue consId (evaledArgs ++ [MuValue env clauses])
+  in popFrame restFrames consValue env store ce
 
 -- +++ Cases for empty frame stack ++ --
+
+-- 1. Empty frames with empty constructor
 step (ConsEvalConfig env store [] (Cons consId []) ce) =
   -- Empty constructor at top level - no frames
   let (coValue, store') = evalExpr env store ce
   in [ValueConfig store' (ConsValue consId []) coValue]
 
--- Base case: empty frames with simple values means we're done (shouldn't happen in normal flow)
+-- 2. Empty frames with simple values (Var)
 step (ConsEvalConfig env store [] (Var x) ce) =
   let (coValue, store') = evalExpr env store ce
       value = storeLookup store (envLookup env x)
   in [ValueConfig store' value coValue]
+
+-- 2. Empty frames with simple values (Mu)
 step (ConsEvalConfig env store [] (Mu clauses) ce) =
   let (coValue, store') = evalExpr env store ce
   in [ValueConfig store' (MuValue env clauses) coValue]
-step (ConsEvalConfig env store (ConsFrame consId evaledArgs (nextArg:remainingArgs) : restFrames) (Var x) ce) =
-  -- Evaluated a simple value, add it to current frame and continue with next arg
-  [ConsEvalConfig env store' (ConsFrame consId (evaledArgs ++ [value]) remainingArgs : restFrames) nextArg ce]
-  where
-    value = storeLookup store (envLookup env x)
-    store' = store
-step (ConsEvalConfig env store (ConsFrame consId evaledArgs (nextArg:remainingArgs) : restFrames) (Mu clauses) ce) =
-  -- Evaluated a Mu value, add it to current frame and continue with next arg
-  [ConsEvalConfig env store (ConsFrame consId (evaledArgs ++ [MuValue env clauses]) remainingArgs : restFrames) nextArg ce]
-step (ConsEvalConfig env store (ConsFrame consId evaledArgs [] : restFrames) (Var x) ce) =
-  -- Last argument of this constructor, pop frame
-  let value = storeLookup store (envLookup env x)
-      consValue = ConsValue consId (evaledArgs ++ [value])
-  in collapseFrames restFrames consValue env store ce
-step (ConsEvalConfig env store (ConsFrame consId evaledArgs [] : restFrames) (Mu clauses) ce) =
-  -- Last argument is Mu, pop frame
-  let consValue = ConsValue consId (evaledArgs ++ [MuValue env clauses])
-  in collapseFrames restFrames consValue env store ce
 
--- Duo of the above for coexpression side --
+-- +++ Dual of the above, for coexpression side +++ --
+
+-- +++ Cases of encounter non-empty co-constructor: Always push +++ --
+
+-- 1. Evaluating a nested non-empty co-constructor - always push a new frame
 step (CoConsEvalConfig env store value frames (Cons consId (arg:args))) =
   [CoConsEvalConfig env store value (ConsFrame consId [] args : frames) arg]
-step (CoConsEvalConfig env store value (frame:restFrames) (Cons consId [])) =
+
+-- +++ Cases for non-empty frame stack, with simple coexprs +++ --
+
+-- 1. Non-empty frame with simple covalues (Cons)
+step (CoConsEvalConfig env store value (ConsFrame pconsId evaledArgs (nextArg : remainingArgs) : restFrames) (Cons consId [])) =
   -- Empty nested constructor in covalue
   let emptyConsValue = ConsValue consId []
-      ConsFrame parentId parentEvaled remainingArgs = frame
-  in case remainingArgs of
-       (nextArg:rest) ->
-         [CoConsEvalConfig env store value (ConsFrame parentId (parentEvaled ++ [emptyConsValue]) rest : restFrames) nextArg]
-       [] ->
-         -- Parent frame is also done, collapse through all completed frames
-         let parentConsValue = ConsValue parentId (parentEvaled ++ [emptyConsValue])
-         in collapseCoFrames restFrames value parentConsValue env store
-step (CoConsEvalConfig _ store value [] (Cons consId [])) =
-  [ValueConfig store value (ConsValue consId [])]
-step (CoConsEvalConfig env store value [] (Var x)) =
-  let coValue = storeLookup store (envLookup env x)
-  in [ValueConfig store value coValue]
-step (CoConsEvalConfig env store value [] (Mu clauses)) =
-  [ValueConfig store value (MuValue env clauses)]
-step (CoConsEvalConfig env store value (ConsFrame consId evaledArgs (nextArg:remainingArgs) : restFrames) (Var x)) =
+  in [CoConsEvalConfig env store value (ConsFrame pconsId (evaledArgs ++ [emptyConsValue]) remainingArgs : restFrames) nextArg]
+
+-- 2. Non-empty frame with simple covalues (Var)
+step (CoConsEvalConfig env store value (ConsFrame consId evaledArgs (nextArg : remainingArgs) : restFrames) (Var x)) =
   let argValue = storeLookup store (envLookup env x)
   in [CoConsEvalConfig env store value (ConsFrame consId (evaledArgs ++ [argValue]) remainingArgs : restFrames) nextArg]
-step (CoConsEvalConfig env store value (ConsFrame consId evaledArgs (nextArg:remainingArgs) : restFrames) (Mu clauses)) =
+
+-- 3. Non-empty frame with simple covalues (Mu)
+step (CoConsEvalConfig env store value (ConsFrame consId evaledArgs (nextArg : remainingArgs) : restFrames) (Mu clauses)) =
   [CoConsEvalConfig env store value (ConsFrame consId (evaledArgs ++ [MuValue env clauses]) remainingArgs : restFrames) nextArg]
+
+-- +++ Cases for completing frames with simple coexprs +++ --
+
+-- 4. Last argument of this co-constructor, pop frame (Empty Cons)
+step (CoConsEvalConfig env store value (ConsFrame pconsId evaledArgs [] : restFrames) (Cons consId [])) =
+  let emptyConsValue = ConsValue consId []
+      parentConsValue = ConsValue pconsId (evaledArgs ++ [emptyConsValue])
+  in popCoFrame restFrames value parentConsValue env store
+
+-- 5. Last argument of this co-constructor, pop frame (Var)
 step (CoConsEvalConfig env store value (ConsFrame consId evaledArgs [] : restFrames) (Var x)) =
   let argValue = storeLookup store (envLookup env x)
       coConsValue = ConsValue consId (evaledArgs ++ [argValue])
-  in collapseCoFrames restFrames value coConsValue env store
+  in popCoFrame restFrames value coConsValue env store
+
+-- 6. Last argument of this co-constructor, pop frame (Mu)
 step (CoConsEvalConfig env store value (ConsFrame consId evaledArgs [] : restFrames) (Mu clauses)) =
   let coConsValue = ConsValue consId (evaledArgs ++ [MuValue env clauses])
-  in collapseCoFrames restFrames value coConsValue env store
+  in popCoFrame restFrames value coConsValue env store
+
+-- +++ Cases for non-empty frame stack, with simple coexprs +++ --
+
+-- 1. Empty frames with empty constructor
+step (CoConsEvalConfig _ store value [] (Cons consId [])) =
+  [ValueConfig store value (ConsValue consId [])]
+
+-- 2. Empty frames with simple covalues (Var)
+step (CoConsEvalConfig env store value [] (Var x)) =
+  let coValue = storeLookup store (envLookup env x)
+  in [ValueConfig store value coValue]
+
+-- 3. Empty frames with simple covalues (Mu)
+step (CoConsEvalConfig env store value [] (Mu clauses)) =
+  [ValueConfig store value (MuValue env clauses)]
+
 
 -- VALUE CONFIGURATIONS --
 
 -- Constructor and MuValue matching
 step (ValueConfig store cons@(ConsValue {}) (MuValue env clauses)) =
   match env store cons clauses
+
 -- ComuValue and Coconstructor matching
 step (ValueConfig store (MuValue env clauses) cons@(ConsValue {})) =
   match env store cons clauses
@@ -231,6 +315,8 @@ step (ValueConfig _ (ConsValue {}) (ConsValue {})) =
 
 -- ERROR CONFIGURATION --
 step (ErrorConfig {}) = []
+
+-- +++ END OF STEP FUNCTION +++ --
 
 -- | Pattern matching function | --
 match :: Env -> Store -> Value -> [(Pattern, Command)] -> [Config]

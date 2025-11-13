@@ -16,8 +16,46 @@ where
 
 import qualified Data.Map as Map
 import Prettyprinter
-import Prettyprinter.Render.String
+    ( Doc,
+      (<+>),
+      defaultLayoutOptions,
+      hang,
+      hsep,
+      indent,
+      layoutPretty,
+      line,
+      punctuate,
+      vsep,
+      braces,
+      brackets,
+      comma,
+      parens,
+      pipe,
+      space,
+      Pretty(pretty) )
+import Prettyprinter.Render.String ( renderString )
 import Syntax
+    ( Env(..),
+      Store(..),
+      Expr(..),
+      Value(..),
+      VarId,
+      Addr(..),
+      Pattern(..),
+      Command(..),
+      Config(..),
+      Decl(..),
+      Program(Program),
+      ImportDecl(..),
+      SugarExpr(..),
+      HaveBinding(..),
+      SugarCommand(..),
+      DoThenBinding(..),
+      MethodDef(..),
+      FieldBinding(..),
+      SugarDecl(..),
+      SugarProgram(SugarProgram),
+      CommandId )
 
 -- | Pretty print a configuration.
 prettyConfig :: Config -> Bool -> Doc ann
