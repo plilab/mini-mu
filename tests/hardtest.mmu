@@ -1,0 +1,7 @@
+fn test ignore1 ignore2 k :=
+  { k -> (Cons, ({k -> Foo . k}, Foo)) . k } . { (Foo, a) -> Foo . k 
+                                               | (b, Bar) -> Bar . k
+                                               | (a, Foo) -> Not_success . k
+                                               | (a, (Foo, Foo)) -> Success . k };
+
+run test @ 0 1 halt;

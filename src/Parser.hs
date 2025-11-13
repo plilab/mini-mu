@@ -46,6 +46,7 @@ import Text.Megaparsec.Char
     ( alphaNumChar, char, lowerChar, space1, upperChar )
 import qualified Text.Megaparsec.Char.Lexer as L
 import Fresh (fresh)
+import Focus (focus)
 
 type Parser = Parsec Void String
 
@@ -93,7 +94,7 @@ parseMiniMu file = do
         putStrLn $ errorBundlePretty err
         error "Failed to parse MiniMu program"
     )
-    (return . fresh . desugarProgram)
+    (return . fresh . focus . desugarProgram)
     ast
 
 -- | Parse a file into a Program, consuming leading whitespace | --

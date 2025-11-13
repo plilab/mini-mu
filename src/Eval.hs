@@ -32,7 +32,6 @@ import Syntax
       storeLookupCommand,
       freshSubstVar,
       envStoreInsert )
-import GHC.RTS.Flags (GCFlags(oldGenFactor))
 
 -- | Big-step evaluator for expressions, just for Var and Mu | --
 evalExpr :: Env -> Store -> Expr -> (Value, Store)
@@ -90,44 +89,6 @@ isValue (MuValue _ (_ : _ : _)) = True
 isValue (MuValue _ [(VarPattern _, _)]) = False
 isValue (MuValue _ [(WildcardPattern, _)]) = False
 isValue (ConsValue _ elems) = all isValue elems
-
--- work in progress. we might need to introduce fresh variables here.
-focus :: Store -> Either (ConsId, [Value]) (ConsId, [Value]) -> Env -> [(Pattern, Command)] -> [Config]
-focus store value muEnv muClauses =
-  let (consId, vals) =
-        case value of
-          Left (cid, vls) -> (cid, vls)
-          Right (cid, vls) -> (cid, vls)
-  in 
-  case span isValue vals of
-    (_, []) -> match muEnv store (ConsValue consId vals) muClauses
-    (before, v : _) ->
-      let oldMu = Mu muClauses
-          v_index = length before
-      -- create a new variable for each before and after value,
-      -- named _N after their index in the list
-          focus_vars = map (("_focus" ++) . show) [0 .. length vals - 1]
-          newCons = Cons consId (map Var focus_vars)
-      -- insert all of the focsus variables into the environment
-          (newEnv, newStore) = foldl
-            (\(e, s) (var, val) -> envStoreInsert e s var val)
-            (muEnv, store)
-            (zip focus_vars vals)
-      in 
-      -- finally, cut v against a freshly constructed mu-expression
-      case value of
-        Left _ ->
-          [ ValueConfig
-              newStore
-              v
-              (MuValue newEnv [(VarPattern (focus_vars !! v_index), Command newCons oldMu)])
-          ]
-        Right _ ->
-          [ ValueConfig
-              newStore
-              (MuValue newEnv [(VarPattern (focus_vars !! v_index), Command newCons oldMu)])
-              v
-          ]
 
 step :: Config -> [Config]
 
@@ -446,7 +407,7 @@ step (ErrorConfig {}) = []
 
 -- | Pattern matching function | --
 match :: Env -> Store -> Value -> [(Pattern, Command)] -> [Config]
-match _ _ _ [] = []
+match _ _ _ [] = [ErrorConfig "Pattern match failure: no patterns matched the value"]
 match env store v ((pat, cmd) : clauses) =
   case tryMatch env store v pat of
     Just (env', store') -> [CommandConfig env' store' cmd]
