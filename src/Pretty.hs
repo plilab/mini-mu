@@ -40,6 +40,36 @@ prettyConfig (ValueConfig store value value') _show =
     <> line
     <> pretty "COVALUE:"
     <+> prettyTopLevelValue value' _show
+prettyConfig (ConsEvalConfig env store frames currentExpr ce) _show =
+  pretty "<ConsEval Config>"
+    <> line
+    <> prettyEnv env _show
+    <> line
+    <> prettyStore store _show
+    <> line
+    <> pretty "FRAMES:"
+    <+> pretty (show frames)
+    <> line
+    <> pretty "CURRENT EXPR:"
+    <+> prettyExpr currentExpr
+    <> line
+    <> pretty "CONTINUATION:"
+    <+> prettyExpr ce
+prettyConfig (CoConsEvalConfig env store value frames currentExpr) _show =
+  pretty "<ConsCoEval Config>"
+    <> line
+    <> prettyEnv env _show
+    <> line
+    <> prettyStore store _show
+    <> line
+    <> pretty "VALUE:"
+    <+> prettyTopLevelValue value _show
+    <> line
+    <> pretty "FRAMES:"
+    <+> pretty (show frames)
+    <> line
+    <> pretty "CURRENT COEXPR:"
+    <+> prettyExpr currentExpr
 prettyConfig (ErrorConfig string) _ =
   pretty "<Message> " <> pretty string
 
