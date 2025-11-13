@@ -343,7 +343,7 @@ sugarAtCommand = label "sugar @ command" $ do
   choice
     [ try $ do
         -- f @ a b c => f . (a, b, c)
-        fun <- sugarExpr
+        fun <- sugarAtom
         _ <- symbol "@"
         args <- many sugarAtom
         return $ AtCommand fun args,
@@ -351,7 +351,7 @@ sugarAtCommand = label "sugar @ command" $ do
         -- a b c @ f => (a, b, c) . f
         args <- many sugarAtom
         _ <- symbol "@"
-        CoAtCommand args <$> sugarExpr
+        CoAtCommand args <$> sugarAtom
     ]
 
 -- | Parse sugared . command | --
