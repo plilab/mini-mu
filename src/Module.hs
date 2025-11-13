@@ -29,7 +29,7 @@ buildDeclsFromProgram (Program imports _ _) = trace ("building module env for im
     removeDuplicates [] = []
     removeDuplicates (x : xs) = x : removeDuplicates (filter (/= x) xs)
 
--- Evaluate program with automatic dependency resolution
+-- | Evaluate program with automatic dependency resolution | --
 evalProgramWithDepDecls :: Program -> VarId -> IO Config
 evalProgramWithDepDecls prog@(Program _ decls _) varId = do
   -- Build module environment from program's imports
