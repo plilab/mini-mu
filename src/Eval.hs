@@ -46,12 +46,18 @@ isValue (MuValue _ [(VarPattern _, _)]) = False
 isValue (MuValue _ [(WildcardPattern, _)]) = False
 isValue (ConsValue _ elems) = all isValue elems
 
+-- work in progress. we might need to introduce fresh variables here.
 focus :: Store -> Either (ConsId, [Value]) (ConsId, [Value]) -> Env -> [(Pattern, Command)] -> [Config]
-focus store (Left (consId, vals)) muEnv muClauses =
+focus store value muEnv muClauses =
+  let (consId, vals) =
+        case value of
+          Left (cid, vls) -> (cid, vls)
+          Right (cid, vls) -> (cid, vls)
+  in 
   case span isValue vals of
     (_, []) -> match muEnv store (ConsValue consId vals) muClauses
     (before, v : _) ->
-      let oldMu = MuValue muEnv muClauses
+      let oldMu = Mu muClauses
           v_index = length before
       -- create a new variable for each before and after value,
       -- named _N after their index in the list
@@ -60,19 +66,23 @@ focus store (Left (consId, vals)) muEnv muClauses =
       -- insert all of the focsus variables into the environment
           (newEnv, newStore) = foldl
             (\(e, s) (var, val) -> envStoreInsert e s var val)
-            (initEnv, store)
+            (muEnv, store)
             (zip focus_vars vals)
       in 
-        -- finally, cut v against a freshly constructed mu-expression
-        [ ValueConfig
-            newStore
-            v
-            (MuValue newEnv [(VarPattern (focus_vars !! v_index), Command newCons oldMu)])
-        ]
-
-
-focus store (Right (consId, vals)) muEnv muClauses =
-  match muEnv store (ConsValue consId vals) muClauses
+      -- finally, cut v against a freshly constructed mu-expression
+      case value of
+        Left _ ->
+          [ ValueConfig
+              newStore
+              v
+              (MuValue newEnv [(VarPattern (focus_vars !! v_index), Command newCons oldMu)])
+          ]
+        Right _ ->
+          [ ValueConfig
+              newStore
+              (MuValue newEnv [(VarPattern (focus_vars !! v_index), Command newCons oldMu)])
+              v
+          ]
 
 step :: Config -> [Config]
 step (CommandConfig env store (Command e ce)) =
