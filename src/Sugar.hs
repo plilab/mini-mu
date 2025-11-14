@@ -111,6 +111,10 @@ desugarExpr (SugarMu cases) =
   -- { p1 -> q1 | p2 -> q2 | ... }  =>  mu [ p1 -> desugar(q1) | p2 -> desugar(q2) | ... ]
   Mu (map (\(p, cmd) -> (p, desugarCommand cmd)) cases)
 
+desugarExpr (SugarDelimExpr cmd) =
+  -- < e . k >  =>  delim desugar(e . k)
+  DelimExpr (desugarCommand cmd)
+
 desugarExpr (HaveExpr bindings body) =
   -- have bindings in e  =>  substitute bindings in desugar(e)
   desugarHaveExpr bindings (desugarExpr body)
@@ -233,6 +237,7 @@ substExprInExpr :: VarId -> Expr -> Expr -> Expr
 substExprInExpr name e (Var v) = if v == name then e else Var v
 substExprInExpr name e (Cons c args) = Cons c (map (substExprInExpr name e) args)
 substExprInExpr name e (Mu cases) = Mu (map (\(p, cmd) -> (p, substExprInCmd name e cmd)) cases)
+substExprInExpr name e (DelimExpr cmd) = DelimExpr (substExprInCmd name e cmd)
 
 substExprInCmd :: VarId -> Expr -> Command -> Command
 substExprInCmd name e (Command e1 e2) = Command (substExprInExpr name e e1) (substExprInExpr name e e2)
@@ -242,6 +247,7 @@ substCmdInExpr :: CommandId -> Command -> Expr -> Expr
 substCmdInExpr _ _ (Var v) = Var v
 substCmdInExpr name cmd (Cons c args) = Cons c (map (substCmdInExpr name cmd) args)
 substCmdInExpr name cmd (Mu cases) = Mu (map (\(p, c) -> (p, substCmdInCmd name cmd c)) cases)
+substCmdInExpr name cmd (DelimExpr c) = DelimExpr (substCmdInCmd name cmd c)
 
 substCmdInCmd :: CommandId -> Command -> Command -> Command
 substCmdInCmd name cmd (Command e1 e2) = Command (substCmdInExpr name cmd e1) (substCmdInExpr name cmd e2)

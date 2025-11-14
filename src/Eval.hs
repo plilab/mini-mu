@@ -24,11 +24,13 @@ import Syntax
       Command(..),
       ConsFrame(..),
       Config(..),
+      OneHoleContext(..),
       Decl(..),
       Program(Program),
       storeLookup,
       envLookup,
       storeLookupCommand,
+      freshSubstVar,
       envStoreInsert )
 
 -- | Big-step evaluator for expressions, just for Var and Mu | --
@@ -38,6 +40,8 @@ evalExpr env store (Mu clauses) = (MuValue env clauses, store)
 evalExpr _ store (Cons ident []) = (ConsValue ident [], store)
 evalExpr _ _ (Cons _ (_:_)) = 
   error "evalExpr: Non-empty constructors must be evaluated in small-step"
+evalExpr _ _ (DelimExpr _) =
+  error "evalExpr: Delimited expressions must be evaluated in small-step"
 
 -- | Helper function to collapse completed frames when a frame finishes | --
 popFrame :: [ConsFrame] -> Value -> Env -> Store -> Expr -> [Config]
@@ -88,6 +92,20 @@ step (CommandConfig env store (CommandVar cmdId)) =
       store
       (storeLookupCommand store (envLookup env cmdId))
   ]
+
+-- Delimited Expression cases:
+
+-- DelimExpr on expression side
+step (CommandConfig env store (Command (DelimExpr innerCmd) ce)) =
+  let (substVar, store') = freshSubstVar store
+      parentConfig = CommandConfig env store' (Command (Var substVar) ce)
+  in [DelimConfig (CommandConfig env store' innerCmd) (Context substVar parentConfig)]
+
+-- DelimExpr on coexpression side
+step (CommandConfig env store (Command e (DelimExpr innerCmd))) =
+  let (substVar, store') = freshSubstVar store
+      parentConfig = CommandConfig env store' (Command e (Var substVar))
+  in [DelimConfig (CommandConfig env store' innerCmd) (Context substVar parentConfig)]
 
 -- Concrete Command cases:
 
@@ -140,6 +158,12 @@ step (CommandConfig env store (Command e ce)) =
 -- 1. Evaluating a nested non-empty constructor - push new frame
 step (ConsEvalConfig env store frames (Cons consId (arg:args)) ce) =
   [ConsEvalConfig env store (ConsFrame consId [] args : frames) arg ce]
+
+-- 2. Evaluating DelimExpr - create delimited context
+step (ConsEvalConfig env store frames (DelimExpr innerCmd) ce) =
+  let (substVar, store') = freshSubstVar store
+      parentConfig = ConsEvalConfig env store' frames (Var substVar) ce
+  in [DelimConfig (CommandConfig env store' innerCmd) (Context substVar parentConfig)]
 
 
 -- +++ Cases for non-empty frame stack, with simple exprs +++ --
@@ -233,6 +257,12 @@ step (ConsEvalConfig env store [] (Mu clauses) ce) =
 step (CoConsEvalConfig env store value frames (Cons consId (arg:args))) =
   [CoConsEvalConfig env store value (ConsFrame consId [] args : frames) arg]
 
+-- 2. Evaluating DelimExpr - create delimited context
+step (CoConsEvalConfig env store value frames (DelimExpr innerCmd)) =
+  let (substVar, store') = freshSubstVar store
+      parentConfig = CoConsEvalConfig env store' value frames (Var substVar)
+  in [DelimConfig (CommandConfig env store' innerCmd) (Context substVar parentConfig)]
+
 -- +++ Cases for non-empty frame stack, with simple coexprs +++ --
 
 -- 1. Non-empty frame with simple covalues (Cons)
@@ -313,6 +343,40 @@ step (ValueConfig _ (ConsValue "Halt" []) cons@(ConsValue _ _)) =
 step (ValueConfig _ (ConsValue {}) (ConsValue {})) =
   [ErrorConfig "Bad type: cannot continue with 2 constructors"]
 
+-- DELIMITED CONTINUATION CONFIGURATIONS --
+
+-- Return on expression side - pop delimited context
+step (DelimConfig (ValueConfig store value (ConsValue "Return" [])) (Context substVar parentConfig)) =
+  let (env', store') = case parentConfig of
+        CommandConfig env _ _ -> envStoreInsert env store substVar value
+        ConsEvalConfig env _ _ _ _ -> envStoreInsert env store substVar value
+        CoConsEvalConfig env _ _ _ _ -> envStoreInsert env store substVar value
+        _ -> error $ "Unexpected parent config in DelimConfig" ++ show parentConfig
+      updatedParentConfig = case parentConfig of
+        CommandConfig _ _ cmd -> CommandConfig env' store' cmd
+        ConsEvalConfig _ _ frames expr ce -> ConsEvalConfig env' store' frames expr ce
+        CoConsEvalConfig _ _ val frames expr -> CoConsEvalConfig env' store' val frames expr
+        _ -> error $ "Unexpected parent config in DelimConfig" ++ show parentConfig
+  in [updatedParentConfig]
+
+-- Return on coexpression side - pop delimited context
+step (DelimConfig (ValueConfig store (ConsValue "Return" []) value) (Context substVar parentConfig)) =
+  let (env', store') = case parentConfig of
+        CommandConfig env _ _ -> envStoreInsert env store substVar value
+        ConsEvalConfig env _ _ _ _ -> envStoreInsert env store substVar value
+        CoConsEvalConfig env _ _ _ _ -> envStoreInsert env store substVar value
+        _ -> error $ "Unexpected parent config in DelimConfig" ++ show parentConfig
+      updatedParentConfig = case parentConfig of
+        CommandConfig _ _ cmd -> CommandConfig env' store' cmd
+        ConsEvalConfig _ _ frames expr ce -> ConsEvalConfig env' store' frames expr ce
+        CoConsEvalConfig _ _ val frames expr -> CoConsEvalConfig env' store' val frames expr
+        _ -> error $ "Unexpected parent config in DelimConfig" ++ show parentConfig
+  in [updatedParentConfig]
+
+-- General case: step the inner config and keep wrap it in DelimConfig
+step (DelimConfig innerConfig ctx) =
+  map (`DelimConfig` ctx) (step innerConfig)
+
 -- ERROR CONFIGURATION --
 step (ErrorConfig {}) = []
 
@@ -369,7 +433,7 @@ initEnv = Env Map.empty Map.empty
 
 -- | Initial empty store | --
 initStore :: Store
-initStore = Store (Addr 0) (Addr 0) Map.empty Map.empty
+initStore = Store (Addr 0) (Addr 0) 0 Map.empty Map.empty
 
 -- | A special Halt constructor to signal termination | --
 halt :: Expr

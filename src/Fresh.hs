@@ -83,6 +83,10 @@ freshExpr (Mu branches) =
   -- Each branch introduces new bindings
   bindFresh (mapMFresh freshBranch branches) $ \branches' ->
   returnFresh (Mu branches')
+freshExpr (DelimExpr cmd) =
+  -- Delimited expressions contain commands
+  bindFresh (freshCommand cmd) $ \cmd' ->
+  returnFresh (DelimExpr cmd')
 
 -- Process a pattern and its body with proper scoping
 freshBranch :: (Pattern, Command) -> FreshM (Pattern, Command)

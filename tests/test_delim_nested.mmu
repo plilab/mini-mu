@@ -1,0 +1,4 @@
+-- Test nested delimited continuations
+-- < < e . Return > . Return > should evaluate e and return it through two levels
+
+run < < 2 . Return > . Return > . halt;

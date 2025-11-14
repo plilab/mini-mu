@@ -55,7 +55,7 @@ import Syntax
       FieldBinding(..),
       SugarDecl(..),
       SugarProgram(SugarProgram),
-      CommandId )
+      CommandId, OneHoleContext (Context) )
 
 -- | Pretty print a configuration.
 prettyConfig :: Config -> Bool -> Doc ann
@@ -108,8 +108,27 @@ prettyConfig (CoConsEvalConfig env store value frames currentExpr) _show =
     <> line
     <> pretty "CURRENT COEXPR:"
     <+> prettyExpr currentExpr
+prettyConfig (DelimConfig delimConfig ctx@(Context _ _)) _show =
+  pretty "<Delim Config>"
+    <> line
+    <> pretty "CURRENT CONFIG:"
+    <> line
+    <> indent 2 (prettyConfig delimConfig _show)
+    <> line
+    <> pretty "ONE-HOLE CONTEXT:"
+    <+> prettyContext ctx
+    <> line
 prettyConfig (ErrorConfig string) _ =
   pretty "<Message> " <> pretty string
+
+prettyContext :: OneHoleContext -> Doc ann
+prettyContext (Context varId config) =
+  pretty "Context with hole variable:" <+> pretty varId
+    <> line
+    <> pretty "Containing config:"
+    <> line
+    <> indent 2 (prettyConfig config True)
+
 
 -- | Pretty Printing Programs | --
 prettyProgram :: Program -> Doc ann
@@ -182,6 +201,8 @@ prettyTopLevelExpr (Cons con args) =
   pretty con <+> hsep (map prettyExpr args)
 prettyTopLevelExpr mu@(Mu _) =
   prettyMuExprAux mu
+prettyTopLevelExpr (DelimExpr cmd) =
+  pretty "<" <> line <> indent 2 (prettyCommand cmd) <> line <> pretty ">"
 
 -- | Pretty print an Expression | --
 prettyExpr :: Expr -> Doc ann
@@ -197,6 +218,8 @@ prettyExpr (Cons c args) =
     [] -> pretty c
     _ -> pretty "(" <> pretty c <+> hsep (map prettyExpr args) <> pretty ")"
 prettyExpr (Mu cases) = prettyMuExprAux (Mu cases)
+prettyExpr (DelimExpr cmd) =
+  pretty "<" <> line <> indent 2 (prettyCommand cmd) <> line <> pretty ">"
 
 -- | Convert Peano number expressions to Integer if possible | --
 prettyNatExpr :: Expr -> Maybe Integer
@@ -432,7 +455,7 @@ prettyAddr (Addr n) = pretty "#" <> pretty n
 
 -- | Pretty print a store | --
 prettyStore :: Store -> Bool -> Doc ann
-prettyStore (Store addr cmdAddr valMap cmdMap) True =
+prettyStore (Store addr cmdAddr counter valMap cmdMap) True =
   pretty "Store"
     <+> braces
       ( line
@@ -441,6 +464,7 @@ prettyStore (Store addr cmdAddr valMap cmdMap) True =
             ( vsep
                 [ pretty "Next Address:" <+> prettyAddr addr,
                   pretty "Next Command Address:" <+> prettyAddr cmdAddr,
+                  pretty "Subst Counter:" <+> pretty counter,
                   line,
                   pretty "Values:" <+> prettyValueMap valMap,
                   pretty "Commands:" <+> prettyCommandMap cmdMap
@@ -688,6 +712,8 @@ prettySugarExpr (MethodCall obj methodName args) =
     <> pretty "::"
     <> pretty methodName
     <> (if null args then mempty else parens (hsep (punctuate comma (map prettySugarExpr args))))
+prettySugarExpr (SugarDelimExpr cmd) =
+  pretty "<" <> line <> indent 2 (prettySugarCommand cmd) <> line <> pretty ">"
 
 -- | Helper function to pretty print continuation arguments | --
 prettyContArgs :: [SugarExpr] -> Doc ann

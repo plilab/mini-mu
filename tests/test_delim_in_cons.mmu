@@ -1,0 +1,4 @@
+-- Test delimited expression as constructor argument
+-- Pair(< S(Z) . Return >, < S(S(Z)) . Return >) should create Pair(1, 2)
+
+run (< 1 . Return >, < 2 . Return >) . halt;

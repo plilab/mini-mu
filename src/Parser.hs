@@ -459,6 +459,14 @@ sugarMu = label "sugar mu" $ do
   _ <- symbol "}"
   return $ SugarMu cases
 
+-- | Parse sugared delim expression < ... > | --
+sugarDelimExpr :: Parser SugarExpr
+sugarDelimExpr = label "sugar delim" $ do
+  _ <- symbol "<<"
+  cmd <- sugarCommand
+  _ <- symbol ">"
+  return $ SugarDelimExpr cmd
+
 -- | Parse this.field expression | --
 sugarThisExpr :: Parser SugarExpr
 sugarThisExpr = label "this expression" $ do
@@ -477,7 +485,7 @@ sugarAtom =
         try sugarNatLit,
         try sugarTupleLit,
         try sugarListLit,
-        -- try delimExpr,
+        try sugarDelimExpr,
         try $ SugarCons <$> consId <*> pure [],
         try $ SugarVar <$> varId,
         parens sugarExpr
