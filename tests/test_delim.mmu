@@ -1,5 +1,6 @@
--- Test basic delimited continuations with Return
--- < e . Return > should evaluate e and return it
-
--- Test: Delimited expression in command position
-run < S(Z) . Return > . halt;
+import "std_nat" (mul, add, inc)
+-- (* 2 (reset (+ 1 (shift k (k 5)))))
+-- eval to 12
+run mul(2, < letc kont = inc 
+             in kont . { cc -> let arg = (5, Return) 
+                               in arg . cc } > ) . halt;
