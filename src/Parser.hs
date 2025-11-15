@@ -462,7 +462,7 @@ sugarMu = label "sugar mu" $ do
 -- | Parse sugared delim expression < ... > | --
 sugarDelimExpr :: Parser SugarExpr
 sugarDelimExpr = label "sugar delim" $ do
-  _ <- symbol "<<"
+  _ <- symbol "<"
   cmd <- sugarCommand
   _ <- symbol ">"
   return $ SugarDelimExpr cmd

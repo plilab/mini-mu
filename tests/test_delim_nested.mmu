@@ -1,4 +1,8 @@
+import "std_nat" (add, mul)
 -- Test nested delimited continuations
--- < < e . Return > . Return > should evaluate e and return it through two levels
+-- (+ 1 (reset (* 2 (shift k (k (k 4))))))
+-- eval to 17
+fn mul2 x k :=
+    mul @ 2 x k;
 
-run < < 2 . Return > . Return > . halt;
+run add(1, < letc kont = mul2 in kont . { cc -> cc . (4, { r -> cc . (r, Return) }) } > ) . halt;

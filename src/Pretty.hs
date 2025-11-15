@@ -116,18 +116,18 @@ prettyConfig (DelimConfig delimConfig ctx@(Context _ _)) _show =
     <> indent 2 (prettyConfig delimConfig _show)
     <> line
     <> pretty "ONE-HOLE CONTEXT:"
-    <+> prettyContext ctx
+    <+> prettyContext ctx _show
     <> line
 prettyConfig (ErrorConfig string) _ =
   pretty "<Message> " <> pretty string
 
-prettyContext :: OneHoleContext -> Doc ann
-prettyContext (Context varId config) =
+prettyContext :: OneHoleContext -> Bool -> Doc ann
+prettyContext (Context varId config) _show =
   pretty "Context with hole variable:" <+> pretty varId
     <> line
     <> pretty "Containing config:"
     <> line
-    <> indent 2 (prettyConfig config True)
+    <> indent 2 (prettyConfig config _show)
 
 
 -- | Pretty Printing Programs | --
@@ -277,8 +277,10 @@ prettyMuExprAux _ = error "Expected a Mu expression"
 -- | Pretty print a top-level Value | --
 prettyTopLevelValue :: Value -> Bool -> Doc ann
 prettyTopLevelValue (ConsValue "Z" []) _ = pretty "0"
-prettyTopLevelValue (ConsValue "S" [v]) _ =
-  pretty (prettyNatValue (ConsValue "S" [v]))
+prettyTopLevelValue val@(ConsValue "S" args) showEnv =
+  case prettyNatValue val of
+    Just n -> pretty n
+    Nothing -> pretty "(" <> pretty "S" <+> hsep (map (`prettyValue` showEnv) args) <> pretty ")"  -- Fall back if not a valid nat
 prettyTopLevelValue (ConsValue "Nil" []) _ = pretty "[]"
 prettyTopLevelValue listVal@(ConsValue "List::" _) showEnv =
   prettyListValue listVal showEnv
@@ -292,8 +294,10 @@ prettyTopLevelValue mu@(MuValue _ _) showEnv =
 -- | Pretty print a Value | --
 prettyValue :: Value -> Bool -> Doc ann
 prettyValue (ConsValue "Z" []) _ = pretty "0"
-prettyValue (ConsValue "S" [v]) _ =
-  pretty (prettyNatValue (ConsValue "S" [v]))
+prettyValue val@(ConsValue "S" args) showEnv =
+  case prettyNatValue val of
+    Just n -> pretty n
+    Nothing -> pretty "(" <> pretty "S" <+> hsep (map (`prettyValue` showEnv) args) <> pretty ")"  -- Fall back if not a valid nat
 prettyValue (ConsValue "Nil" []) _ = pretty "[]"
 prettyValue listVal@(ConsValue "List::" _) showEnv = prettyListValue listVal showEnv
 prettyValue tupVal@(ConsValue "Tuple" _) showEnv = prettyTupleValue tupVal showEnv
@@ -305,10 +309,11 @@ prettyValue mu@(MuValue _ _) showEnv =
   prettyMuValueAux mu showEnv
 
 -- | Helper function to convert Peano numbers to integers | --
-prettyNatValue :: Value -> Integer
-prettyNatValue (ConsValue "Z" []) = 0
-prettyNatValue (ConsValue "S" [v]) = 1 + prettyNatValue v
-prettyNatValue _ = error "Not a Peano number" -- safe cause there is no variable names in values
+-- Returns Nothing if the value is not a valid natural number
+prettyNatValue :: Value -> Maybe Integer
+prettyNatValue (ConsValue "Z" []) = Just 0
+prettyNatValue (ConsValue "S" [v]) = fmap (1 +) (prettyNatValue v)
+prettyNatValue _ = Nothing  -- Not a valid natural number (e.g., contains unevaluated closures)
 
 -- | Helper function to pretty print List:: values as [v1, v2, ..., vn] | --
 prettyListValue :: Value -> Bool -> Doc ann
