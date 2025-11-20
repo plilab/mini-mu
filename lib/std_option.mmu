@@ -1,0 +1,45 @@
+-- option monad version 1
+-- implementation as data type
+
+fn return_d v k := (Some v) . k;
+
+fn bind_d opt f k :=
+  opt . { None -> None . k
+        | Some v -> f(v) . k };
+
+-- option monad version 2
+-- implementation as codata type
+fn return_c v k :=
+  { (some_k, none_k) -> v . some_k } . k;
+
+fn none_c k :=
+  { (some_k, none_k) -> None . none_k } . k;
+
+fn bind_c opt f k :=
+  { (some_k, none_k) -> 
+    opt . ( { v -> f(v) . (some_k, none_k) } , none_k)
+  } . k;
+
+-- option comonad version 1
+-- implementation as data type
+fn extract_d opt k :=
+  opt . { None -> None_error . halt
+        | Some v -> v . k };
+
+fn extend_d opt f k :=
+  f(opt) . { v -> Some v . k };
+
+-- option comonad version 2
+-- implementation as codata type
+fn extract_c opt k :=
+  opt . ( { v -> v . k }, {_ -> None_error . halt} );
+
+fn extend_c opt f k :=
+  { (some_k, none_k) ->
+    f(opt) . (some_k, none_k)
+  } . k;
+
+export return_d, bind_d, 
+       extract_d, extend_d,
+       return_c, none_c, bind_c,
+       extract_c, extend_c
