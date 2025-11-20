@@ -1,5 +1,11 @@
 module Fresh (fresh) where
 import Syntax
+    ( Expr(..),
+      VarId,
+      Pattern(..),
+      Command(..),
+      Decl(..),
+      Program(Program) )
 import qualified Data.Map as Map
 import Data.List (isPrefixOf)
 

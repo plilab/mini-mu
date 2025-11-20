@@ -37,6 +37,7 @@ module Syntax
     envStoreInsert,
     envStoreInsertCommand,
     envStoreMerge,
+    ConsFrame (..),
     Config (..),
   )
 where
@@ -166,10 +167,19 @@ data Value
 -- CESK: Expr Env Store CoValue
 -- Us: Expr Env Store CoExpr / Value (no-Env) Store CoValue
 
+-- | Stack Frame for constructor evaluation | --
+data ConsFrame = ConsFrame ConsId [Value] [Expr]  -- ConsId, already evaluated args, remaining args
+  deriving (Eq, Show, Ord)
+
 -- | Config represents the state of the computation | --
 data Config
-  = CommandConfig Env Store Command -- command to be executed with the current environment and store.
+    -- command to be executed with the current environment and store.
+  = CommandConfig Env Store Command
   | ValueConfig Store Value Value -- value and its continuation in the store
+    -- constructor evaluation: frame stack, current expr to eval, the context expr
+  | ConsEvalConfig Env Store [ConsFrame] Expr Expr
+    -- co-constructor evaluation: the evaled half, frame stack, current coexpr to eval
+  | CoConsEvalConfig Env Store Value [ConsFrame] Expr
   | ErrorConfig String -- error message
   deriving (Eq, Show, Ord)
 

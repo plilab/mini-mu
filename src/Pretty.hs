@@ -16,8 +16,46 @@ where
 
 import qualified Data.Map as Map
 import Prettyprinter
-import Prettyprinter.Render.String
+    ( Doc,
+      (<+>),
+      defaultLayoutOptions,
+      hang,
+      hsep,
+      indent,
+      layoutPretty,
+      line,
+      punctuate,
+      vsep,
+      braces,
+      brackets,
+      comma,
+      parens,
+      pipe,
+      space,
+      Pretty(pretty) )
+import Prettyprinter.Render.String ( renderString )
 import Syntax
+    ( Env(..),
+      Store(..),
+      Expr(..),
+      Value(..),
+      VarId,
+      Addr(..),
+      Pattern(..),
+      Command(..),
+      Config(..),
+      Decl(..),
+      Program(Program),
+      ImportDecl(..),
+      SugarExpr(..),
+      HaveBinding(..),
+      SugarCommand(..),
+      DoThenBinding(..),
+      MethodDef(..),
+      FieldBinding(..),
+      SugarDecl(..),
+      SugarProgram(SugarProgram),
+      CommandId )
 
 -- | Pretty print a configuration.
 prettyConfig :: Config -> Bool -> Doc ann
@@ -40,6 +78,36 @@ prettyConfig (ValueConfig store value value') _show =
     <> line
     <> pretty "COVALUE:"
     <+> prettyTopLevelValue value' _show
+prettyConfig (ConsEvalConfig env store frames currentExpr ce) _show =
+  pretty "<ConsEval Config>"
+    <> line
+    <> prettyEnv env _show
+    <> line
+    <> prettyStore store _show
+    <> line
+    <> pretty "FRAMES:"
+    <+> pretty (show frames)
+    <> line
+    <> pretty "CURRENT EXPR:"
+    <+> prettyExpr currentExpr
+    <> line
+    <> pretty "CONTINUATION:"
+    <+> prettyExpr ce
+prettyConfig (CoConsEvalConfig env store value frames currentExpr) _show =
+  pretty "<ConsCoEval Config>"
+    <> line
+    <> prettyEnv env _show
+    <> line
+    <> prettyStore store _show
+    <> line
+    <> pretty "VALUE:"
+    <+> prettyTopLevelValue value _show
+    <> line
+    <> pretty "FRAMES:"
+    <+> pretty (show frames)
+    <> line
+    <> pretty "CURRENT COEXPR:"
+    <+> prettyExpr currentExpr
 prettyConfig (ErrorConfig string) _ =
   pretty "<Message> " <> pretty string
 
