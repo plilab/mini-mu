@@ -12,7 +12,7 @@ fn walk t k :=
       then list_append(flat_t1, flat_t2) . k;
 
 fn compose f g k :=
-  { (x, k') -> let gx = g(x) in f(gx) . k' } . k;
+  { (x, k') -> let gx <- g(x) in f(gx) . k' } . k;
 
 fn walk_alt_aux t k :=
   match t with

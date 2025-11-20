@@ -4,7 +4,7 @@ fn list_filter pred xs cpr k :=
   match xs with
     Nil -> Nil . k
   | List:: x xs' -> 
-    patch pred(x, cpr) with 
+    dispatch pred(x, cpr) with 
       True -> list_filter @ pred xs' cpr { ys' -> List:: x ys' . k } 
     | False -> list_filter @ pred xs' cpr { ys' -> ys' . k };
 

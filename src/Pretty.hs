@@ -604,7 +604,7 @@ prettySugarCommand (LetCommand var expr cmd) =
     <> line
     <> prettySugarCommand cmd
 prettySugarCommand (LetcCommand var expr cmd) =
-  pretty "letc"
+  pretty "letcc"
     <+> pretty var
     <+> pretty "="
     <+> prettyTopLevelSugarExpr expr
@@ -618,7 +618,7 @@ prettySugarCommand (MatchCommand expr branches) =
     <> line
     <> indent 2 (prettySugarBranches branches)
 prettySugarCommand (PatchCommand expr branches) =
-  pretty "patch"
+  pretty "dispatch"
     <+> prettyTopLevelSugarExpr expr
     <+> pretty "with"
     <> line
@@ -683,10 +683,6 @@ prettyTopLevelSugarExpr expr =
 prettySugarExpr :: SugarExpr -> Doc ann
 prettySugarExpr (AppExpr fun conts args) =
   prettySugarExpr fun
-    <> prettyContArgs conts
-    <> prettyExprArgs args
-prettySugarExpr (CoAppExpr cmdId conts args) =
-  pretty cmdId
     <> prettyContArgs conts
     <> prettyExprArgs args
 prettySugarExpr (HaveExpr bindings expr) =

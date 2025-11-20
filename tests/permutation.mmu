@@ -18,7 +18,7 @@ fn perm_aux xs acc res n k :=
     (True, _) -> List:: acc res . k
   | (_, Nil) -> res . k
   | (_, List:: x xs') ->
-    let contain = list_contains(acc, x) in
+    let contain <- list_contains(acc, x) in
     match contain with
       True -> perm_aux(xs', acc, res, n) . k
     | _ ->
@@ -28,7 +28,7 @@ fn perm_aux xs acc res n k :=
       then perm_aux(xs', acc, res', n) . k;
 
 fn permutation n k :=
-  let xs = format_input(n)
+  let xs <- format_input(n)
   in perm_aux(xs, Nil, Nil, n) . k;
 
 run permutation(4) . halt;
