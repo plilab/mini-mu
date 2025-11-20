@@ -55,7 +55,7 @@ import Syntax
       FieldBinding(..),
       SugarDecl(..),
       SugarProgram(SugarProgram),
-      CommandId )
+      CommandId, OneHoleContext (Context) )
 
 -- | Pretty print a configuration.
 prettyConfig :: Config -> Bool -> Doc ann
@@ -108,8 +108,27 @@ prettyConfig (CoConsEvalConfig env store value frames currentExpr) _show =
     <> line
     <> pretty "CURRENT COEXPR:"
     <+> prettyExpr currentExpr
+prettyConfig (DelimConfig delimConfig ctx@(Context _ _)) _show =
+  pretty "<Delim Config>"
+    <> line
+    <> pretty "CURRENT CONFIG:"
+    <> line
+    <> indent 2 (prettyConfig delimConfig _show)
+    <> line
+    <> pretty "ONE-HOLE CONTEXT:"
+    <+> prettyContext ctx _show
+    <> line
 prettyConfig (ErrorConfig string) _ =
   pretty "<Message> " <> pretty string
+
+prettyContext :: OneHoleContext -> Bool -> Doc ann
+prettyContext (Context varId config) _show =
+  pretty "Context with hole variable:" <+> pretty varId
+    <> line
+    <> pretty "Containing config:"
+    <> line
+    <> indent 2 (prettyConfig config _show)
+
 
 -- | Pretty Printing Programs | --
 prettyProgram :: Program -> Doc ann
@@ -182,6 +201,8 @@ prettyTopLevelExpr (Cons con args) =
   pretty con <+> hsep (map prettyExpr args)
 prettyTopLevelExpr mu@(Mu _) =
   prettyMuExprAux mu
+prettyTopLevelExpr (DelimExpr cmd) =
+  pretty "<" <> line <> indent 2 (prettyCommand cmd) <> line <> pretty ">"
 
 -- | Pretty print an Expression | --
 prettyExpr :: Expr -> Doc ann
@@ -197,6 +218,8 @@ prettyExpr (Cons c args) =
     [] -> pretty c
     _ -> pretty "(" <> pretty c <+> hsep (map prettyExpr args) <> pretty ")"
 prettyExpr (Mu cases) = prettyMuExprAux (Mu cases)
+prettyExpr (DelimExpr cmd) =
+  pretty "<" <> line <> indent 2 (prettyCommand cmd) <> line <> pretty ">"
 
 -- | Convert Peano number expressions to Integer if possible | --
 prettyNatExpr :: Expr -> Maybe Integer
@@ -254,8 +277,10 @@ prettyMuExprAux _ = error "Expected a Mu expression"
 -- | Pretty print a top-level Value | --
 prettyTopLevelValue :: Value -> Bool -> Doc ann
 prettyTopLevelValue (ConsValue "Z" []) _ = pretty "0"
-prettyTopLevelValue (ConsValue "S" [v]) _ =
-  pretty (prettyNatValue (ConsValue "S" [v]))
+prettyTopLevelValue val@(ConsValue "S" args) showEnv =
+  case prettyNatValue val of
+    Just n -> pretty n
+    Nothing -> pretty "(" <> pretty "S" <+> hsep (map (`prettyValue` showEnv) args) <> pretty ")"  -- Fall back if not a valid nat
 prettyTopLevelValue (ConsValue "Nil" []) _ = pretty "[]"
 prettyTopLevelValue listVal@(ConsValue "List::" _) showEnv =
   prettyListValue listVal showEnv
@@ -269,8 +294,10 @@ prettyTopLevelValue mu@(MuValue _ _) showEnv =
 -- | Pretty print a Value | --
 prettyValue :: Value -> Bool -> Doc ann
 prettyValue (ConsValue "Z" []) _ = pretty "0"
-prettyValue (ConsValue "S" [v]) _ =
-  pretty (prettyNatValue (ConsValue "S" [v]))
+prettyValue val@(ConsValue "S" args) showEnv =
+  case prettyNatValue val of
+    Just n -> pretty n
+    Nothing -> pretty "(" <> pretty "S" <+> hsep (map (`prettyValue` showEnv) args) <> pretty ")"  -- Fall back if not a valid nat
 prettyValue (ConsValue "Nil" []) _ = pretty "[]"
 prettyValue listVal@(ConsValue "List::" _) showEnv = prettyListValue listVal showEnv
 prettyValue tupVal@(ConsValue "Tuple" _) showEnv = prettyTupleValue tupVal showEnv
@@ -282,10 +309,11 @@ prettyValue mu@(MuValue _ _) showEnv =
   prettyMuValueAux mu showEnv
 
 -- | Helper function to convert Peano numbers to integers | --
-prettyNatValue :: Value -> Integer
-prettyNatValue (ConsValue "Z" []) = 0
-prettyNatValue (ConsValue "S" [v]) = 1 + prettyNatValue v
-prettyNatValue _ = error "Not a Peano number" -- safe cause there is no variable names in values
+-- Returns Nothing if the value is not a valid natural number
+prettyNatValue :: Value -> Maybe Integer
+prettyNatValue (ConsValue "Z" []) = Just 0
+prettyNatValue (ConsValue "S" [v]) = fmap (1 +) (prettyNatValue v)
+prettyNatValue _ = Nothing  -- Not a valid natural number (e.g., contains unevaluated closures)
 
 -- | Helper function to pretty print List:: values as [v1, v2, ..., vn] | --
 prettyListValue :: Value -> Bool -> Doc ann
@@ -432,7 +460,7 @@ prettyAddr (Addr n) = pretty "#" <> pretty n
 
 -- | Pretty print a store | --
 prettyStore :: Store -> Bool -> Doc ann
-prettyStore (Store addr cmdAddr valMap cmdMap) True =
+prettyStore (Store addr cmdAddr counter valMap cmdMap) True =
   pretty "Store"
     <+> braces
       ( line
@@ -441,6 +469,7 @@ prettyStore (Store addr cmdAddr valMap cmdMap) True =
             ( vsep
                 [ pretty "Next Address:" <+> prettyAddr addr,
                   pretty "Next Command Address:" <+> prettyAddr cmdAddr,
+                  pretty "Subst Counter:" <+> pretty counter,
                   line,
                   pretty "Values:" <+> prettyValueMap valMap,
                   pretty "Commands:" <+> prettyCommandMap cmdMap
@@ -688,6 +717,8 @@ prettySugarExpr (MethodCall obj methodName args) =
     <> pretty "::"
     <> pretty methodName
     <> (if null args then mempty else parens (hsep (punctuate comma (map prettySugarExpr args))))
+prettySugarExpr (SugarDelimExpr cmd) =
+  pretty "<" <> line <> indent 2 (prettySugarCommand cmd) <> line <> pretty ">"
 
 -- | Helper function to pretty print continuation arguments | --
 prettyContArgs :: [SugarExpr] -> Doc ann
