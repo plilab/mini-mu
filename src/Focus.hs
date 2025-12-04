@@ -11,39 +11,53 @@ focus (Program imports decls exports) =
       Decl valId (simplifyExpr expr) 
 
 simplifyExpr :: Expr -> Expr
-simplifyExpr (Mu cases) = 
+simplifyExpr e = simplifyExprAux e id
+
+simplifyExprAux :: Expr -> (Expr -> a) -> a
+simplifyExprAux (Mu cases) k = 
   let
     this = "_thisfocus" 
-    newcases = denest (map (Data.Bifunctor.second simplifyCmd) cases) (Var this)
+    newcases = denest (map (Data.Bifunctor.second (`simplifyCmdAux` id)) cases) (Var this)
     matchcmd = Command (Var this) (Mu newcases)
   in
-  Mu [ (VarPattern this, matchcmd) ]
-simplifyExpr (Cons c args) = Cons c (map simplifyExpr args)
-simplifyExpr (Var v) = Var v
+  k (Mu [ (VarPattern this, matchcmd) ])
+simplifyExprAux (Cons c args) k =
+  let
+    go [] acc k' = k' (Cons c (reverse acc))
+    go (a:as) acc k' =
+      simplifyExprAux a (\a' -> go as (a':acc) k')
+  in
+  go args [] k
+simplifyExprAux (Var v) k = k (Var v)
+simplifyExprAux (DelimExpr cmd) k =
+  simplifyCmdAux cmd (k . DelimExpr)
 
-simplifyCmd :: Command -> Command
-simplifyCmd (Command e1 e2) = Command (simplifyExpr e1) (simplifyExpr e2)
-simplifyCmd (CommandVar c) = CommandVar c
+simplifyCmdAux :: Command -> (Command -> a) -> a
+simplifyCmdAux (Command e1 e2) k =
+  simplifyExprAux e1 (\e1' ->
+    simplifyExprAux e2 (k . Command e1'))
+simplifyCmdAux (CommandVar c) k = k (CommandVar c)
 
--- converts all nested pattern matching into single-level pattern matching
+-- converts nested pattern matches into single-level pattern matches
 denest :: [(Pattern, Command)] -> Expr -> [(Pattern, Command)]
-denest [] _ = []
--- in these 2 cases, the var/wildcard will match anything,
--- so we ignore the rest of the cases
-denest ((WildcardPattern, cmd):_) _ = [(WildcardPattern, cmd)]
-denest ((VarPattern v, cmd):_) _ = [(VarPattern v, cmd)]
-denest ((cons, cmd):rest) thisExpr =
-  if isSimplePattern cons then
-    (cons, cmd) : denest rest thisExpr
-  else
-    let
-      rest' = denest rest thisExpr
-      fallback = Mu rest' -- if the current match fails, try the rest
-      failcmd = Command thisExpr fallback
-      nofallback = null rest'
-      (newPattern, bindings, currNewFreshIdx) = extractPattern cons 0
-    in
-      (newPattern, bindByOne bindings currNewFreshIdx nofallback cmd failcmd) : rest' 
+denest cases thisExpr = denestAux cases []
+  where
+    denestAux :: [(Pattern, Command)] -> [(Pattern, Command)] -> [(Pattern, Command)]
+    denestAux [] acc = reverse acc
+    denestAux ((WildcardPattern, cmd):_) acc = reverse ((WildcardPattern, cmd):acc)
+    denestAux ((VarPattern v, cmd):_) acc = reverse ((VarPattern v, cmd):acc)
+    denestAux ((cons, cmd):rest) acc =
+      if isSimplePattern cons then
+        denestAux rest ((cons, cmd):acc)
+      else
+        let
+          fallback = if null rest then Mu [] else Mu (denest rest thisExpr)
+          failcmd = Command thisExpr fallback
+          nofallback = null rest
+          (newPattern, bindings, currNewFreshIdx) = extractPattern cons 0
+          newCmd = bindByOne bindings currNewFreshIdx nofallback cmd failcmd
+        in
+          denestAux rest ((newPattern, newCmd):acc)
 
 isSimplePattern :: Pattern -> Bool
 isSimplePattern WildcardPattern = True
@@ -85,20 +99,25 @@ extractPattern (ConsPattern c pats) idx =
 -- a success command and a failure command, create a command that
 -- binds each variable to its pattern one by one, and on failure goes to the failure command
 bindByOne :: [(Expr, Pattern)] -> Int -> Bool -> Command -> Command -> Command
-bindByOne [] _ _ successCmd _ = successCmd
-bindByOne ((expr, pattern):rest) currIdx nofallback successCmd failureCmd =
-  let failBranch = (WildcardPattern, failureCmd) in
-  if isSimplePattern pattern then
-    let 
-      innerCmd = bindByOne rest currIdx nofallback successCmd failureCmd
-      muBody = if nofallback then [(pattern, innerCmd)] else [(pattern, innerCmd), failBranch]
-    in
-    Command expr (Mu muBody)
-  else
-    let
-      (newPattern, bindings, nextIdx) = extractPattern pattern currIdx
-      newBindings = bindings ++ rest
-      innerCmd = bindByOne newBindings nextIdx nofallback successCmd failureCmd
-      muBody = if nofallback then [(newPattern, innerCmd)] else [(newPattern, innerCmd), failBranch] 
-    in
-    Command expr (Mu muBody)
+bindByOne topBindings currIdx nofallback successCmd failureCmd =
+  go topBindings currIdx successCmd
+  where
+    go :: [(Expr, Pattern)] -> Int -> Command -> Command
+    go [] _ accCmd = accCmd
+    go ((expr, pat):rest) idx accCmd =
+      let failBranch = (WildcardPattern, failureCmd) in
+      if isSimplePattern pat then
+        let 
+          muBody = if nofallback && null rest
+                     then [(pat, accCmd)]
+                     else [(pat, accCmd), failBranch]
+          newCmd = Command expr (Mu muBody)
+        in
+          go rest idx newCmd
+      else
+        let
+          (newPattern, newBindings, nextIdx) = extractPattern pat idx
+          -- we will need to reevaluate this pattern with the simplified version
+          newTodo = newBindings ++ (expr, newPattern):rest
+        in
+          go newTodo nextIdx accCmd
