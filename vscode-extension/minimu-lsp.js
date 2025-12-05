@@ -83,7 +83,7 @@ function tokenizeMiniMu(text, builder) {
   const lines = text.split('\n');
 
   // MiniMu keywords
-  const keywords = new Set(['fn', 'run', 'let', 'have', 'letc', 'in', 'where', 'do', 'then', 'match', 'patch', 'with', 'import', 'export']);
+  const keywords = new Set(['fn', 'run', 'let', 'have', 'letcc', 'in', 'where', 'do', 'then', 'match', 'dispatch', 'with', 'import', 'export']);
 
   // Built-in types/constructors
   const builtinTypes = new Set(['True', 'False', 'Nil', 'List::', 'Z', 'S', 'Pair', 'Tuple']);

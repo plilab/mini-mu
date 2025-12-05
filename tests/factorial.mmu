@@ -3,6 +3,6 @@ import "std_nat" (mul, add)
 fn factorial n k :=
   match n with 
     0 -> 1 . k 
-  | S n' -> let f = factorial(n') in mul(n, f) . k;
+  | S n' -> let f <- factorial(n') in mul(n, f) . k;
 
 run factorial @ 7 halt;

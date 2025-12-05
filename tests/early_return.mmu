@@ -4,7 +4,7 @@ fn find_pair_sum xs ys target k :=
   match xs with
     Nil -> NO_RESULT . k
   | List:: x xs' -> 
-    patch find_pair_sum_aux(x, ys, target) with
+    dispatch find_pair_sum_aux(x, ys, target) with
       (x, y) -> (x, y) . k -- found a pair, early return, hard to do in fp
     | _ -> find_pair_sum(xs', ys, target) . k;
 
@@ -12,8 +12,8 @@ fn find_pair_sum_aux x ys target k :=
   match ys with
     Nil -> NO_RESULT . k
   | List:: y ys' -> 
-    let s = add(x, y) in
-    patch eq(s, target) with
+    let s <- add(x, y) in
+    dispatch eq(s, target) with
       True -> (x, y) . k
     | _ -> find_pair_sum_aux(x, ys', target) . k;
 

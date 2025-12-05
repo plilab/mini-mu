@@ -9,7 +9,7 @@ fn list_split pred xs cpr k :=
         rest <- list_split(pred, xs', cpr),
         (smaller, greater) <- rest 
       then
-      letc final = { True -> ((List:: x smaller), greater) . k
+      letcc final <- { True -> ((List:: x smaller), greater) . k
                    | False -> (smaller, (List:: x greater)) . k }
       in pred(x, cpr) . final;
 

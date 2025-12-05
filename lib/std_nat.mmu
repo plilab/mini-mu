@@ -44,7 +44,7 @@ fn mul a b k :=
   | S a' -> 
       match b with 
         Z -> Z . k
-      | _ -> let prod = mul(a', b) in add @ b prod k;
+      | _ -> let prod <- mul(a', b) in add @ b prod k;
 
 fn dec x k :=
   match x with 

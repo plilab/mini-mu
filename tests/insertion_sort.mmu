@@ -4,7 +4,7 @@ fn insert xs n k :=
   match xs with 
     Nil -> List:: n Nil . k
   | List:: x xs' ->
-    patch lt(n, x) with 
+    dispatch lt(n, x) with 
       True -> List:: n (List:: x xs') . k
     | False ->
       let rest = insert(xs', n) in
@@ -13,7 +13,7 @@ fn insert xs n k :=
 fn insertion_sort xs k :=
   xs . { Nil -> Nil . k
        | List:: x xs' ->
-          let sorted_tail = insertion_sort(xs') in
+          let sorted_tail <- insertion_sort(xs') in
           insert @ sorted_tail x k };
 
 run insertion_sort @ (List:: 3 (List:: 1 (List:: 2 (List:: 0 (List:: 3 (List:: 1 (List:: 2 (List:: 0 Nil)))))))) halt;

@@ -56,14 +56,14 @@ keywords =
   [ "fn",
     "run",
     "let",
-    "letc",
+    "letcc",
     "in",
     "where",
     "seq",
     "do",
     "then",
     "match",
-    "patch",
+    "dispatch",
     "with",
     "have",
     "here",
@@ -316,17 +316,17 @@ sugarLetCommand :: Parser SugarCommand
 sugarLetCommand = label "sugar let command" $ do
   _ <- symbol "let"
   var <- varId
-  _ <- symbol "="
+  _ <- symbol "<-"
   e <- sugarExpr
   _ <- symbol "in"
   LetCommand var e <$> sugarCommand
 
--- | Parse sugared letc command | --
+-- | Parse sugared letcc command | --
 sugarLetcCommand :: Parser SugarCommand
-sugarLetcCommand = label "sugar letc command" $ do
-  _ <- symbol "letc"
+sugarLetcCommand = label "sugar letcc command" $ do
+  _ <- symbol "letcc"
   var <- varId
-  _ <- symbol "="
+  _ <- symbol "<-"
   e <- sugarExpr
   _ <- symbol "in"
   LetcCommand var e <$> sugarCommand
@@ -341,10 +341,10 @@ sugarMatchCommand = label "sugar match command" $ do
   cases <- sepBy1 sugarBranch (symbol "|")
   return $ MatchCommand e cases
 
--- | Parse sugared patch command | --
+-- | Parse sugared dispatch command | --
 sugarPatchCommand :: Parser SugarCommand
-sugarPatchCommand = label "sugar patch command" $ do
-  _ <- symbol "patch"
+sugarPatchCommand = label "sugar dispatch command" $ do
+  _ <- symbol "dispatch"
   e <- sugarExpr
   _ <- symbol "with"
   _ <- optional (symbol "|")
@@ -511,30 +511,26 @@ sugarExpr =
       [ try sugarCons,
         try sugarMethodCall,
         try sugarAppExpr,
-        try sugarCoAppExpr,
         sugarAtom
       ]
 
 -- | Parse sugared function application: f{k1, k2}(x1, x2, k1, k2) | --
+-- this should be its OWN dual.
 sugarAppExpr :: Parser SugarExpr
 sugarAppExpr = label "sugar app expression" $ do
   fun <- sugarAtom
-  explicitConts <- option [] (curly (sepBy1 sugarExpr (symbol ",")))
-  _ <- symbol "("
-  args <- sepBy sugarExpr (symbol ",")
-  _ <- symbol ")"
-  return $ AppExpr fun explicitConts args
-
--- | Parse sugared cofunction application: 'f{k1, k2}(x1, x2, k1, k2) | --
-sugarCoAppExpr :: Parser SugarExpr
-sugarCoAppExpr = label "sugar coapp expression" $ do
-  _ <- symbol "'"
-  cmdId <- commandId
-  explicitConts <- option [] (curly (sepBy1 sugarExpr (symbol ",")))
-  _ <- symbol "("
-  args <- sepBy sugarExpr (symbol ",")
-  _ <- symbol ")"
-  return $ CoAppExpr cmdId explicitConts args
+  applications <- some singleAppln
+  return $ foldl desugarApply fun applications
+  where
+    singleAppln :: Parser ([SugarExpr], [SugarExpr])
+    singleAppln = label "single application" $ do
+      explicitConts <- option [] (curly (sepBy1 sugarExpr (symbol ",")))
+      _ <- symbol "("
+      args <- sepBy sugarExpr (symbol ",")
+      _ <- symbol ")"
+      return (explicitConts, args)
+    desugarApply :: SugarExpr -> ([SugarExpr], [SugarExpr]) -> SugarExpr
+    desugarApply f (cont, args) = AppExpr f cont args
 
 -- | Parse natural number as SugarExpr | --
 sugarNatLit :: Parser SugarExpr
