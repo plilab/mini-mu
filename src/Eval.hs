@@ -77,6 +77,19 @@ popCoFrame (ConsFrame parentId parentEvaled (nextArg:remaining) : rest) value co
   [CoConsEvalConfig env store value (ConsFrame parentId (parentEvaled ++ [coValue]) remaining : rest) nextArg]
 
 -- || Small-step evaluator for the CESK machine || --
+-- value/covalue judgements for Mini-Mu.
+-- Of note, any single-armed variable binder Mu is NOT a value.
+-- eg: { x -> CMD } NOT VALUE
+-- eg: { ConsPattern ... -> CMD } IS VALUE
+-- eg: { branch1 -> CMD1 | branch2 -> CMD2 } IS VALUE
+isValue :: Value -> Bool
+isValue (MuValue _ []) = True -- absurd
+isValue (MuValue _ [(ConsPattern _ _, _)]) = True
+isValue (MuValue _ (_ : _ : _)) = True
+isValue (MuValue _ [(VarPattern _, _)]) = False
+isValue (MuValue _ [(WildcardPattern, _)]) = False
+isValue (ConsValue _ elems) = all isValue elems
+
 step :: Config -> [Config]
 
 -- +++ BEGIN OF STEP FUNCTION +++ --
@@ -314,8 +327,10 @@ step (CoConsEvalConfig env store value [] (Var x)) =
 step (CoConsEvalConfig env store value [] (Mu clauses)) =
   [ValueConfig store value (MuValue env clauses)]
 
-
 -- VALUE CONFIGURATIONS --
+
+-- for these two cases, we depend on matchers being
+-- transformed to handle one level of pattern matching at a time.
 
 -- Constructor and MuValue matching
 step (ValueConfig store cons@(ConsValue {}) (MuValue env clauses)) =
@@ -325,13 +340,21 @@ step (ValueConfig store cons@(ConsValue {}) (MuValue env clauses)) =
 step (ValueConfig store (MuValue env clauses) cons@(ConsValue {})) =
   match env store cons clauses
 
--- Both single-clause Var pattern MuValues matching
-step (ValueConfig store v@(MuValue env muClaus@[(VarPattern _, _)]) cv@(MuValue env' comuClaus@[(VarPattern _, _)])) =
-  match env store cv muClaus -- ++ match env store cv muClaus THIS IS A TEMPORARY HACK
-
--- Both MuValues with multiple clauses matching
-step (ValueConfig store v@(MuValue env clauses) cv@(MuValue env' clauses')) =
-  match env' store v clauses' ++ match env store cv clauses
+-- for matching mu vs mu, we have to consider 4 cases:
+-- 1. both sides are values -> error
+-- 2. left side is value -> match right side against left clauses
+-- 3. right side is value -> match left side against right clauses
+-- 4. neither side is value -> match both sides separately and combine results
+-- case 4 might be eliminated with a reasonable evaluation strategy in the future.
+step (ValueConfig store v@(MuValue env clauses) cv@(MuValue env' clauses')) 
+  | isValue v && isValue cv =
+    [ErrorConfig "Bad type: A covalue is being matched against a value"]
+  | isValue v =
+    match env' store v clauses'
+  | isValue cv =
+    match env store cv clauses
+  | otherwise = 
+    match env' store v clauses' ++ match env store cv clauses
 
 -- temporary hack to deal with "Halt"
 step (ValueConfig _ cons@(ConsValue _ _) (ConsValue "Halt" [])) =
@@ -384,7 +407,7 @@ step (ErrorConfig {}) = []
 
 -- | Pattern matching function | --
 match :: Env -> Store -> Value -> [(Pattern, Command)] -> [Config]
-match _ _ _ [] = []
+match _ _ _ [] = [ErrorConfig "Pattern match failure: no patterns matched the value"]
 match env store v ((pat, cmd) : clauses) =
   case tryMatch env store v pat of
     Just (env', store') -> [CommandConfig env' store' cmd]
