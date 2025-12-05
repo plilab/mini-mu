@@ -16,11 +16,18 @@ simplifyExpr e = simplifyExprAux e id
 simplifyExprAux :: Expr -> (Expr -> a) -> a
 simplifyExprAux (Mu cases) k = 
   let
-    this = "_thisfocus" 
-    newcases = denest (map (Data.Bifunctor.second (`simplifyCmdAux` id)) cases) (Var this)
-    matchcmd = Command (Var this) (Mu newcases)
+    this = "_thisfocus"
+    oldcases = map (Data.Bifunctor.second (`simplifyCmdAux` id)) cases
   in
-  k (Mu [ (VarPattern this, matchcmd) ])
+    if all (isSimplePattern . fst) oldcases 
+    then
+      k (Mu oldcases)
+    else
+      let
+        newcases = denest oldcases (Var this)
+        matchcmd = Command (Var this) (Mu newcases)
+      in
+      k (Mu [ (VarPattern this, matchcmd) ])
 simplifyExprAux (Cons c args) k =
   let
     go [] acc k' = k' (Cons c (reverse acc))
