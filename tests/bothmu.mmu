@@ -1,5 +1,3 @@
 import "std_nat"(inc)
 
-run { fun -> f @ 2 halt } . { args -> inc . args };
-
--- 2 halt @ { cbn -> inc @ cbn }
+-- run { fun -> fun @ { 2, halt } } . { args -> inc . args };

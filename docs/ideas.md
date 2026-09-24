@@ -121,8 +121,8 @@ module car :=
   field brand = "bmw"
   field year = 2020
   
-  Get_brand() -> return this.brand
-  Year_till(year) -> return sub(year, this.year)
+  Get_brand() -> yield this.brand
+  Year_till(year) -> yield sub(year, this.year)
   Check_year{t, f}(year, t, f) -> eq @ year 10 . { True -> year . t | False -> year . f }
 end
 =>

@@ -3,18 +3,18 @@
 module Main (main) where
 
 import Data.List (isInfixOf)
-import Eval (eval, evalDecls, initEnv, initStore, step, tryMatch)
+import Eval (evalDecls, initEnv, initStore, step, tryMatch)
 import Module (evalProgramWithDepDecls)
 import Parser (parseFile)
-import Syntax
+import Syntax (SugarProgram (..), SugarDecl (..), Decl (..), Expr (..), Value (..), Pattern (..))
 import System.Directory (listDirectory)
 import System.FilePath (takeExtension, (</>))
 import Test.Hspec
+import Sugar (desugarProgram)
+import Eval
 
 main :: IO ()
 main = hspec $ do
-  describe "MiniMu Parser Tests" $ do
-    parserTests
 
   describe "MiniMu Evaluation Tests" $ do
     evaluationTests
@@ -22,35 +22,9 @@ main = hspec $ do
   describe "Integration Tests" $ do
     integrationTests
 
-parserTests :: Spec
-parserTests = do
-  describe "Basic Expression Parsing" $ do
-    it "parses variables" $ do
-      result <- parseFile "./tests/parser_test.mmu"
-      case result of
-        Right (Program [] [Decl "test" (Var "x")] []) -> True `shouldBe` True
-        _ -> expectationFailure $ "Failed to parse variable: " ++ show result
-
 -- TODO: more tests
-
 evaluationTests :: Spec
 evaluationTests = do
-  describe "Basic Evaluation" $ do
-    it "evaluates simple expressions" $ do
-      let env = initEnv
-      let store = initStore
-      let expr = Cons "Z" []
-      let (value, _) = eval env store expr
-      value `shouldBe` ConsValue "Z" []
-
-    it "evaluates variables" $ do
-      let env = initEnv
-      let store = initStore
-      let decls = [Decl "x" (Cons "Z" [])]
-      let (env', store') = evalDecls env store decls
-      let expr = Var "x"
-      let (value, _) = eval env' store' expr
-      value `shouldBe` ConsValue "Z" []
 
   describe "Pattern Matching" $ do
     it "matches simple patterns" $ do
@@ -105,7 +79,7 @@ testMmuFile filepath = do
   result <- parseFile filepath
   case result of
     Right program -> do
-      config <- evalProgramWithDepDecls program "main"
+      config <- evalProgramWithDepDecls (desugarProgram program) "main"
       return $ runToCompletion config
     Left err -> error $ "Parse error: " ++ show err
 

@@ -46,3 +46,21 @@ fn handle_packet packet k := do
 some visualization
 cli (done by ky)
 exploring and ideas written in docs/ideas.md
+
+## 17.11.2025
+0. Financials: What we need to provide?
+  - Supervisor's approval e-mail
+  - 
+1. Finalize the sugars:
+  - letcc or lcc?
+  - patch or dispatch?
+  -...?
+
+2. Discuss about OOP
+3. Discuss about delimited continuations
+4. Discuss the focusing rules?
+6. Discuss about type system?
+7. What should we cover in presentation?
+8. language name: mini-mu to align with the past, MuLe to attract more eyeballs
+9. Given the end of UROP, what's the future plan?
+  
